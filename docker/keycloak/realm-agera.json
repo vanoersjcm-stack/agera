@@ -1,0 +1,41 @@
+{
+  "realm": "agera",
+  "enabled": true,
+  "displayName": "Agera Symphony (dev)",
+  "sslRequired": "external",
+  "registrationAllowed": false,
+  "loginWithEmailAllowed": true,
+  "duplicateEmailsAllowed": false,
+  "roles": {
+    "realm": [
+      { "name": "admin", "description": "Tenant administrator" },
+      { "name": "user", "description": "Standard user" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "agera-backend",
+      "name": "Agera Symphony Backend API",
+      "enabled": true,
+      "protocol": "openid-connect",
+      "publicClient": false,
+      "secret": "dev-backend-secret-change-me",
+      "bearerOnly": false,
+      "standardFlowEnabled": false,
+      "directAccessGrantsEnabled": true,
+      "serviceAccountsEnabled": true
+    }
+  ],
+  "users": [
+    {
+      "username": "dev.admin",
+      "email": "dev.admin@agera.local",
+      "firstName": "Dev",
+      "lastName": "Admin",
+      "enabled": true,
+      "emailVerified": true,
+      "credentials": [{ "type": "password", "value": "devadmin", "temporary": false }],
+      "realmRoles": ["admin", "user"]
+    }
+  ]
+}
