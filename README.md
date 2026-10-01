@@ -13,7 +13,11 @@ docker/
   keycloak/realm-agera.json # dev realm, auto-imported on start
 migrations/
   V1__initial_schema.sql    # tenants, users, roles_permissions, audit_logs
-src/                        # application code (config, modules/auth|core|user)
+src/                        # NestJS app (TypeScript, ESM)
+  main.ts                   # bootstrap
+  app.module.ts
+  config/configuration.ts   # typed env config
+  modules/core|auth|user/   # feature modules (core exposes GET /health)
 .env.example
 ```
 
@@ -46,6 +50,19 @@ Init scripts only run on an empty volume. To re-run them from scratch:
 ```bash
 docker compose --env-file .env -f docker/docker-compose.yml down -v
 ```
+
+## Backend API (NestJS)
+
+Requirements: Node.js 22 (`.nvmrc`).
+
+```bash
+npm install
+npm run build
+npm start                           # reads .env, listens on APP_PORT (default 3000)
+curl http://localhost:3000/health   # {"status":"ok"}
+```
+
+`npm run typecheck` runs the TypeScript compiler without emitting.
 
 ## Verify
 
