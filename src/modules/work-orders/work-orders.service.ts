@@ -112,7 +112,7 @@ export class WorkOrdersService {
         throw new ConflictException(`Cannot reassign a ${current.status} work order`);
       }
       if (assignedUserId !== null) {
-        await this.assertAssignable(assignedUserId, 'assigned_user_id');
+        await this.assertAssignable(assignedUserId, 'assignedUserId');
       }
       const previous = current.assignedUserId;
       current.assignedUserId = assignedUserId;

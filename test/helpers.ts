@@ -1,4 +1,4 @@
-const API_URL = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
+export const API_URL = process.env.API_URL ?? `http://localhost:${process.env.PORT ?? 3000}`;
 const REALM_URL = process.env.KEYCLOAK_REALM_URL ?? 'http://localhost:8080/realms/agera';
 const CLIENT_ID = process.env.KEYCLOAK_CLIENT_ID ?? 'agera-backend';
 const CLIENT_SECRET = process.env.KEYCLOAK_CLIENT_SECRET ?? 'dev-backend-secret-change-me';

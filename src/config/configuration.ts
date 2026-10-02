@@ -13,6 +13,8 @@ export interface KeycloakConfig {
 
 export interface AppConfig {
   port: number;
+  /** Serve OpenAPI docs at /api/docs. Defaults to on unless NODE_ENV=production. */
+  swaggerEnabled: boolean;
   db: DatabaseConfig;
   keycloak: KeycloakConfig;
 }
@@ -27,6 +29,9 @@ function required(name: string): string {
 
 export default (): AppConfig => ({
   port: Number(process.env.PORT ?? 3000),
+  swaggerEnabled: process.env.SWAGGER_ENABLED
+    ? process.env.SWAGGER_ENABLED === 'true'
+    : process.env.NODE_ENV !== 'production',
   db: {
     host: required('DB_HOST'),
     port: Number(process.env.DB_PORT ?? 5432),

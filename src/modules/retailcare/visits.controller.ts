@@ -11,8 +11,19 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiCreatedResponse,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiQuery,
+  ApiTags,
+} from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
+import { ApiErrors, ApiPagination, ApiUpdatedSince, BEARER_AUTH } from '../core/http/api-docs.js';
 import {
   asObject,
   assertPagination,
@@ -21,26 +32,12 @@ import {
   optionalUuid,
   parseTimestamp,
 } from '../core/http/validation.js';
+import { CreateVisitDto, MAX_NOTES_LENGTH, UpdateVisitStatusDto, VisitDto, VisitPageDto } from './dto/visit.dto.js';
 import type { MerchandisingVisit } from './entities/merchandising-visit.entity.js';
-import { VISIT_STATUSES, type VisitStatus, isVisitStatus } from './entities/visit-status.js';
+import { VISIT_STATUSES, isVisitStatus } from './entities/visit-status.js';
 import { type CreateVisitInput, VisitsService } from './visits.service.js';
 
-const MAX_NOTES_LENGTH = 10_000;
-
-export interface VisitResponse {
-  id: string;
-  tenantId: string;
-  storeId: string;
-  fieldRepId: string;
-  workOrderId: string | null;
-  visitDate: Date;
-  notes: string | null;
-  status: VisitStatus;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-function toResponse(visit: MerchandisingVisit): VisitResponse {
+function toResponse(visit: MerchandisingVisit): VisitDto {
   return {
     id: visit.id,
     tenantId: visit.tenantId,
@@ -73,38 +70,59 @@ function parseCreateVisit(body: unknown): CreateVisitInput {
   };
 }
 
+@ApiTags('visits')
+@ApiBearerAuth(BEARER_AUTH)
+@ApiErrors(401, 403)
 @Controller('visits')
 export class VisitsController {
   constructor(private readonly visits: VisitsService) {}
 
   @Post()
-  async create(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<VisitResponse> {
+  @ApiOperation({
+    summary: 'Plan a merchandising visit (audit: visit.planned)',
+    description: 'Store, field rep and work order must belong to the active tenant (400 otherwise).',
+  })
+  @ApiBody({ type: CreateVisitDto })
+  @ApiCreatedResponse({ type: VisitDto })
+  @ApiErrors(400)
+  async create(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<VisitDto> {
     return toResponse(await this.visits.create(parseCreateVisit(body), identity));
   }
 
   @Get()
+  @ApiOperation({ summary: 'List visits of the active tenant (newest first, or oldest first with updatedSince)' })
+  @ApiPagination()
+  @ApiQuery({ name: 'storeId', required: false, schema: { type: 'string', format: 'uuid' }, description: 'Only visits of this store' })
+  @ApiUpdatedSince()
+  @ApiOkResponse({ type: VisitPageDto })
+  @ApiErrors(400)
   async list(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
-    @Query('store_id') storeId?: string,
-    @Query('updated_since') updatedSince?: string,
-  ): Promise<{ items: VisitResponse[]; page: number; limit: number; total: number }> {
+    @Query('storeId') storeId?: string,
+    @Query('updatedSince') updatedSince?: string,
+  ): Promise<VisitPageDto> {
     assertPagination(page, limit);
     const result = await this.visits.list({
       page,
       limit,
-      storeId: optionalUuid('store_id', storeId),
-      updatedSince: parseTimestamp('updated_since', updatedSince),
+      storeId: optionalUuid('storeId', storeId),
+      updatedSince: parseTimestamp('updatedSince', updatedSince),
     });
     return { ...result, items: result.items.map(toResponse) };
   }
 
   @Patch(':id/status')
+  @ApiOperation({ summary: 'Change the status of a visit (audit: visit.status_changed)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({ type: UpdateVisitStatusDto })
+  @ApiOkResponse({ type: VisitDto })
+  @ApiErrors(400, 404, 409)
   async updateStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @Body() body: unknown,
     @CurrentUser() identity: AuthenticatedUser,
-  ): Promise<VisitResponse> {
+  ): Promise<VisitDto> {
     const { status } = asObject(body);
     if (!isVisitStatus(status)) {
       throw new BadRequestException(`status must be one of ${VISIT_STATUSES.join(', ')}`);

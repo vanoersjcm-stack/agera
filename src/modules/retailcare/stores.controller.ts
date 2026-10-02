@@ -1,24 +1,14 @@
 import { Body, Controller, DefaultValuePipe, Get, ParseIntPipe, Post, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
+import { ApiErrors, ApiPagination, BEARER_AUTH } from '../core/http/api-docs.js';
 import { asObject, assertPagination, optionalString, requiredString } from '../core/http/validation.js';
+import { CreateStoreDto, StoreDto, StorePageDto } from './dto/store.dto.js';
 import type { Store } from './entities/store.entity.js';
 import { type CreateStoreInput, StoresService } from './stores.service.js';
 
-export interface StoreResponse {
-  id: string;
-  tenantId: string;
-  storeCode: string;
-  name: string;
-  address: string | null;
-  city: string | null;
-  postalCode: string | null;
-  country: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-function toResponse(store: Store): StoreResponse {
+function toResponse(store: Store): StoreDto {
   return {
     id: store.id,
     tenantId: store.tenantId,
@@ -45,20 +35,31 @@ function parseCreateStore(body: unknown): CreateStoreInput {
   };
 }
 
+@ApiTags('stores')
+@ApiBearerAuth(BEARER_AUTH)
+@ApiErrors(401, 403)
 @Controller('stores')
 export class StoresController {
   constructor(private readonly stores: StoresService) {}
 
   @Post()
-  async create(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<StoreResponse> {
+  @ApiOperation({ summary: 'Create a RetailCare store in the active tenant (audit: store.created)' })
+  @ApiBody({ type: CreateStoreDto })
+  @ApiCreatedResponse({ type: StoreDto })
+  @ApiErrors(400, 409)
+  async create(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<StoreDto> {
     return toResponse(await this.stores.create(parseCreateStore(body), identity));
   }
 
   @Get()
+  @ApiOperation({ summary: 'List stores of the active tenant, sorted by storeCode' })
+  @ApiPagination()
+  @ApiOkResponse({ type: StorePageDto })
+  @ApiErrors(400)
   async list(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
-  ): Promise<{ items: StoreResponse[]; page: number; limit: number; total: number }> {
+  ): Promise<StorePageDto> {
     assertPagination(page, limit);
     const result = await this.stores.list(page, limit);
     return { ...result, items: result.items.map(toResponse) };

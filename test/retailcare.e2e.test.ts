@@ -154,7 +154,7 @@ describe('visits', () => {
     assert.ok(seenByA.every((v) => v.tenantId === AGERA_DEV));
     assert.ok(seenByA.some((v) => v.id === tenantAVisit.id));
     assert.ok(!seenByA.some((v) => v.id === tenantBVisit.id));
-    assert.deepEqual(await listAll<Visit>(tenantA, '/visits', `store_id=${tenantBStore.id}`), []);
+    assert.deepEqual(await listAll<Visit>(tenantA, '/visits', `storeId=${tenantBStore.id}`), []);
 
     const seenByB = await listAll<Visit>(bob, '/visits');
     assert.ok(seenByB.every((v) => v.tenantId === ACME_TEST));
@@ -164,39 +164,39 @@ describe('visits', () => {
     assert.equal((await api(tenantA.token, 'PATCH', `/visits/${tenantBVisit.id}/status`, { status: 'CANCELLED' })).status, 404);
   });
 
-  it('filters by store_id', async () => {
+  it('filters by storeId', async () => {
     const first = await createStore(alice, `F1-${run}`);
     const second = await createStore(alice, `F2-${run}`);
     const a = await createVisit(alice, { storeId: first.id });
     const b = await createVisit(bob, { storeId: second.id });
 
-    const forFirst = await listAll<Visit>(bob, '/visits', `store_id=${first.id}`);
+    const forFirst = await listAll<Visit>(bob, '/visits', `storeId=${first.id}`);
     assert.deepEqual(forFirst.map((v) => v.id), [a.id]);
-    const forSecond = await listAll<Visit>(alice, '/visits', `store_id=${second.id}`);
+    const forSecond = await listAll<Visit>(alice, '/visits', `storeId=${second.id}`);
     assert.deepEqual(forSecond.map((v) => v.id), [b.id]);
   });
 
-  it('returns delta updates with updated_since', async () => {
+  it('returns delta updates with updatedSince', async () => {
     const store = await createStore(alice, `D-${run}`);
     const first = await createVisit(alice, { storeId: store.id });
     await nextMillisecond();
     const second = await createVisit(alice, { storeId: store.id });
     await nextMillisecond();
 
-    const sinceFirst = await listAll<Visit>(alice, '/visits', `updated_since=${encodeURIComponent(first.updatedAt)}`);
+    const sinceFirst = await listAll<Visit>(alice, '/visits', `updatedSince=${encodeURIComponent(first.updatedAt)}`);
     assert.ok(sinceFirst.every((v) => v.updatedAt > first.updatedAt));
     assert.ok(sinceFirst.some((v) => v.id === second.id));
     assert.ok(!sinceFirst.some((v) => v.id === first.id));
 
     const started = await api<Visit>(bob.token, 'PATCH', `/visits/${first.id}/status`, { status: 'IN_PROGRESS' });
     assert.equal(started.status, 200);
-    const sinceSecond = await listAll<Visit>(alice, '/visits', `store_id=${store.id}&updated_since=${encodeURIComponent(second.updatedAt)}`);
+    const sinceSecond = await listAll<Visit>(alice, '/visits', `storeId=${store.id}&updatedSince=${encodeURIComponent(second.updatedAt)}`);
     assert.deepEqual(
       sinceSecond.map((v) => [v.id, v.status]),
       [[first.id, 'IN_PROGRESS']],
     );
 
-    const sinceLatest = await listAll<Visit>(alice, '/visits', `updated_since=${encodeURIComponent(started.body.updatedAt)}`);
+    const sinceLatest = await listAll<Visit>(alice, '/visits', `updatedSince=${encodeURIComponent(started.body.updatedAt)}`);
     assert.ok(!sinceLatest.some((v) => v.id === first.id || v.id === second.id));
   });
 
@@ -210,7 +210,7 @@ describe('visits', () => {
     assert.equal((await api(alice.token, 'POST', '/visits', { storeId: store.id })).status, 400);
     assert.equal((await api(alice.token, 'POST', '/visits', { storeId: 'nope', visitDate })).status, 400);
     assert.equal((await api(alice.token, 'POST', '/visits', { storeId: randomUUID(), visitDate })).status, 400);
-    assert.equal((await api(alice.token, 'GET', '/visits?store_id=nope')).status, 400);
-    assert.equal((await api(alice.token, 'GET', '/visits?updated_since=yesterday')).status, 400);
+    assert.equal((await api(alice.token, 'GET', '/visits?storeId=nope')).status, 400);
+    assert.equal((await api(alice.token, 'GET', '/visits?updatedSince=yesterday')).status, 400);
   });
 });

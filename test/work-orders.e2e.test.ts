@@ -223,29 +223,29 @@ describe('status transitions', () => {
   });
 });
 
-describe('delta sync (updated_since)', () => {
+describe('delta sync (updatedSince)', () => {
   it('returns only work orders modified after the given timestamp', async () => {
     const first = await createWorkOrder(aliceToken, `delta-1 ${run}`);
     await nextMillisecond();
     const second = await createWorkOrder(aliceToken, `delta-2 ${run}`);
     await nextMillisecond();
 
-    const sinceFirst = await listAll(aliceToken, `updated_since=${encodeURIComponent(first.updatedAt)}`);
+    const sinceFirst = await listAll(aliceToken, `updatedSince=${encodeURIComponent(first.updatedAt)}`);
     assert.ok(sinceFirst.every((w) => w.updatedAt > first.updatedAt));
     assert.ok(!sinceFirst.some((w) => w.id === first.id));
     assert.ok(sinceFirst.some((w) => w.id === second.id));
 
     const updated = await api<WorkOrder>(aliceToken, 'PATCH', `/work-orders/${first.id}/status`, { status: 'IN_PROGRESS' });
-    const sinceSecond = await listAll(aliceToken, `updated_since=${encodeURIComponent(second.updatedAt)}`);
+    const sinceSecond = await listAll(aliceToken, `updatedSince=${encodeURIComponent(second.updatedAt)}`);
     assert.ok(sinceSecond.some((w) => w.id === first.id && w.updatedAt === updated.body.updatedAt));
     assert.ok(!sinceSecond.some((w) => w.id === second.id));
 
-    const sinceLatest = await listAll(aliceToken, `updated_since=${encodeURIComponent(updated.body.updatedAt)}`);
+    const sinceLatest = await listAll(aliceToken, `updatedSince=${encodeURIComponent(updated.body.updatedAt)}`);
     assert.ok(!sinceLatest.some((w) => w.id === first.id || w.id === second.id));
   });
 
   it('rejects malformed timestamps', async () => {
-    assert.equal((await api(aliceToken, 'GET', '/work-orders?updated_since=yesterday')).status, 400);
-    assert.equal((await api(aliceToken, 'GET', '/work-orders?updated_since=2026-01-01T00:00:00')).status, 400);
+    assert.equal((await api(aliceToken, 'GET', '/work-orders?updatedSince=yesterday')).status, 400);
+    assert.equal((await api(aliceToken, 'GET', '/work-orders?updatedSince=2026-01-01T00:00:00')).status, 400);
   });
 });

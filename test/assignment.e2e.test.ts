@@ -40,14 +40,14 @@ before(async () => {
 
 describe('PATCH /work-orders/:id/assign', () => {
   it('requires authentication', async () => {
-    assert.equal((await api(null, 'PATCH', `/work-orders/${randomUUID()}/assign`, { assigned_user_id: null })).status, 401);
+    assert.equal((await api(null, 'PATCH', `/work-orders/${randomUUID()}/assign`, { assignedUserId: null })).status, 401);
   });
 
   it('assigns a same-tenant user, bumps updated_at and writes work_order.assigned asynchronously', async () => {
     const workOrder = await createWorkOrder(alice, `assign ${run}`);
     await nextMillisecond();
 
-    const result = await assign(alice, workOrder.id, { assigned_user_id: bob.profile.id });
+    const result = await assign(alice, workOrder.id, { assignedUserId: bob.profile.id });
     assert.equal(result.status, 200);
     assert.equal(result.body.assignedUserId, bob.profile.id);
     assert.ok(result.body.updatedAt > workOrder.updatedAt);
@@ -55,7 +55,7 @@ describe('PATCH /work-orders/:id/assign', () => {
     const delta = await api<{ items: WorkOrder[] }>(
       alice.token,
       'GET',
-      `/work-orders?limit=100&updated_since=${encodeURIComponent(workOrder.updatedAt)}`,
+      `/work-orders?limit=100&updatedSince=${encodeURIComponent(workOrder.updatedAt)}`,
     );
     assert.ok(delta.body.items.some((w) => w.id === workOrder.id && w.assignedUserId === bob.profile.id));
 
@@ -67,14 +67,14 @@ describe('PATCH /work-orders/:id/assign', () => {
     assert.equal(entry.userId, alice.profile.id);
     assert.deepEqual(entry.details, { workOrderId: workOrder.id, previousAssignedUserId: null, assignedUserId: bob.profile.id });
 
-    const unassigned = await assign(bob, workOrder.id, { assigned_user_id: null });
+    const unassigned = await assign(bob, workOrder.id, { assignedUserId: null });
     assert.equal(unassigned.status, 200);
     assert.equal(unassigned.body.assignedUserId, null);
   });
 
   it('rejects an assignee from another tenant with 400 and leaves the work order unchanged', async () => {
     const workOrder = await createWorkOrder(alice, `cross-assign ${run}`);
-    const result = await assign(alice, workOrder.id, { assigned_user_id: tenantA.profile.id });
+    const result = await assign(alice, workOrder.id, { assignedUserId: tenantA.profile.id });
     assert.equal(result.status, 400);
 
     const current = await api<WorkOrder>(alice.token, 'GET', `/work-orders/${workOrder.id}`);
@@ -84,8 +84,8 @@ describe('PATCH /work-orders/:id/assign', () => {
 
   it('returns 404 when another tenant tries to assign the work order', async () => {
     const workOrder = await createWorkOrder(alice, `foreign-assign ${run}`);
-    assert.equal((await assign(tenantA, workOrder.id, { assigned_user_id: tenantA.profile.id })).status, 404);
-    assert.equal((await assign(tenantA, workOrder.id, { assigned_user_id: bob.profile.id })).status, 404);
+    assert.equal((await assign(tenantA, workOrder.id, { assignedUserId: tenantA.profile.id })).status, 404);
+    assert.equal((await assign(tenantA, workOrder.id, { assignedUserId: bob.profile.id })).status, 404);
     const current = await api<WorkOrder>(alice.token, 'GET', `/work-orders/${workOrder.id}`);
     assert.equal(current.body.assignedUserId, null);
   });
@@ -93,11 +93,12 @@ describe('PATCH /work-orders/:id/assign', () => {
   it('validates the payload and rejects reassigning closed work orders', async () => {
     const workOrder = await createWorkOrder(alice, `assign-validation ${run}`);
     assert.equal((await assign(alice, workOrder.id, {})).status, 400);
-    assert.equal((await assign(alice, workOrder.id, { assigned_user_id: 'nope' })).status, 400);
-    assert.equal((await assign(alice, workOrder.id, { assigned_user_id: randomUUID() })).status, 400);
-    assert.equal((await assign(alice, randomUUID(), { assigned_user_id: bob.profile.id })).status, 404);
+    assert.equal((await assign(alice, workOrder.id, { assigned_user_id: bob.profile.id })).status, 400);
+    assert.equal((await assign(alice, workOrder.id, { assignedUserId: 'nope' })).status, 400);
+    assert.equal((await assign(alice, workOrder.id, { assignedUserId: randomUUID() })).status, 400);
+    assert.equal((await assign(alice, randomUUID(), { assignedUserId: bob.profile.id })).status, 404);
 
     await api(alice.token, 'PATCH', `/work-orders/${workOrder.id}/status`, { status: 'COMPLETED' });
-    assert.equal((await assign(alice, workOrder.id, { assigned_user_id: bob.profile.id })).status, 409);
+    assert.equal((await assign(alice, workOrder.id, { assignedUserId: bob.profile.id })).status, 409);
   });
 });

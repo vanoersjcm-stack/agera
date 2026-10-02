@@ -1,0 +1,171 @@
+import assert from 'node:assert/strict';
+import { randomUUID } from 'node:crypto';
+import { before, describe, it } from 'node:test';
+import { API_URL, api, setupUsers, type TestUser } from './helpers.ts';
+
+const CAMEL_CASE = /^[a-z][a-zA-Z0-9]*$/;
+
+interface OpenApiParameter {
+  name: string;
+  in: string;
+}
+
+interface OpenApiOperation {
+  parameters?: OpenApiParameter[];
+  security?: Record<string, string[]>[];
+}
+
+interface OpenApiSchema {
+  properties?: Record<string, OpenApiSchema>;
+  items?: OpenApiSchema;
+  allOf?: OpenApiSchema[];
+}
+
+interface OpenApiDocument {
+  openapi: string;
+  paths: Record<string, Record<string, OpenApiOperation>>;
+  components: {
+    schemas: Record<string, OpenApiSchema>;
+    securitySchemes: Record<string, { type: string; scheme: string; bearerFormat?: string }>;
+  };
+}
+
+function assertCamelCaseKeys(value: unknown, path = '$'): void {
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => assertCamelCaseKeys(item, `${path}[${index}]`));
+  } else if (value !== null && typeof value === 'object') {
+    for (const [key, nested] of Object.entries(value)) {
+      assert.match(key, CAMEL_CASE, `${path}.${key} is not camelCase`);
+      assertCamelCaseKeys(nested, `${path}.${key}`);
+    }
+  }
+}
+
+function schemaPropertyNames(schema: OpenApiSchema): string[] {
+  return [
+    ...Object.entries(schema.properties ?? {}).flatMap(([name, nested]) => [name, ...schemaPropertyNames(nested)]),
+    ...(schema.items ? schemaPropertyNames(schema.items) : []),
+    ...(schema.allOf ?? []).flatMap(schemaPropertyNames),
+  ];
+}
+
+let alice: TestUser;
+let bob: TestUser;
+let document: OpenApiDocument;
+
+before(async () => {
+  ({ alice, bob } = await setupUsers());
+  const response = await fetch(`${API_URL}/api/docs-json`);
+  assert.equal(response.status, 200);
+  document = (await response.json()) as OpenApiDocument;
+});
+
+describe('Swagger UI', () => {
+  it('serves the interactive UI at /api/docs without authentication, using bundled assets only', async () => {
+    const response = await fetch(`${API_URL}/api/docs`);
+    assert.equal(response.status, 200);
+    assert.match(response.headers.get('content-type') ?? '', /text\/html/);
+    const html = await response.text();
+    assert.match(html, /swagger-ui/);
+    assert.doesNotMatch(html, /(?:src|href)=["']https?:\/\//);
+
+    const init = await fetch(`${API_URL}/api/docs/swagger-ui-init.js`);
+    assert.equal(init.status, 200);
+  });
+});
+
+describe('OpenAPI document', () => {
+  it('documents every endpoint', () => {
+    const expected: Record<string, string[]> = {
+      '/health': ['get'],
+      '/users/me': ['get'],
+      '/tenants/me': ['get'],
+      '/tenants': ['post'],
+      '/audit-logs': ['get'],
+      '/work-orders': ['get', 'post'],
+      '/work-orders/{id}': ['get'],
+      '/work-orders/{id}/logs': ['get'],
+      '/work-orders/{id}/assign': ['patch'],
+      '/work-orders/{id}/status': ['patch'],
+      '/stores': ['get', 'post'],
+      '/visits': ['get', 'post'],
+      '/visits/{id}/status': ['patch'],
+    };
+    assert.match(document.openapi, /^3\./);
+    assert.deepEqual(Object.keys(document.paths).sort(), Object.keys(expected).sort());
+    for (const [path, methods] of Object.entries(expected)) {
+      assert.deepEqual(Object.keys(document.paths[path]).sort(), methods.sort(), path);
+    }
+  });
+
+  it('requires the Keycloak bearer token everywhere except /health', () => {
+    assert.deepEqual(document.components.securitySchemes.keycloak, {
+      type: 'http',
+      scheme: 'bearer',
+      bearerFormat: 'JWT',
+      description: 'Keycloak access token',
+    });
+    for (const [path, operations] of Object.entries(document.paths)) {
+      for (const [method, operation] of Object.entries(operations)) {
+        const expected = path === '/health' ? undefined : [{ keycloak: [] }];
+        assert.deepEqual(operation.security, expected, `${method.toUpperCase()} ${path}`);
+      }
+    }
+  });
+
+  it('uses camelCase for all parameters and schema properties', () => {
+    const parameters = Object.values(document.paths)
+      .flatMap((operations) => Object.values(operations))
+      .flatMap((operation) => operation.parameters ?? []);
+    assert.ok(parameters.some((p) => p.name === 'updatedSince'));
+    assert.ok(parameters.some((p) => p.name === 'storeId'));
+    for (const parameter of parameters) {
+      assert.match(parameter.name, CAMEL_CASE, `${parameter.in} parameter ${parameter.name}`);
+    }
+
+    assert.deepEqual(Object.keys(document.components.schemas.AssignWorkOrderDto.properties ?? {}), ['assignedUserId']);
+    for (const [name, schema] of Object.entries(document.components.schemas)) {
+      for (const property of schemaPropertyNames(schema)) {
+        assert.match(property, CAMEL_CASE, `${name}.${property}`);
+      }
+    }
+  });
+});
+
+describe('JSON responses', () => {
+  it('use camelCase keys on every resource', async () => {
+    const run = randomUUID().slice(0, 8);
+    const { body: workOrder } = await api<{ id: string }>(alice.token, 'POST', '/work-orders', { title: `conventions ${run}` });
+    const assigned = await api(alice.token, 'PATCH', `/work-orders/${workOrder.id}/assign`, { assignedUserId: bob.profile.id });
+    assert.equal(assigned.status, 200);
+    const { body: store } = await api<{ id: string }>(alice.token, 'POST', '/stores', { storeCode: `C-${run}`, name: 'Conventions' });
+    await api(alice.token, 'POST', '/visits', { storeId: store.id, workOrderId: workOrder.id, visitDate: '2026-11-02T09:30:00Z' });
+
+    const responses = [
+      assigned,
+      await api(null, 'GET', '/health'),
+      await api(alice.token, 'GET', '/users/me'),
+      await api(alice.token, 'GET', '/tenants/me'),
+      await api(alice.token, 'GET', '/audit-logs?limit=100'),
+      await api(alice.token, 'GET', '/work-orders?limit=100'),
+      await api(alice.token, 'GET', `/work-orders/${workOrder.id}/logs`),
+      await api(alice.token, 'GET', '/stores?limit=100'),
+      await api(alice.token, 'GET', `/visits?storeId=${store.id}`),
+      await api(alice.token, 'GET', '/visits?updatedSince=yesterday'),
+    ];
+    for (const response of responses) {
+      assertCamelCaseKeys(response.body);
+    }
+    assert.deepEqual(Object.keys(assigned.body as object).sort(), [
+      'assignedUserId',
+      'completedAt',
+      'createdAt',
+      'description',
+      'id',
+      'status',
+      'tenantId',
+      'title',
+      'updatedAt',
+    ]);
+  });
+});

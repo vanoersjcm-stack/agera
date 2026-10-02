@@ -18,6 +18,7 @@ migrations/
   V3__retailcare_initial_schema.sql # stores, merchandising_visits
 src/                        # NestJS app (TypeScript, ESM)
   main.ts                   # bootstrap
+  swagger.ts                # OpenAPI document + Swagger UI at /api/docs
   app.module.ts
   config/configuration.ts   # typed env config
   modules/core/             # TypeORM connection, entities, GET /health
@@ -28,7 +29,7 @@ src/                        # NestJS app (TypeScript, ESM)
   modules/user/             # GET /users/me (auto-provisions user, writes audit log)
   modules/work-orders/      # work orders, status history, assignment (Phase 4/5)
   modules/retailcare/       # stores + merchandising visits (Phase 5)
-  modules/core/http/        # shared request validation helpers
+  modules/core/http/        # shared request validation + OpenAPI helpers
 test/                       # integration tests against the running stack (node:test)
 .env.example
 ```
@@ -92,6 +93,18 @@ The backend connects with `DB_*` and validates tokens against `KEYCLOAK_REALM_UR
 (issuer, signature via the realm JWKS endpoint, audience `KEYCLOAK_CLIENT_ID`).
 All routes require a valid Bearer token unless marked `@Public()`.
 
+### API conventions and Swagger (Phase 6)
+
+All request bodies, query parameters and JSON responses use camelCase (`assignedUserId`,
+`storeId`, `updatedSince`); PostgreSQL columns stay snake_case and are mapped in the TypeORM
+entities. Unknown fields and query parameters are ignored, so old snake_case names
+(`assigned_user_id`, `updated_since`, `store_id`) no longer have any effect.
+
+Interactive OpenAPI docs are served at <http://localhost:3000/api/docs> (raw document:
+`/api/docs-json`). Click **Authorize** and paste a Keycloak access token (see below) to try the
+protected endpoints. The UI assets are bundled (`swagger-ui-dist`), no CDN. Docs are on by default
+and off when `NODE_ENV=production`; override with `SWAGGER_ENABLED=true|false`.
+
 ### Test with a Keycloak token
 
 ```bash
@@ -138,15 +151,15 @@ read `GET /audit-logs`.
 | GET    | `/audit-logs` | token                  | `?page=1&limit=20` (max 100), active tenant only, newest first |
 | POST   | `/tenants`    | token + `platform-admin` | body `{"name": "...", "domain": "example.eu"}`; `409` if domain exists |
 | POST   | `/work-orders` | token                 | body `{"title", "description"?, "assignedUserId"?}`; created as `PENDING` |
-| GET    | `/work-orders` | token                 | `?page&limit&updated_since=<ISO 8601 with timezone>` |
+| GET    | `/work-orders` | token                 | `?page&limit&updatedSince=<ISO 8601 with timezone>` |
 | GET    | `/work-orders/:id` | token             | single work order (`404` for other tenants) |
 | GET    | `/work-orders/:id/logs` | token        | status history from `work_order_logs` |
 | PATCH  | `/work-orders/:id/status` | token      | body `{"status": "IN_PROGRESS"}` |
-| PATCH  | `/work-orders/:id/assign` | token      | body `{"assigned_user_id": "<uuid>"}` (or `null` to unassign) |
+| PATCH  | `/work-orders/:id/assign` | token      | body `{"assignedUserId": "<uuid>"}` (or `null` to unassign) |
 | POST   | `/stores`     | token                  | body `{"storeCode", "name", "address"?, "city"?, "postalCode"?, "country"? (default `ES`)}` |
 | GET    | `/stores`     | token                  | `?page&limit`, sorted by `storeCode` |
 | POST   | `/visits`     | token                  | body `{"storeId", "visitDate", "fieldRepId"? (default: caller), "workOrderId"?, "notes"?}` |
-| GET    | `/visits`     | token                  | `?page&limit&store_id&updated_since` |
+| GET    | `/visits`     | token                  | `?page&limit&storeId&updatedSince` |
 | PATCH  | `/visits/:id/status` | token           | body `{"status": "IN_PROGRESS"}` |
 
 ### Simulating multi-tenant JWT payloads
@@ -195,8 +208,8 @@ locked, so concurrent updates can't both win) and an `audit_logs` entry follows 
 
 `updated_at` and `completed_at` are maintained by a database trigger (`completed_at` is set when
 the status becomes `COMPLETED`). Timestamps have millisecond precision, so a portal can pass the
-largest `updatedAt` it has seen back as `updated_since`; results are then sorted oldest-first.
-Without `updated_since` the list is newest-first.
+largest `updatedAt` it has seen back as `updatedSince`; results are then sorted oldest-first.
+Without `updatedSince` the list is newest-first.
 
 Tenant isolation is enforced twice: `TenantRepository` filters every query, and composite foreign
 keys `(tenant_id, …)` stop a work order, log row or assignee from referencing another tenant.
@@ -208,19 +221,19 @@ ID=$(echo $WO | jq -r .id); SINCE=$(echo $WO | jq -r .updatedAt)
 
 curl -s -X PATCH -H "Authorization: Bearer $BOB" -H 'Content-Type: application/json' \
   -d '{"status":"COMPLETED"}' http://localhost:3000/work-orders/$ID/status | jq '{status, completedAt}'
-curl -s -H "Authorization: Bearer $ALICE" "http://localhost:3000/work-orders?updated_since=$(jq -rn --arg s $SINCE '$s|@uri')" | jq
+curl -s -H "Authorization: Bearer $ALICE" "http://localhost:3000/work-orders?updatedSince=$(jq -rn --arg s $SINCE '$s|@uri')" | jq
 curl -s -H "Authorization: Bearer $ALICE" http://localhost:3000/work-orders/$ID/logs | jq
 curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $ADMIN" http://localhost:3000/work-orders/$ID   # 404
 ```
 
-URL-encode `updated_since` (a `+hh:mm` offset otherwise turns into a space).
+URL-encode `updatedSince` (a `+hh:mm` offset otherwise turns into a space).
 
 ### Assignment and RetailCare (Phase 5)
 
 `PATCH /work-orders/:id/assign` only accepts an active user of the work order's tenant: an
 assignee from another tenant (or an unknown ID) returns `400`, another tenant's work order `404`,
 and a `COMPLETED`/`CANCELLED` work order `409`. The change bumps `updated_at` (so it shows up in
-`updated_since`) and writes `work_order.assigned` to `audit_logs` asynchronously.
+`updatedSince`) and writes `work_order.assigned` to `audit_logs` asynchronously.
 
 `stores.store_code` is unique per tenant (`409` on duplicates). A visit must reference a store,
 field rep and (optional) work order of the caller's tenant (`400` otherwise; composite foreign
@@ -235,12 +248,12 @@ STORE=$(curl -s -H "Authorization: Bearer $ALICE" -H 'Content-Type: application/
 BOB_ID=$(curl -s -H "Authorization: Bearer $BOB" http://localhost:3000/users/me | jq -r .id)
 
 curl -s -X PATCH -H "Authorization: Bearer $ALICE" -H 'Content-Type: application/json' \
-  -d "{\"assigned_user_id\":\"$BOB_ID\"}" http://localhost:3000/work-orders/$ID/assign | jq
+  -d "{\"assignedUserId\":\"$BOB_ID\"}" http://localhost:3000/work-orders/$ID/assign | jq
 curl -s -H "Authorization: Bearer $ALICE" -H 'Content-Type: application/json' \
   -d "{\"storeId\":\"$STORE\",\"fieldRepId\":\"$BOB_ID\",\"workOrderId\":\"$ID\",\"visitDate\":\"2026-11-02T09:30:00Z\"}" \
   http://localhost:3000/visits | jq
-curl -s -H "Authorization: Bearer $BOB" "http://localhost:3000/visits?store_id=$STORE" | jq
-curl -s -H "Authorization: Bearer $ADMIN" "http://localhost:3000/visits?store_id=$STORE" | jq .total   # 0
+curl -s -H "Authorization: Bearer $BOB" "http://localhost:3000/visits?storeId=$STORE" | jq
+curl -s -H "Authorization: Bearer $ADMIN" "http://localhost:3000/visits?storeId=$STORE" | jq .total   # 0
 ```
 
 ### Integration tests
@@ -253,7 +266,8 @@ npm run test:e2e
 
 The tests use the dev realm users and cover authentication, tenant-isolated create/read/update,
 status transitions with `work_order_logs` and async audit entries, concurrent updates,
-`updated_since`, assignment (including cross-tenant rejection) and store/visit isolation. They create work orders with unique titles and can be re-run.
+`updatedSince`, assignment (including cross-tenant rejection), store/visit isolation, and the
+API conventions (camelCase in every response and in the OpenAPI document, Swagger UI reachable). They create work orders with unique titles and can be re-run.
 
 ### Upgrading an existing local database
 
