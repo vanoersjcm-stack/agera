@@ -14,6 +14,7 @@ docker/
   keycloak/realm-agera.json # dev realm, auto-imported on start
 migrations/
   V1__initial_schema.sql    # tenants, users, roles_permissions, audit_logs
+  V2__work_orders_schema.sql # work_orders, work_order_logs
 src/                        # NestJS app (TypeScript, ESM)
   main.ts                   # bootstrap
   app.module.ts
@@ -24,6 +25,8 @@ src/                        # NestJS app (TypeScript, ESM)
   modules/core/tenants/     # GET /tenants/me, POST /tenants (platform-admin)
   modules/auth/             # global Keycloak JWT guard + roles guard, @Public(), @Roles(), @CurrentUser()
   modules/user/             # GET /users/me (auto-provisions user, writes audit log)
+  modules/work-orders/      # work orders + status history (Phase 4)
+test/                       # integration tests against the running stack (node:test)
 .env.example
 ```
 
@@ -38,7 +41,7 @@ docker compose --env-file .env -f docker/docker-compose.yml up -d
 
 On first start (empty volume) PostgreSQL automatically:
 1. creates the `keycloak` database/role and the backend role `DB_USER` (DML only, no DDL)
-2. applies `migrations/V1__initial_schema.sql` to the application database
+2. applies `migrations/V1__initial_schema.sql` and `V2__work_orders_schema.sql` to the application database
 3. seeds the dev tenants `agera.local` and `acme.test` (`dev_seed.sql`)
 
 Keycloak then starts against its own database and imports the `agera` realm.
@@ -79,7 +82,7 @@ npm run build
 npm start                           # reads .env, listens on PORT (default 3000)
 ```
 
-`npm run typecheck` runs the TypeScript compiler without emitting.
+`npm run typecheck` type-checks `src/` and `test/` without emitting.
 
 The backend connects with `DB_*` and validates tokens against `KEYCLOAK_REALM_URL`
 (issuer, signature via the realm JWKS endpoint, audience `KEYCLOAK_CLIENT_ID`).
@@ -130,6 +133,11 @@ read `GET /audit-logs`.
 | GET    | `/tenants/me` | token                  | active tenant + `resolvedBy` (`claim` / `domain`) |
 | GET    | `/audit-logs` | token                  | `?page=1&limit=20` (max 100), active tenant only, newest first |
 | POST   | `/tenants`    | token + `platform-admin` | body `{"name": "...", "domain": "example.eu"}`; `409` if domain exists |
+| POST   | `/work-orders` | token                 | body `{"title", "description"?, "assignedUserId"?}`; created as `PENDING` |
+| GET    | `/work-orders` | token                 | `?page&limit&updated_since=<ISO 8601 with timezone>` |
+| GET    | `/work-orders/:id` | token             | single work order (`404` for other tenants) |
+| GET    | `/work-orders/:id/logs` | token        | status history from `work_order_logs` |
+| PATCH  | `/work-orders/:id/status` | token      | body `{"status": "IN_PROGRESS"}` |
 
 ### Simulating multi-tenant JWT payloads
 
@@ -166,6 +174,57 @@ To simulate another claim, set the `tenant_id` attribute on a user in the Keyclo
 (realm `agera` → Users → Attributes; admin-only) and request a new token. A claim pointing at a
 non-existent tenant returns `403`. To add a domain-based user, create a tenant for the domain
 (`POST /tenants`) and a Keycloak user with a matching email.
+
+### Work orders and delta sync (Phase 4)
+
+Statuses: `PENDING` → `IN_PROGRESS` / `COMPLETED` / `CANCELLED`, `IN_PROGRESS` → `PENDING` /
+`COMPLETED` / `CANCELLED`. `COMPLETED` and `CANCELLED` are final (`409` on further changes).
+Every change, including creation, is written to `work_order_logs` in the same transaction (row
+locked, so concurrent updates can't both win) and an `audit_logs` entry follows asynchronously
+(`work_order.created`, `work_order.status_changed`). Nothing is pushed to clients.
+
+`updated_at` and `completed_at` are maintained by a database trigger (`completed_at` is set when
+the status becomes `COMPLETED`). Timestamps have millisecond precision, so a portal can pass the
+largest `updatedAt` it has seen back as `updated_since`; results are then sorted oldest-first.
+Without `updated_since` the list is newest-first.
+
+Tenant isolation is enforced twice: `TenantRepository` filters every query, and composite foreign
+keys `(tenant_id, …)` stop a work order, log row or assignee from referencing another tenant.
+
+```bash
+WO=$(curl -s -H "Authorization: Bearer $ALICE" -H 'Content-Type: application/json' \
+  -d '{"title":"Replace filter","description":"Unit 3"}' http://localhost:3000/work-orders)
+ID=$(echo $WO | jq -r .id); SINCE=$(echo $WO | jq -r .updatedAt)
+
+curl -s -X PATCH -H "Authorization: Bearer $BOB" -H 'Content-Type: application/json' \
+  -d '{"status":"COMPLETED"}' http://localhost:3000/work-orders/$ID/status | jq '{status, completedAt}'
+curl -s -H "Authorization: Bearer $ALICE" "http://localhost:3000/work-orders?updated_since=$(jq -rn --arg s $SINCE '$s|@uri')" | jq
+curl -s -H "Authorization: Bearer $ALICE" http://localhost:3000/work-orders/$ID/logs | jq
+curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $ADMIN" http://localhost:3000/work-orders/$ID   # 404
+```
+
+URL-encode `updated_since` (a `+hh:mm` offset otherwise turns into a space).
+
+### Integration tests
+
+With the stack and the backend running (`npm start`):
+
+```bash
+npm run test:e2e
+```
+
+The tests use the dev realm users and cover authentication, tenant-isolated create/read/update,
+status transitions with `work_order_logs` and async audit entries, concurrent updates, and
+`updated_since`. They create work orders with unique titles and can be re-run.
+
+### Upgrading an existing local database
+
+Coming from Phase 3, apply V2 without losing data:
+
+```bash
+docker compose --env-file .env -f docker/docker-compose.yml exec -T postgres \
+  psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V2__work_orders_schema.sql
+```
 
 Coming from Phase 2, recreate the volumes once (`down -v`) so the new seed and realm users are
 imported.

@@ -14,6 +14,7 @@ services:
       - ./postgres/init.sql:/opt/agera/init.sql:ro
       - ./postgres/00_init_roles.sh:/docker-entrypoint-initdb.d/00_init_roles.sh:ro
       - ../migrations/V1__initial_schema.sql:/docker-entrypoint-initdb.d/10_V1__initial_schema.sql:ro
+      - ../migrations/V2__work_orders_schema.sql:/docker-entrypoint-initdb.d/11_V2__work_orders_schema.sql:ro
       - ./postgres/dev_seed.sql:/docker-entrypoint-initdb.d/20_dev_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]

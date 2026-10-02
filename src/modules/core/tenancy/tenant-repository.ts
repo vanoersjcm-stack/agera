@@ -1,5 +1,6 @@
 import type {
   DeepPartial,
+  EntityManager,
   FindManyOptions,
   FindOneOptions,
   FindOptionsWhere,
@@ -21,6 +22,11 @@ export class TenantRepository<T extends TenantOwned> {
     private readonly repository: Repository<T>,
     private readonly context: TenantContext,
   ) {}
+
+  /** Same tenant scoping, bound to a transaction's EntityManager. */
+  withManager(manager: EntityManager): TenantRepository<T> {
+    return new TenantRepository(manager.getRepository<T>(this.repository.target), this.context);
+  }
 
   find(options: FindManyOptions<T> = {}): Promise<T[]> {
     return this.repository.find(this.scope(options));

@@ -5,6 +5,7 @@ import configuration from './config/configuration.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CoreModule } from './modules/core/core.module.js';
 import { UserModule } from './modules/user/user.module.js';
+import { WorkOrdersModule } from './modules/work-orders/work-orders.module.js';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { UserModule } from './modules/user/user.module.js';
     CoreModule,
     AuthModule,
     UserModule,
+    WorkOrdersModule,
   ],
 })
 export class AppModule {}

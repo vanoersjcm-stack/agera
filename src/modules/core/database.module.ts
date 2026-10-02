@@ -18,6 +18,7 @@ import { entities } from './entities/index.js';
           password: db.password,
           database: db.name,
           entities,
+          autoLoadEntities: true,
           synchronize: false,
           migrationsRun: false,
         };

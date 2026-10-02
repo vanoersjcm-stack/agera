@@ -22,18 +22,30 @@ export class UserService {
   }
 
   async getOrProvision(identity: AuthenticatedUser): Promise<User> {
+    const { user, provisioned } = await this.ensure(identity);
+    if (!provisioned) {
+      this.audit.logAction(user.tenantId, user.id, 'user.profile_fetched');
+    }
+    return user;
+  }
+
+  /** Returns the caller's user record in the active tenant, provisioning it on first use. */
+  async resolveActor(identity: AuthenticatedUser): Promise<User> {
+    return (await this.ensure(identity)).user;
+  }
+
+  private async ensure(identity: AuthenticatedUser): Promise<{ user: User; provisioned: boolean }> {
     const existing = await this.users.findOneBy({ keycloakId: identity.keycloakId });
     if (existing) {
       if (!existing.isActive) {
         throw new ForbiddenException('User is deactivated');
       }
-      this.audit.logAction(existing.tenantId, existing.id, 'user.profile_fetched');
-      return existing;
+      return { user: existing, provisioned: false };
     }
 
     const user = await this.provision(identity);
     this.audit.logAction(user.tenantId, user.id, 'user.provisioned', { email: user.email });
-    return user;
+    return { user, provisioned: true };
   }
 
   private async provision(identity: AuthenticatedUser): Promise<User> {
