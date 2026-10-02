@@ -4,6 +4,7 @@ export interface AuthenticatedUser {
   firstName: string | null;
   lastName: string | null;
   roles: string[];
+  tenantIdClaim: string | null;
 }
 
 export interface AuthenticatedRequest {

@@ -10,7 +10,7 @@ docker/
   docker-compose.yml        # PostgreSQL + Keycloak
   postgres/init.sql         # creates Keycloak DB/role + least-privilege app role
   postgres/00_init_roles.sh # runs init.sql with credentials from .env
-  postgres/dev_seed.sql     # dev tenant `agera.local` (local only)
+  postgres/dev_seed.sql     # dev tenants `agera.local`, `acme.test` (local only)
   keycloak/realm-agera.json # dev realm, auto-imported on start
 migrations/
   V1__initial_schema.sql    # tenants, users, roles_permissions, audit_logs
@@ -18,8 +18,11 @@ src/                        # NestJS app (TypeScript, ESM)
   main.ts                   # bootstrap
   app.module.ts
   config/configuration.ts   # typed env config
-  modules/core/             # TypeORM connection, entities, AuditService, GET /health
-  modules/auth/             # global Keycloak JWT guard, @Public(), @CurrentUser()
+  modules/core/             # TypeORM connection, entities, GET /health
+  modules/core/tenancy/     # TenantContext (AsyncLocalStorage), resolver, interceptor, TenantRepository
+  modules/core/audit/       # async AuditService (event emitter + listener), GET /audit-logs
+  modules/core/tenants/     # GET /tenants/me, POST /tenants (platform-admin)
+  modules/auth/             # global Keycloak JWT guard + roles guard, @Public(), @Roles(), @CurrentUser()
   modules/user/             # GET /users/me (auto-provisions user, writes audit log)
 .env.example
 ```
@@ -36,7 +39,7 @@ docker compose --env-file .env -f docker/docker-compose.yml up -d
 On first start (empty volume) PostgreSQL automatically:
 1. creates the `keycloak` database/role and the backend role `DB_USER` (DML only, no DDL)
 2. applies `migrations/V1__initial_schema.sql` to the application database
-3. seeds the dev tenant `agera.local` (`dev_seed.sql`)
+3. seeds the dev tenants `agera.local` and `acme.test` (`dev_seed.sql`)
 
 Keycloak then starts against its own database and imports the `agera` realm.
 
@@ -47,7 +50,17 @@ Keycloak then starts against its own database and imports the `agera` realm.
 
 Dev realm `agera` (development only – change before any shared deployment):
 - client `agera-backend`, secret `dev-backend-secret-change-me`
-- user `dev.admin` / `devadmin` (realm roles `admin`, `user`)
+- realm role `platform-admin` (may create tenants); user attribute `tenant_id` is mapped
+  into the access token as the `tenant_id` claim
+
+| User (password)         | Email                   | `tenant_id` claim         | Resolves to                     |
+|-------------------------|-------------------------|---------------------------|---------------------------------|
+| `dev.admin` (`devadmin`) | `dev.admin@agera.local` | –                         | Agera Dev (domain), platform-admin |
+| `alice` (`alice`)       | `alice@freelance.eu`    | `a9e1a000-…-000000000002` | Acme Test (claim)               |
+| `bob` (`bob`)           | `bob@acme.test`         | –                         | Acme Test (domain)              |
+
+Dev tenant IDs: Agera Dev `a9e1a000-0000-4000-8000-000000000001`,
+Acme Test `a9e1a000-0000-4000-8000-000000000002`.
 
 Init scripts only run on an empty volume (coming from Phase 1, recreate it once so the
 `DB_USER` role and dev tenant exist). To re-run them from scratch:
@@ -87,11 +100,75 @@ curl -s -H "Authorization: Bearer $TOKEN" http://localhost:3000/users/me   # 200
 ```
 
 The first `/users/me` call creates the `users` row (`user.provisioned` audit entry); later calls
-log `user.profile_fetched`. The user's tenant is resolved from the email domain
-(`dev.admin@agera.local` → tenant `agera.local`); an unknown domain returns `403`.
+log `user.profile_fetched`.
 
-To add another dev user: create it in the Keycloak admin console (realm `agera`, with an email)
-and insert a tenant whose `domain` matches the email domain.
+### Multi-tenancy
+
+For every authenticated request the active tenant is resolved once and held in `TenantContext`
+for the rest of the request:
+
+1. **`tenant_id` claim** in the access token (Keycloak user attribute `tenant_id`). Must be the
+   UUID of an existing tenant, otherwise `403`.
+2. **Email domain** fallback when the claim is absent: `tenants.domain` = domain of the token's
+   `email`. No match → `403`.
+
+Tenant-owned tables (`users`, `audit_logs`) are accessed through `TenantRepository`, which adds
+`tenant_id = <active tenant>` to every query and stamps it on every insert; saving a row of
+another tenant throws.
+
+Audit entries are written **asynchronously**: `AuditService.logAction()` emits an `audit.log`
+event and returns immediately; a listener inserts the row into `audit_logs`. A failed write is
+logged and never fails the HTTP request. There are no webhooks or push notifications – portals
+read `GET /audit-logs`.
+
+### Endpoints
+
+| Method | Path          | Auth                   | Description |
+|--------|---------------|------------------------|-------------|
+| GET    | `/health`     | public                 | liveness |
+| GET    | `/users/me`   | token                  | profile, auto-provisions into the active tenant |
+| GET    | `/tenants/me` | token                  | active tenant + `resolvedBy` (`claim` / `domain`) |
+| GET    | `/audit-logs` | token                  | `?page=1&limit=20` (max 100), active tenant only, newest first |
+| POST   | `/tenants`    | token + `platform-admin` | body `{"name": "...", "domain": "example.eu"}`; `409` if domain exists |
+
+### Simulating multi-tenant JWT payloads
+
+```bash
+token() {
+  curl -s -d grant_type=password -d client_id=agera-backend \
+    -d client_secret=dev-backend-secret-change-me -d username=$1 -d password=$2 \
+    http://localhost:8080/realms/agera/protocol/openid-connect/token | jq -r .access_token
+}
+ADMIN=$(token dev.admin devadmin); ALICE=$(token alice alice); BOB=$(token bob bob)
+
+# Inspect the claim (alice has tenant_id, bob/dev.admin don't)
+echo $ALICE | cut -d. -f2 | base64 -d 2>/dev/null | jq '{email, tenant_id}'
+
+curl -i http://localhost:3000/tenants/me                                      # 401
+curl -i http://localhost:3000/audit-logs                                      # 401
+curl -s -H "Authorization: Bearer $ALICE" http://localhost:3000/tenants/me    # Acme Test, resolvedBy=claim
+curl -s -H "Authorization: Bearer $BOB"   http://localhost:3000/tenants/me    # Acme Test, resolvedBy=domain
+curl -s -H "Authorization: Bearer $ADMIN" http://localhost:3000/tenants/me    # Agera Dev, resolvedBy=domain
+
+# Generate audit entries, then read them per tenant
+for T in $ADMIN $ALICE $BOB; do curl -s -o /dev/null -H "Authorization: Bearer $T" http://localhost:3000/users/me; done
+curl -s -H "Authorization: Bearer $ALICE" 'http://localhost:3000/audit-logs?page=1&limit=10' | jq   # only Acme Test rows
+curl -s -H "Authorization: Bearer $ADMIN" http://localhost:3000/audit-logs | jq                     # only Agera Dev rows
+
+# Tenant creation
+curl -s -H "Authorization: Bearer $ALICE" -H 'Content-Type: application/json' \
+  -d '{"name":"Nordic BV","domain":"nordic.eu"}' http://localhost:3000/tenants   # 403
+curl -s -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' \
+  -d '{"name":"Nordic BV","domain":"nordic.eu"}' http://localhost:3000/tenants   # 201
+```
+
+To simulate another claim, set the `tenant_id` attribute on a user in the Keycloak admin console
+(realm `agera` → Users → Attributes; admin-only) and request a new token. A claim pointing at a
+non-existent tenant returns `403`. To add a domain-based user, create a tenant for the domain
+(`POST /tenants`) and a Keycloak user with a matching email.
+
+Coming from Phase 2, recreate the volumes once (`down -v`) so the new seed and realm users are
+imported.
 
 ## Verify
 

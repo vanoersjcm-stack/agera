@@ -10,6 +10,7 @@ interface KeycloakTokenPayload extends JWTPayload {
   email?: string;
   given_name?: string;
   family_name?: string;
+  tenant_id?: unknown;
   realm_access?: { roles?: string[] };
   resource_access?: Record<string, { roles?: string[] }>;
 }
@@ -82,6 +83,7 @@ export class KeycloakAuthGuard implements CanActivate {
       firstName: payload.given_name ?? null,
       lastName: payload.family_name ?? null,
       roles: [...new Set([...realmRoles, ...clientRoles])],
+      tenantIdClaim: typeof payload.tenant_id === 'string' && payload.tenant_id !== '' ? payload.tenant_id : null,
     };
   }
 }

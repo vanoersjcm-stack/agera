@@ -1,14 +1,13 @@
 import { Module } from '@nestjs/common';
-import { TypeOrmModule } from '@nestjs/typeorm';
-import { AuditService } from './audit.service.js';
+import { AuditModule } from './audit/audit.module.js';
 import { DatabaseModule } from './database.module.js';
-import { AuditLog } from './entities/index.js';
 import { HealthController } from './health.controller.js';
+import { TenancyModule } from './tenancy/tenancy.module.js';
+import { TenantsModule } from './tenants/tenants.module.js';
 
 @Module({
-  imports: [DatabaseModule, TypeOrmModule.forFeature([AuditLog])],
+  imports: [DatabaseModule, TenancyModule, AuditModule, TenantsModule],
   controllers: [HealthController],
-  providers: [AuditService],
-  exports: [AuditService],
+  exports: [TenancyModule, AuditModule],
 })
 export class CoreModule {}
