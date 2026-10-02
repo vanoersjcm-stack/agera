@@ -52,8 +52,8 @@ export class WorkOrdersService {
 
   async create(input: CreateWorkOrderInput, identity: AuthenticatedUser): Promise<WorkOrder> {
     const actor = await this.userService.resolveActor(identity);
-    if (input.assignedUserId !== null && !(await this.users.findOneBy({ id: input.assignedUserId }))) {
-      throw new BadRequestException('assignedUserId is not a user of the active tenant');
+    if (input.assignedUserId !== null) {
+      await this.assertAssignable(input.assignedUserId, 'assignedUserId');
     }
 
     const workOrder = await this.dataSource.transaction(async (manager) => {
@@ -99,6 +99,39 @@ export class WorkOrdersService {
     return this.logs.find({ where: { workOrderId: id }, order: { createdAt: 'ASC', id: 'ASC' } });
   }
 
+  async assign(id: string, assignedUserId: string | null, identity: AuthenticatedUser): Promise<WorkOrder> {
+    const actor = await this.userService.resolveActor(identity);
+
+    const { workOrder, previousAssignedUserId } = await this.dataSource.transaction(async (manager) => {
+      const workOrders = this.workOrders.withManager(manager);
+      const current = await workOrders.findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
+      if (!current) {
+        throw new NotFoundException('Work order not found');
+      }
+      if (ALLOWED_TRANSITIONS[current.status].length === 0) {
+        throw new ConflictException(`Cannot reassign a ${current.status} work order`);
+      }
+      if (assignedUserId !== null) {
+        await this.assertAssignable(assignedUserId, 'assigned_user_id');
+      }
+      const previous = current.assignedUserId;
+      current.assignedUserId = assignedUserId;
+      await workOrders.save(current);
+      const updated = await workOrders.findOneBy({ id });
+      if (!updated) {
+        throw new NotFoundException('Work order not found');
+      }
+      return { workOrder: updated, previousAssignedUserId: previous };
+    });
+
+    this.audit.logAction(this.context.tenantId, actor.id, 'work_order.assigned', {
+      workOrderId: id,
+      previousAssignedUserId,
+      assignedUserId,
+    });
+    return workOrder;
+  }
+
   async updateStatus(id: string, status: WorkOrderStatus, identity: AuthenticatedUser): Promise<WorkOrder> {
     const actor = await this.userService.resolveActor(identity);
 
@@ -131,5 +164,13 @@ export class WorkOrdersService {
       newStatus: status,
     });
     return workOrder;
+  }
+
+  /** The assignee must be an active user of the work order's (= the active) tenant. */
+  private async assertAssignable(userId: string, field: string): Promise<void> {
+    const user = await this.users.findOneBy({ id: userId });
+    if (!user || !user.isActive) {
+      throw new BadRequestException(`${field} is not an active user of the active tenant`);
+    }
   }
 }

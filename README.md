@@ -15,6 +15,7 @@ docker/
 migrations/
   V1__initial_schema.sql    # tenants, users, roles_permissions, audit_logs
   V2__work_orders_schema.sql # work_orders, work_order_logs
+  V3__retailcare_initial_schema.sql # stores, merchandising_visits
 src/                        # NestJS app (TypeScript, ESM)
   main.ts                   # bootstrap
   app.module.ts
@@ -25,7 +26,9 @@ src/                        # NestJS app (TypeScript, ESM)
   modules/core/tenants/     # GET /tenants/me, POST /tenants (platform-admin)
   modules/auth/             # global Keycloak JWT guard + roles guard, @Public(), @Roles(), @CurrentUser()
   modules/user/             # GET /users/me (auto-provisions user, writes audit log)
-  modules/work-orders/      # work orders + status history (Phase 4)
+  modules/work-orders/      # work orders, status history, assignment (Phase 4/5)
+  modules/retailcare/       # stores + merchandising visits (Phase 5)
+  modules/core/http/        # shared request validation helpers
 test/                       # integration tests against the running stack (node:test)
 .env.example
 ```
@@ -41,7 +44,8 @@ docker compose --env-file .env -f docker/docker-compose.yml up -d
 
 On first start (empty volume) PostgreSQL automatically:
 1. creates the `keycloak` database/role and the backend role `DB_USER` (DML only, no DDL)
-2. applies `migrations/V1__initial_schema.sql` and `V2__work_orders_schema.sql` to the application database
+2. applies `migrations/V1__initial_schema.sql`, `V2__work_orders_schema.sql` and
+   `V3__retailcare_initial_schema.sql` to the application database
 3. seeds the dev tenants `agera.local` and `acme.test` (`dev_seed.sql`)
 
 Keycloak then starts against its own database and imports the `agera` realm.
@@ -138,6 +142,12 @@ read `GET /audit-logs`.
 | GET    | `/work-orders/:id` | token             | single work order (`404` for other tenants) |
 | GET    | `/work-orders/:id/logs` | token        | status history from `work_order_logs` |
 | PATCH  | `/work-orders/:id/status` | token      | body `{"status": "IN_PROGRESS"}` |
+| PATCH  | `/work-orders/:id/assign` | token      | body `{"assigned_user_id": "<uuid>"}` (or `null` to unassign) |
+| POST   | `/stores`     | token                  | body `{"storeCode", "name", "address"?, "city"?, "postalCode"?, "country"? (default `ES`)}` |
+| GET    | `/stores`     | token                  | `?page&limit`, sorted by `storeCode` |
+| POST   | `/visits`     | token                  | body `{"storeId", "visitDate", "fieldRepId"? (default: caller), "workOrderId"?, "notes"?}` |
+| GET    | `/visits`     | token                  | `?page&limit&store_id&updated_since` |
+| PATCH  | `/visits/:id/status` | token           | body `{"status": "IN_PROGRESS"}` |
 
 ### Simulating multi-tenant JWT payloads
 
@@ -205,6 +215,34 @@ curl -s -o /dev/null -w '%{http_code}\n' -H "Authorization: Bearer $ADMIN" http:
 
 URL-encode `updated_since` (a `+hh:mm` offset otherwise turns into a space).
 
+### Assignment and RetailCare (Phase 5)
+
+`PATCH /work-orders/:id/assign` only accepts an active user of the work order's tenant: an
+assignee from another tenant (or an unknown ID) returns `400`, another tenant's work order `404`,
+and a `COMPLETED`/`CANCELLED` work order `409`. The change bumps `updated_at` (so it shows up in
+`updated_since`) and writes `work_order.assigned` to `audit_logs` asynchronously.
+
+`stores.store_code` is unique per tenant (`409` on duplicates). A visit must reference a store,
+field rep and (optional) work order of the caller's tenant (`400` otherwise; composite foreign
+keys enforce the same in the database). Visit statuses: `PLANNED` → `IN_PROGRESS` / `COMPLETED` /
+`CANCELLED`, `IN_PROGRESS` → `PLANNED` / `COMPLETED` / `CANCELLED`; `COMPLETED` and `CANCELLED`
+are final. Audit actions: `store.created`, `visit.planned`, `visit.status_changed`.
+
+```bash
+STORE=$(curl -s -H "Authorization: Bearer $ALICE" -H 'Content-Type: application/json' \
+  -d '{"storeCode":"MAD-001","name":"Madrid Centro","city":"Madrid","postalCode":"28013"}' \
+  http://localhost:3000/stores | jq -r .id)
+BOB_ID=$(curl -s -H "Authorization: Bearer $BOB" http://localhost:3000/users/me | jq -r .id)
+
+curl -s -X PATCH -H "Authorization: Bearer $ALICE" -H 'Content-Type: application/json' \
+  -d "{\"assigned_user_id\":\"$BOB_ID\"}" http://localhost:3000/work-orders/$ID/assign | jq
+curl -s -H "Authorization: Bearer $ALICE" -H 'Content-Type: application/json' \
+  -d "{\"storeId\":\"$STORE\",\"fieldRepId\":\"$BOB_ID\",\"workOrderId\":\"$ID\",\"visitDate\":\"2026-11-02T09:30:00Z\"}" \
+  http://localhost:3000/visits | jq
+curl -s -H "Authorization: Bearer $BOB" "http://localhost:3000/visits?store_id=$STORE" | jq
+curl -s -H "Authorization: Bearer $ADMIN" "http://localhost:3000/visits?store_id=$STORE" | jq .total   # 0
+```
+
 ### Integration tests
 
 With the stack and the backend running (`npm start`):
@@ -214,16 +252,17 @@ npm run test:e2e
 ```
 
 The tests use the dev realm users and cover authentication, tenant-isolated create/read/update,
-status transitions with `work_order_logs` and async audit entries, concurrent updates, and
-`updated_since`. They create work orders with unique titles and can be re-run.
+status transitions with `work_order_logs` and async audit entries, concurrent updates,
+`updated_since`, assignment (including cross-tenant rejection) and store/visit isolation. They create work orders with unique titles and can be re-run.
 
 ### Upgrading an existing local database
 
-Coming from Phase 3, apply V2 without losing data:
+Apply the migrations your database doesn't have yet, in order, without losing data
+(coming from Phase 4: only V3; from Phase 3: V2 then V3):
 
 ```bash
 docker compose --env-file .env -f docker/docker-compose.yml exec -T postgres \
-  psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V2__work_orders_schema.sql
+  psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V3__retailcare_initial_schema.sql
 ```
 
 Coming from Phase 2, recreate the volumes once (`down -v`) so the new seed and realm users are

@@ -60,3 +60,31 @@ export async function waitFor<T>(probe: () => Promise<T | undefined>, timeoutMs 
 export function nextMillisecond(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 5));
 }
+
+export const AGERA_DEV = 'a9e1a000-0000-4000-8000-000000000001';
+export const ACME_TEST = 'a9e1a000-0000-4000-8000-000000000002';
+
+export interface UserProfile {
+  id: string;
+  tenantId: string;
+}
+
+export interface TestUser {
+  token: string;
+  profile: UserProfile;
+}
+
+/** Tenant A: Agera Dev (dev.admin). Tenant B: Acme Test (alice via tenant_id claim, bob via email domain). */
+export async function setupUsers(): Promise<{ tenantA: TestUser; alice: TestUser; bob: TestUser }> {
+  const login = async (username: string, password: string): Promise<TestUser> => {
+    const token = await getToken(username, password);
+    const { body } = await api<UserProfile>(token, 'GET', '/users/me');
+    return { token, profile: body };
+  };
+  const [tenantA, alice, bob] = await Promise.all([
+    login('dev.admin', 'devadmin'),
+    login('alice', 'alice'),
+    login('bob', 'bob'),
+  ]);
+  return { tenantA, alice, bob };
+}

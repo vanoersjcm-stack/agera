@@ -13,15 +13,20 @@ import {
 } from '@nestjs/common';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
+import {
+  asObject,
+  assertPagination,
+  optionalString,
+  optionalUuid,
+  parseTimestamp,
+  requiredString,
+} from '../core/http/validation.js';
 import type { WorkOrderLog } from './entities/work-order-log.entity.js';
 import { WORK_ORDER_STATUSES, type WorkOrderStatus, isWorkOrderStatus } from './entities/work-order-status.js';
 import type { WorkOrder } from './entities/work-order.entity.js';
 import { type CreateWorkOrderInput, WorkOrdersService } from './work-orders.service.js';
 
-const MAX_LIMIT = 100;
 const MAX_DESCRIPTION_LENGTH = 10_000;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const ISO_TIMESTAMP_PATTERN = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,6})?)?(?:Z|[+-]\d{2}:\d{2})$/;
 
 export interface WorkOrderResponse {
   id: string;
@@ -74,44 +79,13 @@ function toLogResponse(log: WorkOrderLog): WorkOrderLogResponse {
   };
 }
 
-function asObject(body: unknown): Record<string, unknown> {
-  if (typeof body !== 'object' || body === null || Array.isArray(body)) {
-    throw new BadRequestException('Body must be a JSON object');
-  }
-  return body as Record<string, unknown>;
-}
-
 function parseCreateWorkOrder(body: unknown): CreateWorkOrderInput {
   const { title, description, assignedUserId } = asObject(body);
-  if (typeof title !== 'string' || title.trim().length === 0 || title.trim().length > 255) {
-    throw new BadRequestException('title must be a non-empty string of at most 255 characters');
-  }
-  if (description !== undefined && description !== null) {
-    if (typeof description !== 'string' || description.length > MAX_DESCRIPTION_LENGTH) {
-      throw new BadRequestException(`description must be a string of at most ${MAX_DESCRIPTION_LENGTH} characters`);
-    }
-  }
-  if (assignedUserId !== undefined && assignedUserId !== null) {
-    if (typeof assignedUserId !== 'string' || !UUID_PATTERN.test(assignedUserId)) {
-      throw new BadRequestException('assignedUserId must be a UUID');
-    }
-  }
   return {
-    title: title.trim(),
-    description: typeof description === 'string' ? description : null,
-    assignedUserId: typeof assignedUserId === 'string' ? assignedUserId : null,
+    title: requiredString('title', title, 255),
+    description: optionalString('description', description, MAX_DESCRIPTION_LENGTH),
+    assignedUserId: optionalUuid('assignedUserId', assignedUserId),
   };
-}
-
-function parseUpdatedSince(value: string | undefined): Date | null {
-  if (value === undefined) {
-    return null;
-  }
-  const date = new Date(value);
-  if (!ISO_TIMESTAMP_PATTERN.test(value) || Number.isNaN(date.getTime())) {
-    throw new BadRequestException('updated_since must be an ISO 8601 timestamp with timezone');
-  }
-  return date;
 }
 
 @Controller('work-orders')
@@ -129,10 +103,8 @@ export class WorkOrdersController {
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
     @Query('updated_since') updatedSince?: string,
   ): Promise<WorkOrderListResponse> {
-    if (page < 1 || limit < 1 || limit > MAX_LIMIT) {
-      throw new BadRequestException(`page must be >= 1 and limit between 1 and ${MAX_LIMIT}`);
-    }
-    const result = await this.workOrders.list({ page, limit, updatedSince: parseUpdatedSince(updatedSince) });
+    assertPagination(page, limit);
+    const result = await this.workOrders.list({ page, limit, updatedSince: parseTimestamp('updated_since', updatedSince) });
     return { ...result, items: result.items.map(toResponse) };
   }
 
@@ -144,6 +116,19 @@ export class WorkOrdersController {
   @Get(':id/logs')
   async history(@Param('id', ParseUUIDPipe) id: string): Promise<WorkOrderLogResponse[]> {
     return (await this.workOrders.history(id)).map(toLogResponse);
+  }
+
+  @Patch(':id/assign')
+  async assign(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() body: unknown,
+    @CurrentUser() identity: AuthenticatedUser,
+  ): Promise<WorkOrderResponse> {
+    const { assigned_user_id: assignedUserId } = asObject(body);
+    if (assignedUserId === undefined) {
+      throw new BadRequestException('assigned_user_id is required (UUID, or null to unassign)');
+    }
+    return toResponse(await this.workOrders.assign(id, optionalUuid('assigned_user_id', assignedUserId), identity));
   }
 
   @Patch(':id/status')
