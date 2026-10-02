@@ -17,6 +17,7 @@ services:
       - ../migrations/V2__work_orders_schema.sql:/docker-entrypoint-initdb.d/11_V2__work_orders_schema.sql:ro
       - ../migrations/V3__retailcare_initial_schema.sql:/docker-entrypoint-initdb.d/12_V3__retailcare_initial_schema.sql:ro
       - ../migrations/V4__retailcare_reports_and_media.sql:/docker-entrypoint-initdb.d/13_V4__retailcare_reports_and_media.sql:ro
+      - ../migrations/V5__api_keys_and_portal_sync.sql:/docker-entrypoint-initdb.d/14_V5__api_keys_and_portal_sync.sql:ro
       - ./postgres/dev_seed.sql:/docker-entrypoint-initdb.d/20_dev_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]

@@ -8,7 +8,6 @@ import { MerchandisingVisit } from './entities/merchandising-visit.entity.js';
 import { Store } from './entities/store.entity.js';
 import { VisitMedia } from './entities/visit-media.entity.js';
 import { VisitReport } from './entities/visit-report.entity.js';
-import { MediaStorage } from './media/media-storage.service.js';
 import { StoresController } from './stores.controller.js';
 import { StoresService } from './stores.service.js';
 import { VisitRecordsController } from './visit-records.controller.js';
@@ -23,6 +22,6 @@ import { VisitsService } from './visits.service.js';
     UserModule,
   ],
   controllers: [StoresController, VisitsController, VisitRecordsController],
-  providers: [StoresService, VisitsService, VisitRecordsService, MediaStorage],
+  providers: [StoresService, VisitsService, VisitRecordsService],
 })
 export class RetailCareModule {}

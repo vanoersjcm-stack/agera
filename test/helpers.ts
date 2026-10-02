@@ -117,3 +117,33 @@ export async function download(token: string | null, path: string): Promise<{ st
   });
   return { status: response.status, headers: response.headers, data: Buffer.from(await response.arrayBuffer()) };
 }
+
+/** JSON request authenticated with an `X-API-Key` header. */
+export async function apiWithKey<T>(apiKey: string, method: string, path: string, body?: unknown): Promise<ApiResponse<T>> {
+  const headers: Record<string, string> = { 'X-API-Key': apiKey };
+  if (body !== undefined) {
+    headers['Content-Type'] = 'application/json';
+  }
+  const response = await fetch(`${API_URL}${path}`, {
+    method,
+    headers,
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  const text = await response.text();
+  return { status: response.status, body: (text === '' ? null : JSON.parse(text)) as T };
+}
+
+export async function downloadWithKey(apiKey: string, path: string): Promise<{ status: number; data: Buffer }> {
+  const response = await fetch(`${API_URL}${path}`, { headers: { 'X-API-Key': apiKey } });
+  return { status: response.status, data: Buffer.from(await response.arrayBuffer()) };
+}
+
+/** Request with an empty (204) or JSON response. */
+export async function send<T>(token: string | null, method: string, path: string): Promise<ApiResponse<T | null>> {
+  const response = await fetch(`${API_URL}${path}`, {
+    method,
+    headers: token === null ? {} : { Authorization: `Bearer ${token}` },
+  });
+  const text = await response.text();
+  return { status: response.status, body: text === '' ? null : (JSON.parse(text) as T) };
+}

@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Injectable } from '@nestjs/common';
 
-export type TenantSource = 'claim' | 'domain';
+export type TenantSource = 'claim' | 'domain' | 'apiKey';
 
 export interface ActiveTenant {
   id: string;

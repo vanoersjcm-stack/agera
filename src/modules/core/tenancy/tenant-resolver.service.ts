@@ -1,7 +1,7 @@
 import { ForbiddenException, Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import type { AuthenticatedUser } from '../../auth/authenticated-user.js';
+import type { ApiKeyPrincipal, AuthenticatedUser } from '../../auth/authenticated-user.js';
 import { Tenant } from '../entities/index.js';
 import type { ActiveTenant } from './tenant-context.service.js';
 
@@ -10,6 +10,14 @@ const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{
 @Injectable()
 export class TenantResolver {
   constructor(@InjectRepository(Tenant) private readonly tenants: Repository<Tenant>) {}
+
+  async resolveApiKey(apiKey: ApiKeyPrincipal): Promise<ActiveTenant> {
+    const tenant = await this.tenants.findOneBy({ id: apiKey.tenantId });
+    if (!tenant) {
+      throw new ForbiddenException('Unknown tenant for this API key');
+    }
+    return { id: tenant.id, name: tenant.name, domain: tenant.domain, source: 'apiKey' };
+  }
 
   async resolve(user: AuthenticatedUser): Promise<ActiveTenant> {
     if (user.tenantIdClaim !== null) {

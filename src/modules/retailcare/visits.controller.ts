@@ -21,6 +21,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { AllowApiKey } from '../auth/allow-api-key.decorator.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, ApiPagination, ApiUpdatedSince, BEARER_AUTH } from '../core/http/api-docs.js';
@@ -90,6 +91,7 @@ export class VisitsController {
   }
 
   @Get()
+  @AllowApiKey()
   @ApiOperation({ summary: 'List visits of the active tenant (newest first, or oldest first with updatedSince)' })
   @ApiPagination()
   @ApiQuery({ name: 'storeId', required: false, schema: { type: 'string', format: 'uuid' }, description: 'Only visits of this store' })

@@ -7,7 +7,15 @@ export interface AuthenticatedUser {
   tenantIdClaim: string | null;
 }
 
+/** Machine client authenticated with an `X-API-Key` header; bound to exactly one tenant. */
+export interface ApiKeyPrincipal {
+  id: string;
+  tenantId: string;
+  name: string;
+}
+
 export interface AuthenticatedRequest {
-  headers: { authorization?: string };
+  headers: { authorization?: string; 'x-api-key'?: string | string[] };
   user?: AuthenticatedUser;
+  apiKey?: ApiKeyPrincipal;
 }

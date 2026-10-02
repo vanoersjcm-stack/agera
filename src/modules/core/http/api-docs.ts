@@ -4,6 +4,7 @@ import { MAX_PAGE_LIMIT } from './validation.js';
 
 /** Name of the Keycloak bearer security scheme in the OpenAPI document. */
 export const BEARER_AUTH = 'keycloak';
+export const API_KEY_AUTH = 'apiKey';
 
 export class ErrorResponseDto {
   @ApiProperty()

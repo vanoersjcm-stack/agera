@@ -2,8 +2,10 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Header,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Post,
@@ -19,12 +21,14 @@ import {
   ApiBody,
   ApiConsumes,
   ApiCreatedResponse,
+  ApiNoContentResponse,
   ApiOkResponse,
   ApiOperation,
   ApiParam,
   ApiProduces,
   ApiTags,
 } from '@nestjs/swagger';
+import { AllowApiKey } from '../auth/allow-api-key.decorator.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
@@ -57,7 +61,7 @@ interface UploadedImage {
   buffer: Buffer;
 }
 
-function toReportResponse(report: VisitReport): VisitReportDto {
+export function toReportResponse(report: VisitReport): VisitReportDto {
   return {
     id: report.id,
     tenantId: report.tenantId,
@@ -69,7 +73,7 @@ function toReportResponse(report: VisitReport): VisitReportDto {
   };
 }
 
-function toMediaResponse(media: VisitMedia): VisitMediaDto {
+export function toMediaResponse(media: VisitMedia): VisitMediaDto {
   return {
     id: media.id,
     visitId: media.visitId,
@@ -149,6 +153,7 @@ export class VisitRecordsController {
   }
 
   @Get('media/:mediaId')
+  @AllowApiKey()
   @Header('X-Content-Type-Options', 'nosniff')
   @Header('Cache-Control', 'private, no-store')
   @ApiOperation({ summary: 'Download a visit photo' })
@@ -169,7 +174,23 @@ export class VisitRecordsController {
     });
   }
 
+  @Delete('media/:mediaId')
+  @HttpCode(204)
+  @ApiOperation({ summary: 'Delete a visit photo and its file (audit: visit.media_deleted)' })
+  @ApiParam({ name: 'id', format: 'uuid', description: 'Visit id' })
+  @ApiParam({ name: 'mediaId', format: 'uuid' })
+  @ApiNoContentResponse({ description: 'Deleted' })
+  @ApiErrors(400, 404)
+  async deleteMedia(
+    @Param('id', ParseUUIDPipe) visitId: string,
+    @Param('mediaId', ParseUUIDPipe) mediaId: string,
+    @CurrentUser() identity: AuthenticatedUser,
+  ): Promise<void> {
+    await this.records.deleteMedia(visitId, mediaId, identity);
+  }
+
   @Get('summary')
+  @AllowApiKey()
   @ApiOperation({ summary: 'Visit with its report and media references in one payload' })
   @ApiParam({ name: 'id', format: 'uuid', description: 'Visit id' })
   @ApiOkResponse({ type: VisitSummaryDto })

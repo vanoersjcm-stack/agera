@@ -1,11 +1,14 @@
 import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
+import { readdir } from 'node:fs/promises';
+import path from 'node:path';
 import { before, describe, it } from 'node:test';
 import {
   ACME_TEST,
   api,
   download,
   nextMillisecond,
+  send,
   setupUsers,
   type TestUser,
   upload,
@@ -53,6 +56,15 @@ const JPEG = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(
 const WEBP = Buffer.concat([Buffer.from('RIFF'), Buffer.from([24, 0, 0, 0]), Buffer.from('WEBPVP8 '), Buffer.alloc(16)]);
 
 const png = (filename = 'shelf.png') => ({ data: PNG, type: 'image/png', filename });
+
+// Set to the backend's UPLOAD_DIR (e.g. the mounted Docker volume) to also check files on disk.
+const UPLOAD_DIR = process.env.TEST_UPLOAD_DIR;
+
+async function storedFiles(visitId: string, mediaId: string): Promise<string[]> {
+  const dir = path.join(UPLOAD_DIR ?? '', ACME_TEST, visitId);
+  const names = await readdir(dir).catch(() => [] as string[]);
+  return names.filter((name) => name.startsWith(`${mediaId}.`));
+}
 
 const run = randomUUID().slice(0, 8);
 let tenantA: TestUser;
@@ -232,6 +244,65 @@ describe('tenant isolation', () => {
     assert.equal(unchanged.report?.summary, 'B only');
     assert.deepEqual(unchanged.media.map((m) => m.id), [tenantBMedia.id]);
     assert.equal((await getSummary(tenantA, tenantAVisit.id)).media.length, 0);
+  });
+});
+
+describe('DELETE /visits/:id/media/:mediaId', () => {
+  it('removes the record and the file, and bumps the visit for delta sync', async () => {
+    const visit = await createVisit(alice);
+    const { body: keep } = await upload<Media>(alice.token, `/visits/${visit.id}/media`, png('keep.png'));
+    const { body: doomed } = await upload<Media>(alice.token, `/visits/${visit.id}/media`, png('doomed.png'));
+    if (UPLOAD_DIR) {
+      assert.equal((await storedFiles(visit.id, doomed.id)).length, 1);
+    }
+    const before = await getSummary(alice, visit.id);
+    await nextMillisecond();
+
+    const deleted = await send(bob.token, 'DELETE', doomed.url);
+    assert.equal(deleted.status, 204);
+    assert.equal(deleted.body, null);
+
+    assert.equal((await download(alice.token, doomed.url)).status, 404);
+    const after = await getSummary(alice, visit.id);
+    assert.deepEqual(after.media.map((m) => m.id), [keep.id]);
+    assert.ok(after.visit.updatedAt > before.visit.updatedAt);
+    assert.equal((await download(alice.token, keep.url)).status, 200);
+    if (UPLOAD_DIR) {
+      assert.deepEqual(await storedFiles(visit.id, doomed.id), []);
+      assert.equal((await storedFiles(visit.id, keep.id)).length, 1);
+    }
+
+    assert.equal((await send(alice.token, 'DELETE', doomed.url)).status, 404);
+    const entry = await waitFor(async () => {
+      const audit = await api<{ items: { action: string; details: Record<string, unknown> }[] }>(
+        alice.token,
+        'GET',
+        '/audit-logs?limit=100',
+      );
+      return audit.body.items.find((a) => a.action === 'visit.media_deleted' && a.details.mediaId === doomed.id);
+    });
+    assert.equal(entry.details.visitId, visit.id);
+  });
+
+  it('returns 404 for cross-tenant, wrong-visit and unknown deletes and keeps the file', async () => {
+    const visit = await createVisit(alice);
+    const other = await createVisit(alice);
+    const { body: media } = await upload<Media>(alice.token, `/visits/${visit.id}/media`, png());
+    const tenantAVisit = await createVisit(tenantA);
+
+    assert.equal((await send(null, 'DELETE', media.url)).status, 401);
+    assert.equal((await send(tenantA.token, 'DELETE', media.url)).status, 404);
+    assert.equal((await send(tenantA.token, 'DELETE', `/visits/${tenantAVisit.id}/media/${media.id}`)).status, 404);
+    assert.equal((await send(alice.token, 'DELETE', `/visits/${other.id}/media/${media.id}`)).status, 404);
+    assert.equal((await send(alice.token, 'DELETE', `/visits/${visit.id}/media/${randomUUID()}`)).status, 404);
+    assert.equal((await send(alice.token, 'DELETE', `/visits/${visit.id}/media/nope`)).status, 400);
+
+    const file = await download(bob.token, media.url);
+    assert.equal(file.status, 200);
+    assert.ok(file.data.equals(PNG));
+    if (UPLOAD_DIR) {
+      assert.equal((await storedFiles(visit.id, media.id)).length, 1);
+    }
   });
 });
 

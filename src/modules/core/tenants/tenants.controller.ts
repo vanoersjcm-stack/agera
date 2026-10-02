@@ -8,6 +8,7 @@ import {
   ApiProperty,
   ApiTags,
 } from '@nestjs/swagger';
+import { AllowApiKey } from '../../auth/allow-api-key.decorator.js';
 import type { AuthenticatedUser } from '../../auth/authenticated-user.js';
 import { CurrentUser } from '../../auth/current-user.decorator.js';
 import { PLATFORM_ADMIN_ROLE, Roles } from '../../auth/roles.decorator.js';
@@ -45,7 +46,7 @@ export class TenantDto {
 }
 
 export class ActiveTenantDto extends TenantDto {
-  @ApiProperty({ enum: ['claim', 'domain'], description: 'How the tenant was resolved for this request' })
+  @ApiProperty({ enum: ['claim', 'domain', 'apiKey'], description: 'How the tenant was resolved for this request' })
   resolvedBy!: TenantSource;
 }
 
@@ -82,6 +83,7 @@ export class TenantsController {
   ) {}
 
   @Get('me')
+  @AllowApiKey()
   @ApiOperation({ summary: 'Active tenant of the caller' })
   @ApiOkResponse({ type: ActiveTenantDto })
   async me(): Promise<ActiveTenantDto> {

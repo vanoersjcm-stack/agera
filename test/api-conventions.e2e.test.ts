@@ -31,7 +31,7 @@ interface OpenApiDocument {
   paths: Record<string, Record<string, OpenApiOperation>>;
   components: {
     schemas: Record<string, OpenApiSchema>;
-    securitySchemes: Record<string, { type: string; scheme: string; bearerFormat?: string }>;
+    securitySchemes: Record<string, { type: string; scheme?: string; bearerFormat?: string; in?: string; name?: string }>;
   };
 }
 
@@ -53,6 +53,18 @@ function schemaPropertyNames(schema: OpenApiSchema): string[] {
     ...(schema.allOf ?? []).flatMap(schemaPropertyNames),
   ];
 }
+
+const API_KEY_OPERATIONS = new Set([
+  'GET /portal/sync/overview',
+  'GET /tenants/me',
+  'GET /work-orders',
+  'GET /work-orders/{id}',
+  'GET /work-orders/{id}/logs',
+  'GET /stores',
+  'GET /visits',
+  'GET /visits/{id}/summary',
+  'GET /visits/{id}/media/{mediaId}',
+]);
 
 let alice: TestUser;
 let bob: TestUser;
@@ -97,7 +109,10 @@ describe('OpenAPI document', () => {
       '/visits/{id}/status': ['patch'],
       '/visits/{id}/report': ['post'],
       '/visits/{id}/media': ['post'],
-      '/visits/{id}/media/{mediaId}': ['get'],
+      '/visits/{id}/media/{mediaId}': ['delete', 'get'],
+      '/api-keys': ['get', 'post'],
+      '/api-keys/{id}': ['delete'],
+      '/portal/sync/overview': ['get'],
       '/visits/{id}/summary': ['get'],
     };
     assert.match(document.openapi, /^3\./);
@@ -107,16 +122,27 @@ describe('OpenAPI document', () => {
     }
   });
 
-  it('requires the Keycloak bearer token everywhere except /health', () => {
+  it('requires the Keycloak bearer token everywhere except /health; read endpoints also accept X-API-Key', () => {
     assert.deepEqual(document.components.securitySchemes.keycloak, {
       type: 'http',
       scheme: 'bearer',
       bearerFormat: 'JWT',
       description: 'Keycloak access token',
     });
+    assert.deepEqual(document.components.securitySchemes.apiKey, {
+      type: 'apiKey',
+      in: 'header',
+      name: 'X-API-Key',
+      description: 'Tenant-scoped API key (read-only portal access)',
+    });
     for (const [path, operations] of Object.entries(document.paths)) {
       for (const [method, operation] of Object.entries(operations)) {
-        const expected = path === '/health' ? undefined : [{ keycloak: [] }];
+        const expected =
+          path === '/health'
+            ? undefined
+            : API_KEY_OPERATIONS.has(`${method.toUpperCase()} ${path}`)
+              ? [{ keycloak: [] }, { apiKey: [] }]
+              : [{ keycloak: [] }];
         assert.deepEqual(operation.security, expected, `${method.toUpperCase()} ${path}`);
       }
     }

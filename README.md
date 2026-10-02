@@ -17,6 +17,7 @@ migrations/
   V2__work_orders_schema.sql # work_orders, work_order_logs
   V3__retailcare_initial_schema.sql # stores, merchandising_visits
   V4__retailcare_reports_and_media.sql # visit_reports, visit_media
+  V5__api_keys_and_portal_sync.sql # api_keys
 src/                        # NestJS app (TypeScript, ESM)
   main.ts                   # bootstrap
   swagger.ts                # OpenAPI document + Swagger UI at /api/docs
@@ -26,7 +27,10 @@ src/                        # NestJS app (TypeScript, ESM)
   modules/core/tenancy/     # TenantContext (AsyncLocalStorage), resolver, interceptor, TenantRepository
   modules/core/audit/       # async AuditService (event emitter + listener), GET /audit-logs
   modules/core/tenants/     # GET /tenants/me, POST /tenants (platform-admin)
-  modules/auth/             # global Keycloak JWT guard + roles guard, @Public(), @Roles(), @CurrentUser()
+  modules/core/storage/     # StorageService abstraction + LocalStorageProvider (disk / Docker volume)
+  modules/api-keys/         # tenant-scoped API keys for portal connectors (platform-admin)
+  modules/portal/           # GET /portal/sync/overview (pull-based delta feed)
+  modules/auth/             # global Keycloak JWT guard, X-API-Key guard, roles guard, @Public(), @Roles(), @AllowApiKey(), @CurrentUser()
   modules/user/             # GET /users/me (auto-provisions user, writes audit log)
   modules/work-orders/      # work orders, status history, assignment (Phase 4/5)
   modules/retailcare/       # stores + merchandising visits (Phase 5)
@@ -47,8 +51,8 @@ docker compose --env-file .env -f docker/docker-compose.yml up -d
 On first start (empty volume) PostgreSQL automatically:
 1. creates the `keycloak` database/role and the backend role `DB_USER` (DML only, no DDL)
 2. applies `migrations/V1__initial_schema.sql`, `V2__work_orders_schema.sql`,
-   `V3__retailcare_initial_schema.sql` and `V4__retailcare_reports_and_media.sql` to the
-   application database
+   `V3__retailcare_initial_schema.sql`, `V4__retailcare_reports_and_media.sql` and
+   `V5__api_keys_and_portal_sync.sql` to the application database
 3. seeds the dev tenants `agera.local` and `acme.test` (`dev_seed.sql`)
 
 Keycloak then starts against its own database and imports the `agera` realm.
@@ -167,6 +171,14 @@ read `GET /audit-logs`.
 | POST   | `/visits/:id/media`  | token           | multipart `file` (JPEG/PNG/WebP, max 10 MB) |
 | GET    | `/visits/:id/media/:mediaId` | token   | the image itself |
 | GET    | `/visits/:id/summary` | token          | `{visit, report, media[]}` in one payload |
+| DELETE | `/visits/:id/media/:mediaId` | token   | deletes the record and the file; `204` |
+| POST   | `/api-keys`   | token + `platform-admin` | body `{"name", "tenantId"? (default: own), "expiresAt"?}`; returns the secret once |
+| GET    | `/api-keys`   | token + `platform-admin` | `?page&limit&tenantId`, newest first, never returns secrets |
+| DELETE | `/api-keys/:id` | token + `platform-admin` | revokes a key immediately; `204` |
+| GET    | `/portal/sync/overview` | token or `X-API-Key` | `?updatedSince&limit` (max 500); `{workOrders, visits, reports, hasMore, nextUpdatedSince}` |
+
+Endpoints marked "token or `X-API-Key`" in Swagger (`/portal/sync/overview`, `/tenants/me` and the
+`GET` endpoints of work orders, stores, visits, summaries and photos) also accept an API key.
 
 ### Simulating multi-tenant JWT payloads
 
@@ -264,6 +276,7 @@ curl -s -H "Authorization: Bearer $ADMIN" "http://localhost:3000/visits?storeId=
 
 ### Visit reports and photos (Phase 7)
 
+
 Each visit has at most one report; `POST /visits/:id/report` replaces it as a whole
 (`summary` defaults to `null`, `auditData` to `{}`). `auditData` is a free-form JSON object for
 questionnaires and shelf audits and is stored as-is.
@@ -298,6 +311,37 @@ curl -s -H "Authorization: Bearer $ALICE" -F "file=@shelf.jpg;type=image/jpeg" \
 curl -s -H "Authorization: Bearer $BOB" http://localhost:3000/visits/$VISIT/summary | jq
 ```
 
+### Portal sync and API keys (Phase 8)
+
+Portal connectors authenticate with `X-API-Key` instead of a Keycloak token. A key belongs to
+exactly one tenant, and every response is scoped to it. Keys are read-only: writes, `/users/me`,
+`/audit-logs` and the `/api-keys` endpoints themselves return `403`. Only a SHA-256 hash is stored,
+so the secret (`agk_…`) is shown once, at creation; revoking a key (`DELETE /api-keys/:id`) or
+reaching its `expiresAt` makes it return `401` immediately.
+
+`GET /portal/sync/overview` is the single delta feed for dashboards: work orders, visits and
+reports changed after `updatedSince`, oldest change first, at most `limit` rows per collection
+(default 100, max 500). Poll with `updatedSince` set to the previous `nextUpdatedSince`, and poll
+again straight away while `hasMore` is `true`. Rows that share the cut-off millisecond are never
+split across pages, so no change can be skipped; a row may be delivered twice. Saving a report or
+uploading/deleting a photo also updates the visit, so a changed visit signals changed media.
+
+```bash
+KEY=$(curl -s -H "Authorization: Bearer $ADMIN" -H 'Content-Type: application/json' \
+  -d '{"name":"Portal Production Key","tenantId":"a9e1a000-0000-4000-8000-000000000002"}' \
+  http://localhost:3000/api-keys | jq -r .key)
+curl -s -H "X-API-Key: $KEY" http://localhost:3000/tenants/me | jq          # resolvedBy=apiKey
+curl -s -H "X-API-Key: $KEY" 'http://localhost:3000/portal/sync/overview?limit=50' | jq
+curl -i -H "X-API-Key: $KEY" -X POST http://localhost:3000/work-orders      # 403 (read-only)
+```
+
+### Media storage drivers
+
+All file access goes through `StorageService` (`put` / `get` / `delete` on keys like
+`<tenantId>/<visitId>/<mediaId>.<ext>`); controllers never touch paths. `STORAGE_DRIVER=local`
+(the only driver today) writes below `UPLOAD_DIR`. An S3-compatible European provider (MinIO,
+Hetzner Object Storage) can be added as a second driver without touching the endpoints.
+
 ### Integration tests
 
 With the stack and the backend running (`npm start`):
@@ -306,21 +350,26 @@ With the stack and the backend running (`npm start`):
 npm run test:e2e
 ```
 
+Set `TEST_UPLOAD_DIR` to the backend's `UPLOAD_DIR` (readable from the test process) to also
+assert that uploaded files appear on and disappear from disk.
+
 The tests use the dev realm users and cover authentication, tenant-isolated create/read/update,
 status transitions with `work_order_logs` and async audit entries, concurrent updates,
 `updatedSince`, assignment (including cross-tenant rejection), store/visit isolation, and the
 API conventions (camelCase in every response and in the OpenAPI document, Swagger UI reachable),
-visit reports, photo uploads (type and size limits) and tenant isolation of reports and files.
+visit reports, photo uploads (type and size limits), photo deletion with file cleanup, tenant
+isolation of reports and files, API key creation/revocation/expiry, read-only API key access and
+the paged portal sync feed.
 They create records with unique names and can be re-run.
 
 ### Upgrading an existing local database
 
 Apply the migrations your database doesn't have yet, in order, without losing data
-(coming from Phase 5/6: only V4; from Phase 4: V3 then V4; from Phase 3: V2, V3, V4):
+(coming from Phase 7: only V5; from Phase 5/6: V4 then V5; from Phase 4: V3, V4, V5):
 
 ```bash
 docker compose --env-file .env -f docker/docker-compose.yml exec -T postgres \
-  psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V4__retailcare_reports_and_media.sql
+  psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V5__api_keys_and_portal_sync.sql
 ```
 
 Coming from Phase 2, recreate the volumes once (`down -v`) so the new seed and realm users are

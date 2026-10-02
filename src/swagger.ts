@@ -1,6 +1,6 @@
 import type { INestApplication } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import { BEARER_AUTH } from './modules/core/http/api-docs.js';
+import { API_KEY_AUTH, BEARER_AUTH } from './modules/core/http/api-docs.js';
 
 export const SWAGGER_PATH = 'api/docs';
 
@@ -10,12 +10,17 @@ export function setupSwagger(app: INestApplication): void {
     .setDescription(
       'Tenant-scoped backend for Agera Symphony and RetailCare. All endpoints except /health require a ' +
         'Keycloak access token (realm `agera`, audience `agera-backend`); the active tenant is taken from the ' +
-        '`tenant_id` claim or, if absent, the email domain. State is pull-based: there are no webhooks or pushes.',
+        '`tenant_id` claim or, if absent, the email domain. Read endpoints marked with `apiKey` also accept a ' +
+        'tenant-scoped `X-API-Key` for portal sync connectors. State is pull-based: there are no webhooks or pushes.',
     )
     .setVersion('0.1.0')
     .addBearerAuth(
       { type: 'http', scheme: 'bearer', bearerFormat: 'JWT', description: 'Keycloak access token' },
       BEARER_AUTH,
+    )
+    .addApiKey(
+      { type: 'apiKey', in: 'header', name: 'X-API-Key', description: 'Tenant-scoped API key (read-only portal access)' },
+      API_KEY_AUTH,
     )
     .build();
   const document = SwaggerModule.createDocument(app, config);

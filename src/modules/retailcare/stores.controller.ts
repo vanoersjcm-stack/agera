@@ -1,5 +1,6 @@
 import { Body, Controller, DefaultValuePipe, Get, ParseIntPipe, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AllowApiKey } from '../auth/allow-api-key.decorator.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, ApiPagination, BEARER_AUTH } from '../core/http/api-docs.js';
@@ -52,6 +53,7 @@ export class StoresController {
   }
 
   @Get()
+  @AllowApiKey()
   @ApiOperation({ summary: 'List stores of the active tenant, sorted by storeCode' })
   @ApiPagination()
   @ApiOkResponse({ type: StorePageDto })

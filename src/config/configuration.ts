@@ -11,12 +11,20 @@ export interface KeycloakConfig {
   clientId: string;
 }
 
+export type StorageDriver = 'local';
+
+export interface StorageConfig {
+  /** Only `local` exists today; an S3-compatible EU provider (MinIO, Hetzner) can be added as another driver. */
+  driver: StorageDriver;
+  /** Root directory for the local driver (local disk or a mounted Docker volume). */
+  localDir: string;
+}
+
 export interface AppConfig {
   port: number;
   /** Serve OpenAPI docs at /api/docs. Defaults to on unless NODE_ENV=production. */
   swaggerEnabled: boolean;
-  /** Root directory for uploaded visit media (local disk or a mounted Docker volume). */
-  uploadDir: string;
+  storage: StorageConfig;
   db: DatabaseConfig;
   keycloak: KeycloakConfig;
 }
@@ -29,12 +37,22 @@ function required(name: string): string {
   return value;
 }
 
+function storageDriver(value: string): StorageDriver {
+  if (value !== 'local') {
+    throw new Error(`Unsupported STORAGE_DRIVER "${value}" (supported: local)`);
+  }
+  return value;
+}
+
 export default (): AppConfig => ({
   port: Number(process.env.PORT ?? 3000),
   swaggerEnabled: process.env.SWAGGER_ENABLED
     ? process.env.SWAGGER_ENABLED === 'true'
     : process.env.NODE_ENV !== 'production',
-  uploadDir: process.env.UPLOAD_DIR ?? './uploads',
+  storage: {
+    driver: storageDriver(process.env.STORAGE_DRIVER ?? 'local'),
+    localDir: process.env.UPLOAD_DIR ?? './uploads',
+  },
   db: {
     host: required('DB_HOST'),
     port: Number(process.env.DB_PORT ?? 5432),

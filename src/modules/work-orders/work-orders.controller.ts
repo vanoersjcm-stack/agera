@@ -20,6 +20,7 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
+import { AllowApiKey } from '../auth/allow-api-key.decorator.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, ApiPagination, ApiUpdatedSince, BEARER_AUTH } from '../core/http/api-docs.js';
@@ -45,7 +46,7 @@ import { WORK_ORDER_STATUSES, isWorkOrderStatus } from './entities/work-order-st
 import type { WorkOrder } from './entities/work-order.entity.js';
 import { type CreateWorkOrderInput, WorkOrdersService } from './work-orders.service.js';
 
-function toResponse(workOrder: WorkOrder): WorkOrderDto {
+export function toWorkOrderResponse(workOrder: WorkOrder): WorkOrderDto {
   return {
     id: workOrder.id,
     tenantId: workOrder.tenantId,
@@ -91,10 +92,11 @@ export class WorkOrdersController {
   @ApiCreatedResponse({ type: WorkOrderDto })
   @ApiErrors(400)
   async create(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<WorkOrderDto> {
-    return toResponse(await this.workOrders.create(parseCreateWorkOrder(body), identity));
+    return toWorkOrderResponse(await this.workOrders.create(parseCreateWorkOrder(body), identity));
   }
 
   @Get()
+  @AllowApiKey()
   @ApiOperation({ summary: 'List work orders of the active tenant (newest first, or oldest first with updatedSince)' })
   @ApiPagination()
   @ApiUpdatedSince()
@@ -107,19 +109,21 @@ export class WorkOrdersController {
   ): Promise<WorkOrderPageDto> {
     assertPagination(page, limit);
     const result = await this.workOrders.list({ page, limit, updatedSince: parseTimestamp('updatedSince', updatedSince) });
-    return { ...result, items: result.items.map(toResponse) };
+    return { ...result, items: result.items.map(toWorkOrderResponse) };
   }
 
   @Get(':id')
+  @AllowApiKey()
   @ApiOperation({ summary: 'Get a work order' })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiOkResponse({ type: WorkOrderDto })
   @ApiErrors(400, 404)
   async get(@Param('id', ParseUUIDPipe) id: string): Promise<WorkOrderDto> {
-    return toResponse(await this.workOrders.get(id));
+    return toWorkOrderResponse(await this.workOrders.get(id));
   }
 
   @Get(':id/logs')
+  @AllowApiKey()
   @ApiOperation({ summary: 'Status history of a work order, oldest first' })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiOkResponse({ type: [WorkOrderLogDto] })
@@ -146,7 +150,7 @@ export class WorkOrdersController {
     if (assignedUserId === undefined) {
       throw new BadRequestException('assignedUserId is required (UUID, or null to unassign)');
     }
-    return toResponse(await this.workOrders.assign(id, optionalUuid('assignedUserId', assignedUserId), identity));
+    return toWorkOrderResponse(await this.workOrders.assign(id, optionalUuid('assignedUserId', assignedUserId), identity));
   }
 
   @Patch(':id/status')
@@ -167,6 +171,6 @@ export class WorkOrdersController {
     if (!isWorkOrderStatus(status)) {
       throw new BadRequestException(`status must be one of ${WORK_ORDER_STATUSES.join(', ')}`);
     }
-    return toResponse(await this.workOrders.updateStatus(id, status, identity));
+    return toWorkOrderResponse(await this.workOrders.updateStatus(id, status, identity));
   }
 }

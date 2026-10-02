@@ -55,6 +55,13 @@ export class TenantRepository<T extends TenantOwned> {
     return this.repository.save(entity);
   }
 
+  remove(entity: T): Promise<T> {
+    if (entity.tenantId !== this.context.tenantId) {
+      throw new Error('Refusing to remove an entity that belongs to another tenant');
+    }
+    return this.repository.remove(entity);
+  }
+
   private scopeWhere(where: FindOptionsWhere<T>): FindOptionsWhere<T> {
     return { ...where, tenantId: this.context.tenantId } as FindOptionsWhere<T>;
   }

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { Reflector } from '@nestjs/core';
 import { createRemoteJWKSet, type JWTPayload, jwtVerify } from 'jose';
 import type { KeycloakConfig } from '../../config/configuration.js';
+import { ApiKeyGuard } from './api-key.guard.js';
 import type { AuthenticatedRequest, AuthenticatedUser } from './authenticated-user.js';
 import { IS_PUBLIC_KEY } from './public.decorator.js';
 
@@ -15,6 +16,10 @@ interface KeycloakTokenPayload extends JWTPayload {
   resource_access?: Record<string, { roles?: string[] }>;
 }
 
+/**
+ * Global guard: a Keycloak bearer token, or (without an Authorization header) an `X-API-Key`
+ * on endpoints that allow it.
+ */
 @Injectable()
 export class KeycloakAuthGuard implements CanActivate {
   private readonly logger = new Logger(KeycloakAuthGuard.name);
@@ -24,6 +29,7 @@ export class KeycloakAuthGuard implements CanActivate {
 
   constructor(
     private readonly reflector: Reflector,
+    private readonly apiKeyGuard: ApiKeyGuard,
     config: ConfigService,
   ) {
     const keycloak = config.getOrThrow<KeycloakConfig>('keycloak');
@@ -42,6 +48,9 @@ export class KeycloakAuthGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    if (request.headers.authorization === undefined && request.headers['x-api-key'] !== undefined) {
+      return this.apiKeyGuard.canActivate(context);
+    }
     const token = this.extractBearerToken(request.headers.authorization);
     if (!token) {
       throw new UnauthorizedException('Missing bearer token');
