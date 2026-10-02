@@ -15,6 +15,8 @@ export interface AppConfig {
   port: number;
   /** Serve OpenAPI docs at /api/docs. Defaults to on unless NODE_ENV=production. */
   swaggerEnabled: boolean;
+  /** Root directory for uploaded visit media (local disk or a mounted Docker volume). */
+  uploadDir: string;
   db: DatabaseConfig;
   keycloak: KeycloakConfig;
 }
@@ -32,6 +34,7 @@ export default (): AppConfig => ({
   swaggerEnabled: process.env.SWAGGER_ENABLED
     ? process.env.SWAGGER_ENABLED === 'true'
     : process.env.NODE_ENV !== 'production',
+  uploadDir: process.env.UPLOAD_DIR ?? './uploads',
   db: {
     host: required('DB_HOST'),
     port: Number(process.env.DB_PORT ?? 5432),

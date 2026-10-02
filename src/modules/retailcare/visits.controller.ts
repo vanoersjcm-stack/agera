@@ -37,7 +37,7 @@ import type { MerchandisingVisit } from './entities/merchandising-visit.entity.j
 import { VISIT_STATUSES, isVisitStatus } from './entities/visit-status.js';
 import { type CreateVisitInput, VisitsService } from './visits.service.js';
 
-function toResponse(visit: MerchandisingVisit): VisitDto {
+export function toVisitResponse(visit: MerchandisingVisit): VisitDto {
   return {
     id: visit.id,
     tenantId: visit.tenantId,
@@ -86,7 +86,7 @@ export class VisitsController {
   @ApiCreatedResponse({ type: VisitDto })
   @ApiErrors(400)
   async create(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<VisitDto> {
-    return toResponse(await this.visits.create(parseCreateVisit(body), identity));
+    return toVisitResponse(await this.visits.create(parseCreateVisit(body), identity));
   }
 
   @Get()
@@ -109,7 +109,7 @@ export class VisitsController {
       storeId: optionalUuid('storeId', storeId),
       updatedSince: parseTimestamp('updatedSince', updatedSince),
     });
-    return { ...result, items: result.items.map(toResponse) };
+    return { ...result, items: result.items.map(toVisitResponse) };
   }
 
   @Patch(':id/status')
@@ -127,6 +127,6 @@ export class VisitsController {
     if (!isVisitStatus(status)) {
       throw new BadRequestException(`status must be one of ${VISIT_STATUSES.join(', ')}`);
     }
-    return toResponse(await this.visits.updateStatus(id, status, identity));
+    return toVisitResponse(await this.visits.updateStatus(id, status, identity));
   }
 }

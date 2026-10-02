@@ -16,6 +16,7 @@ migrations/
   V1__initial_schema.sql    # tenants, users, roles_permissions, audit_logs
   V2__work_orders_schema.sql # work_orders, work_order_logs
   V3__retailcare_initial_schema.sql # stores, merchandising_visits
+  V4__retailcare_reports_and_media.sql # visit_reports, visit_media
 src/                        # NestJS app (TypeScript, ESM)
   main.ts                   # bootstrap
   swagger.ts                # OpenAPI document + Swagger UI at /api/docs
@@ -45,8 +46,9 @@ docker compose --env-file .env -f docker/docker-compose.yml up -d
 
 On first start (empty volume) PostgreSQL automatically:
 1. creates the `keycloak` database/role and the backend role `DB_USER` (DML only, no DDL)
-2. applies `migrations/V1__initial_schema.sql`, `V2__work_orders_schema.sql` and
-   `V3__retailcare_initial_schema.sql` to the application database
+2. applies `migrations/V1__initial_schema.sql`, `V2__work_orders_schema.sql`,
+   `V3__retailcare_initial_schema.sql` and `V4__retailcare_reports_and_media.sql` to the
+   application database
 3. seeds the dev tenants `agera.local` and `acme.test` (`dev_seed.sql`)
 
 Keycloak then starts against its own database and imports the `agera` realm.
@@ -161,6 +163,10 @@ read `GET /audit-logs`.
 | POST   | `/visits`     | token                  | body `{"storeId", "visitDate", "fieldRepId"? (default: caller), "workOrderId"?, "notes"?}` |
 | GET    | `/visits`     | token                  | `?page&limit&storeId&updatedSince` |
 | PATCH  | `/visits/:id/status` | token           | body `{"status": "IN_PROGRESS"}` |
+| POST   | `/visits/:id/report` | token           | body `{"summary"?, "auditData"? (JSON object)}`; creates (`201`) or replaces (`200`) the visit's report |
+| POST   | `/visits/:id/media`  | token           | multipart `file` (JPEG/PNG/WebP, max 10 MB) |
+| GET    | `/visits/:id/media/:mediaId` | token   | the image itself |
+| GET    | `/visits/:id/summary` | token          | `{visit, report, media[]}` in one payload |
 
 ### Simulating multi-tenant JWT payloads
 
@@ -256,6 +262,42 @@ curl -s -H "Authorization: Bearer $BOB" "http://localhost:3000/visits?storeId=$S
 curl -s -H "Authorization: Bearer $ADMIN" "http://localhost:3000/visits?storeId=$STORE" | jq .total   # 0
 ```
 
+### Visit reports and photos (Phase 7)
+
+Each visit has at most one report; `POST /visits/:id/report` replaces it as a whole
+(`summary` defaults to `null`, `auditData` to `{}`). `auditData` is a free-form JSON object for
+questionnaires and shelf audits and is stored as-is.
+
+Photos are uploaded as multipart field `file`. The type is checked from the file content (a
+text file renamed to `.png` is rejected) and must be JPEG, PNG or WebP, at most 10 MB; anything
+else returns `400`. Files are written to `UPLOAD_DIR/<tenantId>/<visitId>/<mediaId>.<ext>` on
+local disk; only the metadata goes to `visit_media`. `GET /visits/:id/media/:mediaId` streams the
+file back after checking the tenant. Media of another tenant (or under another visit) returns `404`.
+
+Saving a report or uploading a photo bumps the visit's `updatedAt`, so portals polling
+`GET /visits?updatedSince=` notice the change and can fetch `GET /visits/:id/summary`.
+`CANCELLED` visits accept no new reports or photos (`409`). Audit actions:
+`visit.report_saved`, `visit.media_uploaded`.
+
+To keep uploads in a Docker volume, mount it at `/uploads` and set `UPLOAD_DIR=/uploads`
+(the directory must be writable by the app user). For example, with the backend in a container:
+
+```bash
+docker volume create agera_uploads
+docker run --rm -v agera_uploads:/uploads node:22-alpine chown "$(id -u):$(id -g)" /uploads
+docker run -d --name agera-api --user "$(id -u):$(id -g)" --network host \
+  -e UPLOAD_DIR=/uploads -v agera_uploads:/uploads -v "$PWD:/app" -w /app node:22-alpine npm start
+```
+
+```bash
+curl -s -H "Authorization: Bearer $ALICE" -H 'Content-Type: application/json' \
+  -d '{"summary":"Shelf restocked","auditData":{"facings":12,"priceTagsOk":true}}' \
+  http://localhost:3000/visits/$VISIT/report | jq
+curl -s -H "Authorization: Bearer $ALICE" -F "file=@shelf.jpg;type=image/jpeg" \
+  http://localhost:3000/visits/$VISIT/media | jq
+curl -s -H "Authorization: Bearer $BOB" http://localhost:3000/visits/$VISIT/summary | jq
+```
+
 ### Integration tests
 
 With the stack and the backend running (`npm start`):
@@ -267,16 +309,18 @@ npm run test:e2e
 The tests use the dev realm users and cover authentication, tenant-isolated create/read/update,
 status transitions with `work_order_logs` and async audit entries, concurrent updates,
 `updatedSince`, assignment (including cross-tenant rejection), store/visit isolation, and the
-API conventions (camelCase in every response and in the OpenAPI document, Swagger UI reachable). They create work orders with unique titles and can be re-run.
+API conventions (camelCase in every response and in the OpenAPI document, Swagger UI reachable),
+visit reports, photo uploads (type and size limits) and tenant isolation of reports and files.
+They create records with unique names and can be re-run.
 
 ### Upgrading an existing local database
 
 Apply the migrations your database doesn't have yet, in order, without losing data
-(coming from Phase 4: only V3; from Phase 3: V2 then V3):
+(coming from Phase 5/6: only V4; from Phase 4: V3 then V4; from Phase 3: V2, V3, V4):
 
 ```bash
 docker compose --env-file .env -f docker/docker-compose.yml exec -T postgres \
-  psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V3__retailcare_initial_schema.sql
+  psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V4__retailcare_reports_and_media.sql
 ```
 
 Coming from Phase 2, recreate the volumes once (`down -v`) so the new seed and realm users are

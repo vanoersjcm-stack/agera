@@ -12,10 +12,15 @@ interface OpenApiParameter {
 
 interface OpenApiOperation {
   parameters?: OpenApiParameter[];
+  requestBody?: { content: Record<string, { schema: { $ref?: string } }> };
+  responses?: Record<string, { content?: Record<string, { schema: OpenApiSchema & { type?: string; format?: string } }> }>;
   security?: Record<string, string[]>[];
 }
 
 interface OpenApiSchema {
+  type?: string;
+  format?: string;
+  required?: string[];
   properties?: Record<string, OpenApiSchema>;
   items?: OpenApiSchema;
   allOf?: OpenApiSchema[];
@@ -90,6 +95,10 @@ describe('OpenAPI document', () => {
       '/stores': ['get', 'post'],
       '/visits': ['get', 'post'],
       '/visits/{id}/status': ['patch'],
+      '/visits/{id}/report': ['post'],
+      '/visits/{id}/media': ['post'],
+      '/visits/{id}/media/{mediaId}': ['get'],
+      '/visits/{id}/summary': ['get'],
     };
     assert.match(document.openapi, /^3\./);
     assert.deepEqual(Object.keys(document.paths).sort(), Object.keys(expected).sort());
@@ -111,6 +120,20 @@ describe('OpenAPI document', () => {
         assert.deepEqual(operation.security, expected, `${method.toUpperCase()} ${path}`);
       }
     }
+  });
+
+  it('documents the multipart photo upload and the binary download', () => {
+    const uploadOperation = document.paths['/visits/{id}/media'].post;
+    assert.deepEqual(Object.keys(uploadOperation.requestBody?.content ?? {}), ['multipart/form-data']);
+    const ref = uploadOperation.requestBody?.content['multipart/form-data'].schema.$ref ?? '';
+    const schema = document.components.schemas[ref.replace('#/components/schemas/', '')];
+    assert.deepEqual(schema.required, ['file']);
+    assert.equal(schema.properties?.file.type, 'string');
+    assert.equal(schema.properties?.file.format, 'binary');
+
+    const downloadContent = document.paths['/visits/{id}/media/{mediaId}'].get.responses?.['200'].content ?? {};
+    assert.deepEqual(Object.keys(downloadContent).sort(), ['image/jpeg', 'image/png', 'image/webp']);
+    assert.equal(downloadContent['image/png'].schema.format, 'binary');
   });
 
   it('uses camelCase for all parameters and schema properties', () => {

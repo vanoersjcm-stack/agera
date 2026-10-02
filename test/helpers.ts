@@ -88,3 +88,32 @@ export async function setupUsers(): Promise<{ tenantA: TestUser; alice: TestUser
   ]);
   return { tenantA, alice, bob };
 }
+
+export interface UploadFile {
+  data: Buffer;
+  type: string;
+  filename: string;
+}
+
+/** multipart/form-data POST with an optional `file` part. */
+export async function upload<T>(token: string | null, path: string, file?: UploadFile): Promise<ApiResponse<T>> {
+  const form = new FormData();
+  if (file) {
+    form.append('file', new Blob([new Uint8Array(file.data)], { type: file.type }), file.filename);
+  } else {
+    form.append('note', 'no file');
+  }
+  const response = await fetch(`${API_URL}${path}`, {
+    method: 'POST',
+    headers: token === null ? {} : { Authorization: `Bearer ${token}` },
+    body: form,
+  });
+  return { status: response.status, body: (await response.json()) as T };
+}
+
+export async function download(token: string | null, path: string): Promise<{ status: number; headers: Headers; data: Buffer }> {
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: token === null ? {} : { Authorization: `Bearer ${token}` },
+  });
+  return { status: response.status, headers: response.headers, data: Buffer.from(await response.arrayBuffer()) };
+}
