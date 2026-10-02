@@ -8,8 +8,14 @@
   "duplicateEmailsAllowed": false,
   "roles": {
     "realm": [
-      { "name": "admin", "description": "Tenant administrator" },
-      { "name": "user", "description": "Standard user" }
+      {
+        "name": "admin",
+        "description": "Tenant administrator"
+      },
+      {
+        "name": "user",
+        "description": "Standard user"
+      }
     ]
   },
   "clients": [
@@ -23,7 +29,20 @@
       "bearerOnly": false,
       "standardFlowEnabled": false,
       "directAccessGrantsEnabled": true,
-      "serviceAccountsEnabled": true
+      "serviceAccountsEnabled": true,
+      "protocolMappers": [
+        {
+          "name": "agera-backend-audience",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-audience-mapper",
+          "consentRequired": false,
+          "config": {
+            "included.client.audience": "agera-backend",
+            "id.token.claim": "false",
+            "access.token.claim": "true"
+          }
+        }
+      ]
     }
   ],
   "users": [
@@ -34,8 +53,17 @@
       "lastName": "Admin",
       "enabled": true,
       "emailVerified": true,
-      "credentials": [{ "type": "password", "value": "devadmin", "temporary": false }],
-      "realmRoles": ["admin", "user"]
+      "credentials": [
+        {
+          "type": "password",
+          "value": "devadmin",
+          "temporary": false
+        }
+      ],
+      "realmRoles": [
+        "admin",
+        "user"
+      ]
     }
   ]
 }

@@ -8,8 +8,9 @@ PostgreSQL 16 (data) + Keycloak 26 (OAuth2/OIDC), self-hosted via Docker (Hetzne
 ```
 docker/
   docker-compose.yml        # PostgreSQL + Keycloak
-  postgres/init.sql         # creates separate Keycloak DB + role
-  postgres/00_keycloak_db.sh# runs init.sql with credentials from .env
+  postgres/init.sql         # creates Keycloak DB/role + least-privilege app role
+  postgres/00_init_roles.sh # runs init.sql with credentials from .env
+  postgres/dev_seed.sql     # dev tenant `agera.local` (local only)
   keycloak/realm-agera.json # dev realm, auto-imported on start
 migrations/
   V1__initial_schema.sql    # tenants, users, roles_permissions, audit_logs
@@ -17,7 +18,9 @@ src/                        # NestJS app (TypeScript, ESM)
   main.ts                   # bootstrap
   app.module.ts
   config/configuration.ts   # typed env config
-  modules/core|auth|user/   # feature modules (core exposes GET /health)
+  modules/core/             # TypeORM connection, entities, AuditService, GET /health
+  modules/auth/             # global Keycloak JWT guard, @Public(), @CurrentUser()
+  modules/user/             # GET /users/me (auto-provisions user, writes audit log)
 .env.example
 ```
 
@@ -31,8 +34,9 @@ docker compose --env-file .env -f docker/docker-compose.yml up -d
 ```
 
 On first start (empty volume) PostgreSQL automatically:
-1. creates the `keycloak` database/role (`00_keycloak_db.sh` → `init.sql`)
+1. creates the `keycloak` database/role and the backend role `DB_USER` (DML only, no DDL)
 2. applies `migrations/V1__initial_schema.sql` to the application database
+3. seeds the dev tenant `agera.local` (`dev_seed.sql`)
 
 Keycloak then starts against its own database and imports the `agera` realm.
 
@@ -45,7 +49,8 @@ Dev realm `agera` (development only – change before any shared deployment):
 - client `agera-backend`, secret `dev-backend-secret-change-me`
 - user `dev.admin` / `devadmin` (realm roles `admin`, `user`)
 
-Init scripts only run on an empty volume. To re-run them from scratch:
+Init scripts only run on an empty volume (coming from Phase 1, recreate it once so the
+`DB_USER` role and dev tenant exist). To re-run them from scratch:
 
 ```bash
 docker compose --env-file .env -f docker/docker-compose.yml down -v
@@ -58,11 +63,35 @@ Requirements: Node.js 22 (`.nvmrc`).
 ```bash
 npm install
 npm run build
-npm start                           # reads .env, listens on APP_PORT (default 3000)
-curl http://localhost:3000/health   # {"status":"ok"}
+npm start                           # reads .env, listens on PORT (default 3000)
 ```
 
 `npm run typecheck` runs the TypeScript compiler without emitting.
+
+The backend connects with `DB_*` and validates tokens against `KEYCLOAK_REALM_URL`
+(issuer, signature via the realm JWKS endpoint, audience `KEYCLOAK_CLIENT_ID`).
+All routes require a valid Bearer token unless marked `@Public()`.
+
+### Test with a Keycloak token
+
+```bash
+curl -i http://localhost:3000/health          # 200 {"status":"ok"} (public)
+curl -i http://localhost:3000/users/me        # 401 (no token)
+
+TOKEN=$(curl -s -d grant_type=password -d client_id=agera-backend \
+  -d client_secret=dev-backend-secret-change-me \
+  -d username=dev.admin -d password=devadmin \
+  http://localhost:8080/realms/agera/protocol/openid-connect/token | jq -r .access_token)
+
+curl -s -H "Authorization: Bearer $TOKEN" http://localhost:3000/users/me   # 200, user profile
+```
+
+The first `/users/me` call creates the `users` row (`user.provisioned` audit entry); later calls
+log `user.profile_fetched`. The user's tenant is resolved from the email domain
+(`dev.admin@agera.local` → tenant `agera.local`); an unknown domain returns `403`.
+
+To add another dev user: create it in the Keycloak admin console (realm `agera`, with an email)
+and insert a tenant whose `domain` matches the email domain.
 
 ## Verify
 
