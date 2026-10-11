@@ -87,6 +87,20 @@ export interface CommandResult {
   parameters: Record<string, string>;
 }
 
+export interface Anomaly {
+  anomalyType: 'financial_variance' | 'dsr_stagnation';
+  sourceId: string;
+  description: string;
+  observedAt: string;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface Anomalies {
+  generatedAt: string;
+  anomalies: Anomaly[];
+}
+
 export const api = {
   tenant: () => request<Tenant>('GET', '/tenants/me'),
   models: () => request<FinancialModel[]>('GET', '/v1/financials/models'),
@@ -95,6 +109,7 @@ export const api = {
     return request<Pnl>('GET', `/v1/financials/pnl${query.size ? `?${query}` : ''}`);
   },
   dsrStatus: (dsrId?: string) => request<DsrStatus>('GET', `/v1/nexus/dsr-status${dsrId ? `?dsrId=${dsrId}` : ''}`),
+  anomalies: () => request<Anomalies>('GET', '/v1/nexus/anomalies'),
   command: (command: string, contextRoute: string) =>
     request<CommandResult>('POST', '/v1/nexus/command', { command, contextRoute }),
 };

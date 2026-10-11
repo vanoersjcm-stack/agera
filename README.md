@@ -389,6 +389,40 @@ An existing dev Keycloak (realm imported before Phase 10) needs the client added
 DEPLOYMENT.md, "Agera Nexus web app and voice processing" (use `--server http://localhost:8080`
 and redirect `http://localhost:5173/*`).
 
+### Agreements, Digital Sales Rooms, external clients and anomalies (V8)
+
+| Method | Path | Who | Purpose |
+| --- | --- | --- | --- |
+| POST/GET | `/v1/agreements?clientId=&status=` | create: internal; list: internal + external | Agreements per external client (`pending_approval`, `active`, `expired`) |
+| GET | `/v1/agreements/:id` | internal + external | One agreement |
+| PATCH | `/v1/agreements/:id/status` | internal | `pending_approval` → `active` / `expired`, `active` → `expired`; `expired` is final (409) |
+| POST/GET | `/v1/dsrs?clientId=&status=` | create: internal; list: internal + external | Digital Sales Rooms (`active`, `archived`), optionally linked to an agreement of the same client |
+| GET | `/v1/dsrs/:id` | internal + external | One room |
+| PATCH | `/v1/dsrs/:id/status` | internal | Archive / reactivate |
+| GET | `/v1/nexus/anomalies?type=` | internal | Operational anomaly alerts from the `nexus_operational_anomalies` view |
+
+**External users.** Keycloak users with realm role `External_Client` carry two attributes that
+become token claims: `tenant_id` and `client_id`. They are deny-by-default: only endpoints marked
+`@AllowExternal()` answer (the agreement/DSR reads above, `GET /v1/nexus/dsr-status`,
+`POST /v1/nexus/dsr-activities` and `GET /tenants/me`); everything else, P&L included, returns 403.
+Without a valid `tenant_id` and `client_id` claim every request returns 403. The backend sets
+`app.access_scope` (`internal` / `external`) and `app.current_client` next to `app.current_tenant`
+in each transaction, and the RLS policies give external users read access only to their own
+agreements, their own active rooms and the activities in those rooms. They can record activities
+only in those rooms (else 404), always under their own email. Financial and voice tables are
+internal-only. Dev users: `carol` (client `c1e00000-0000-4000-8000-000000000001`), `dave`
+(client `…0002`), `erin` (no `client_id`), all in Acme Test, password = username.
+
+**Anomalies** (pull only, nothing is pushed):
+- `financial_variance`: a line item of an `approved` model with actuals more than 10% unfavourable
+  vs. `projectedAmount` (`revenue` / `license_fee` below projection, `cogs` / `opex` above).
+  Exactly 10% does not trigger; favourable variances and lines without actuals never trigger.
+- `dsr_stagnation`: an `active` room with no `opened`, `zone_viewed` or `briefing_played` activity
+  for more than 7 days (a room without any counts from its creation, so new rooms are not flagged).
+
+The view uses `security_invoker`, so the RLS policies of the underlying tables apply to it. The web
+app shows the list under **Anomalies** (`#/anomalies`, or type "anomalies" in the command bar).
+
 **Whisper.** `whisper-local` is a placeholder container (profile `voice`, not started by
 default): `docker compose -f docker/docker-compose.yml --profile voice up -d whisper-local`.
 
@@ -432,7 +466,15 @@ docker compose -f docker/docker-compose.yml exec -T postgres \
   psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V6__financials_dsr_nexus.sql
 docker compose -f docker/docker-compose.yml exec -T postgres \
   psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V7__dsr_activity_types.sql
+# V8 (agreements, DSRs, external clients, anomalies)
+docker compose -f docker/docker-compose.yml exec -T postgres \
+  psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V8__agreements_dsrs_external_access.sql
 ```
+
+V8 also changes the Keycloak realm (role `External_Client`, `client_id` attribute and mapper, users
+`carol`, `dave`, `erin`). The realm is only imported on Keycloak's first start, so recreate the dev
+volumes once (`docker compose --env-file .env -f docker/docker-compose.yml down -v`) or follow
+DEPLOYMENT.md, "External client users".
 
 Coming from Phase 2, recreate the volumes once (`down -v`) so the new seed and realm users are
 imported.

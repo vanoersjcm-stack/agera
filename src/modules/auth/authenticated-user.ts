@@ -5,6 +5,8 @@ export interface AuthenticatedUser {
   lastName: string | null;
   roles: string[];
   tenantIdClaim: string | null;
+  /** `client_id` claim of external users (role External_Client). */
+  clientIdClaim: string | null;
 }
 
 /** Machine client authenticated with an `X-API-Key` header; bound to exactly one tenant. */

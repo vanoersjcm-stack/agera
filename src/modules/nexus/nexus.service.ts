@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import type { Repository } from 'typeorm';
+import { QueryFailedError, type Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { AuditService } from '../core/audit/audit.service.js';
 import { StorageService } from '../core/storage/storage.service.js';
@@ -15,6 +15,7 @@ import { DSR_ACTIVITY_TYPES, DsrActivity, type DsrActivityType } from './entitie
 import { NexusVoiceEvent } from './entities/nexus-voice-event.entity.js';
 
 export const MAX_ACTIVE_DSRS = 100;
+const PG_RLS_VIOLATION = '42501';
 
 export interface RecordActivityInput {
   dsrId: string;
@@ -94,15 +95,25 @@ export class NexusService {
 
   async recordActivity(input: RecordActivityInput, identity: AuthenticatedUser): Promise<DsrActivity> {
     const actor = await this.userService.resolveActor(identity);
-    const activity = await this.tx.run(async (manager) => {
-      const repository = this.activities.withManager(manager);
-      const saved = await repository.save(repository.create(input));
-      const reloaded = await repository.findOneBy({ id: saved.id });
-      if (!reloaded) {
-        throw new NotFoundException('DSR activity not found');
+    const external = this.context.tenant.access.scope === 'external';
+    const values = external ? { ...input, stakeholderEmail: identity.email } : input;
+    let activity: DsrActivity;
+    try {
+      activity = await this.tx.run(async (manager) => {
+        const repository = this.activities.withManager(manager);
+        const saved = await repository.save(repository.create(values));
+        const reloaded = await repository.findOneBy({ id: saved.id });
+        if (!reloaded) {
+          throw new NotFoundException('DSR activity not found');
+        }
+        return reloaded;
+      });
+    } catch (error) {
+      if (external && error instanceof QueryFailedError && (error.driverError as { code?: string }).code === PG_RLS_VIOLATION) {
+        throw new NotFoundException('Digital Sales Room not found');
       }
-      return reloaded;
-    });
+      throw error;
+    }
     this.audit.logAction(this.context.tenantId, actor.id, 'dsr.activity_recorded', {
       dsrId: activity.dsrId,
       activityId: activity.id,

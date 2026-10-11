@@ -23,6 +23,7 @@ import {
   ApiQuery,
   ApiTags,
 } from '@nestjs/swagger';
+import { AllowExternal } from '../auth/allow-external.decorator.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
@@ -120,6 +121,7 @@ export class NexusController {
   constructor(private readonly nexus: NexusService) {}
 
   @Get('dsr-status')
+  @AllowExternal()
   @ApiOperation({
     summary: 'DSR engagement metrics and stakeholder statuses',
     description:
@@ -139,10 +141,16 @@ export class NexusController {
   }
 
   @Post('dsr-activities')
-  @ApiOperation({ summary: 'Record a stakeholder activity in a DSR (audit: dsr.activity_recorded)' })
+  @AllowExternal()
+  @ApiOperation({
+    summary: 'Record a stakeholder activity in a DSR (audit: dsr.activity_recorded)',
+    description:
+      'External users (External_Client) may only record activities in their own active rooms (else 404); ' +
+      'their stakeholderEmail is always their own token email.',
+  })
   @ApiBody({ type: RecordDsrActivityDto })
   @ApiCreatedResponse({ type: DsrActivityDto })
-  @ApiErrors(400)
+  @ApiErrors(400, 404)
   async recordActivity(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<DsrActivityDto> {
     return toActivityResponse(await this.nexus.recordActivity(parseRecordActivity(body), identity));
   }

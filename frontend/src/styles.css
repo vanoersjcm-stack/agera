@@ -43,3 +43,4 @@ select, input { padding: 0.4rem; border: 1px solid #c4c9d4; border-radius: 4px; 
 .cmdk-dsr h3 { font-size: 0.8rem; text-transform: uppercase; color: #5a6475; margin: 0.5rem 0 0; }
 .cmdk-dsr .kpis { margin: 0.5rem 0; font-size: 0.85rem; }
 .cmdk-context { font-size: 0.75rem; color: #5a6475; padding: 0.4rem 1rem; background: #f5f6f8; }
+.muted { color: #6b7280; font-size: 0.85em; }

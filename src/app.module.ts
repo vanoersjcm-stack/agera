@@ -6,6 +6,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { CoreModule } from './modules/core/core.module.js';
 import { FinancialsModule } from './modules/financials/financials.module.js';
 import { NexusModule } from './modules/nexus/nexus.module.js';
+import { SalesRoomsModule } from './modules/sales-rooms/sales-rooms.module.js';
 import { PortalModule } from './modules/portal/portal.module.js';
 import { RetailCareModule } from './modules/retailcare/retailcare.module.js';
 import { UserModule } from './modules/user/user.module.js';
@@ -23,6 +24,7 @@ import { WorkOrdersModule } from './modules/work-orders/work-orders.module.js';
     PortalModule,
     FinancialsModule,
     NexusModule,
+    SalesRoomsModule,
   ],
 })
 export class AppModule {}

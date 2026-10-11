@@ -151,7 +151,7 @@ On a fresh server this:
 5. pulls the PostgreSQL and Keycloak images and builds the backend image and the proxy image
    (Nginx plus the Agera Nexus web app);
 6. starts everything in the background: PostgreSQL creates the databases and accounts, the
-   one-shot `migrate` container applies every migration not yet applied (V1 to V7), Keycloak imports the `agera` realm,
+   one-shot `migrate` container applies every migration not yet applied (V1 to V8), Keycloak imports the `agera` realm,
    then the backend and Nginx start;
 7. waits until `https://<server>/api/health` and Keycloak answer (a minute or two the first time).
 
@@ -278,6 +278,34 @@ started by default and the backend does not call it yet:
 ```bash
 ./deploy.sh compose --profile voice up -d whisper-local   # downloads the model on first start
 ```
+
+## External client users
+
+Clients, retailers and brand partners log in as Keycloak users with realm role `External_Client`
+and two user attributes: `tenant_id` (the tenant that owns their agreements) and `client_id` (the
+UUID you use as `clientId` when creating their agreements and Digital Sales Rooms). They only see
+their own agreements, their own active rooms and the activity in those rooms; every other endpoint
+returns 403. Create one (replace the values):
+
+```bash
+./deploy.sh compose exec keycloak sh -c '
+  K=/opt/keycloak/bin/kcadm.sh &&
+  $K config credentials --server http://localhost:8080/auth --realm master --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD" &&
+  $K create users -r agera -s username=buyer.retailer -s email=buyer@retailer.example -s firstName=Buyer -s lastName=Retailer \
+    -s enabled=true -s "attributes.tenant_id=<TENANT_UUID>" -s "attributes.client_id=<CLIENT_UUID>" &&
+  $K set-password -r agera --username buyer.retailer --new-password "<initial password>" --temporary &&
+  $K add-roles -r agera --uusername buyer.retailer --rolename External_Client'
+```
+
+**Installs created before V8:** the realm import doesn't run again, so add the role, the user
+profile attribute and the token mapper once in the admin console (`https://<server>/auth/admin`,
+realm `agera`):
+1. Realm roles → Create role `External_Client`.
+2. Realm settings → User profile → Create attribute `client_id` (admin may view and edit only;
+   optionally the same UUID pattern validator as `tenant_id`).
+3. Clients → `agera-backend` and `agera-frontend` → Client scopes → Dedicated scope → Add mapper
+   → By configuration → User Attribute: name and user attribute `client_id`, token claim name
+   `client_id`, claim JSON type String, add to access token on.
 
 ## Operations
 

@@ -446,7 +446,10 @@ describe('Phase 10: financials, DSR activity and Nexus voice events (RLS)', () =
     async function asTenant<T>(tenantId: string, work: () => Promise<T>): Promise<T> {
       await client.query('BEGIN');
       try {
-        await client.query(`SELECT set_config('app.current_tenant', $1, true)`, [tenantId]);
+        await client.query(
+          `SELECT set_config('app.current_tenant', $1, true), set_config('app.access_scope', 'internal', true)`,
+          [tenantId],
+        );
         return await work();
       } finally {
         await client.query('ROLLBACK');
@@ -461,7 +464,7 @@ describe('Phase 10: financials, DSR activity and Nexus voice events (RLS)', () =
         [RLS_TABLES],
       );
       assert.equal(rows.length, 4);
-      assert.ok(rows.every((row) => row.relrowsecurity && row.policies === 1), JSON.stringify(rows));
+      assert.ok(rows.every((row) => row.relrowsecurity && row.policies >= 1), JSON.stringify(rows));
     });
 
     it('returns no rows at all when no tenant is set', async () => {

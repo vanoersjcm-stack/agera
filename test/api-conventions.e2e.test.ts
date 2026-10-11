@@ -125,6 +125,13 @@ describe('OpenAPI document', () => {
       '/v1/nexus/command': ['post'],
       '/v1/nexus/voice-event': ['post'],
       '/v1/nexus/voice-events/{id}': ['get'],
+      '/v1/nexus/anomalies': ['get'],
+      '/v1/agreements': ['get', 'post'],
+      '/v1/agreements/{id}': ['get'],
+      '/v1/agreements/{id}/status': ['patch'],
+      '/v1/dsrs': ['get', 'post'],
+      '/v1/dsrs/{id}': ['get'],
+      '/v1/dsrs/{id}/status': ['patch'],
     };
     assert.match(document.openapi, /^3\./);
     assert.deepEqual(Object.keys(document.paths).sort(), Object.keys(expected).sort());

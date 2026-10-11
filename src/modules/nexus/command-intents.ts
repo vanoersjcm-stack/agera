@@ -1,5 +1,5 @@
 /** Views of the Nexus shell a command can navigate to. */
-export const NEXUS_INTENTS = ['open_financials', 'open_dsr', 'unknown'] as const;
+export const NEXUS_INTENTS = ['open_financials', 'open_dsr', 'open_anomalies', 'unknown'] as const;
 export type NexusIntent = (typeof NEXUS_INTENTS)[number];
 
 export interface ParsedCommand {
@@ -9,6 +9,7 @@ export interface ParsedCommand {
 }
 
 const INTENT_KEYWORDS: { intent: Exclude<NexusIntent, 'unknown'>; route: string; keywords: RegExp }[] = [
+  { intent: 'open_anomalies', route: '/anomalies', keywords: /\b(anomal\w*|alerts?|stagna\w*|exceptions?)\b/i },
   { intent: 'open_dsr', route: '/dsr', keywords: /\b(dsr|sales room|stakeholders?|engagement|deal room)\b/i },
   {
     intent: 'open_financials',
@@ -34,7 +35,7 @@ export function parseCommand(command: string): ParsedCommand {
       parameters.dsrId = dsrId;
       query.set('dsrId', dsrId);
     }
-  } else {
+  } else if (match.intent === 'open_financials') {
     const period = PERIOD.exec(command)?.[1].toUpperCase();
     if (period) {
       parameters.period = period;

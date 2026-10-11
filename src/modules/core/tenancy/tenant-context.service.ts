@@ -3,11 +3,15 @@ import { Injectable } from '@nestjs/common';
 
 export type TenantSource = 'claim' | 'domain' | 'apiKey';
 
+/** Row-level security scope within the tenant; mirrored into `app.access_scope` / `app.current_client`. */
+export type TenantAccess = { scope: 'internal' } | { scope: 'external'; clientId: string } | { scope: 'apiKey' };
+
 export interface ActiveTenant {
   id: string;
   name: string;
   domain: string;
   source: TenantSource;
+  access: TenantAccess;
 }
 
 @Injectable()
