@@ -7,6 +7,11 @@ import { setupSwagger } from './swagger.js';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
+  app.enableShutdownHooks();
+  const apiPrefix = config.get<string>('apiPrefix');
+  if (apiPrefix) {
+    app.setGlobalPrefix(apiPrefix);
+  }
   if (config.get<boolean>('swaggerEnabled')) {
     setupSwagger(app);
   }

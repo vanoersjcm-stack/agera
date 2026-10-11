@@ -3,15 +3,25 @@
 Enterprise backend foundation with a 100% European sovereign stack:
 PostgreSQL 16 (data) + Keycloak 26 (OAuth2/OIDC), self-hosted via Docker (Hetzner or local Linux).
 
+Production on a local Ubuntu server: see [DEPLOYMENT.md](DEPLOYMENT.md) (`./deploy.sh`).
+
 ## Layout
 
 ```
+docker-compose.prod.yml     # production stack: postgres, migrate, keycloak, backend, nginx proxy
+deploy.sh                   # production checks, .env.production, deploy, first platform admin
+Dockerfile                  # production backend image
+.env.production.example     # production settings template
+DEPLOYMENT.md               # Ubuntu Server installation guide
 docker/
-  docker-compose.yml        # PostgreSQL + Keycloak
+  docker-compose.yml        # development: PostgreSQL + Keycloak
   postgres/init.sql         # creates Keycloak DB/role + least-privilege app role
   postgres/00_init_roles.sh # runs init.sql with credentials from .env
   postgres/dev_seed.sql     # dev tenants `agera.local`, `acme.test` (local only)
   keycloak/realm-agera.json # dev realm, auto-imported on start
+  keycloak/prod/realm-agera.json # production realm (no demo users, client secret from env)
+  postgres/migrate.sh       # production migration runner (schema_migrations, checksums)
+  nginx/default.conf.template # production reverse proxy: /api -> backend, /auth -> Keycloak
 migrations/
   V1__initial_schema.sql    # tenants, users, roles_permissions, audit_logs
   V2__work_orders_schema.sql # work_orders, work_order_logs

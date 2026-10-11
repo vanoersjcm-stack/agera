@@ -1,0 +1,11 @@
+.git
+node_modules
+dist
+uploads
+test
+docker
+migrations
+.env
+.env.*
+*.md
+*.tar.gz

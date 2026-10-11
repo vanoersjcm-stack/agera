@@ -15,6 +15,7 @@ import {
   UseFilters,
   UseInterceptors,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiBearerAuth,
@@ -73,13 +74,13 @@ export function toReportResponse(report: VisitReport): VisitReportDto {
   };
 }
 
-export function toMediaResponse(media: VisitMedia): VisitMediaDto {
+export function toMediaResponse(media: VisitMedia, apiPrefix = ''): VisitMediaDto {
   return {
     id: media.id,
     visitId: media.visitId,
     mimeType: media.mimeType,
     fileSizeBytes: media.fileSizeBytes,
-    url: `/visits/${media.visitId}/media/${media.id}`,
+    url: `${apiPrefix ? `/${apiPrefix}` : ''}/visits/${media.visitId}/media/${media.id}`,
     createdAt: media.createdAt,
   };
 }
@@ -100,7 +101,14 @@ function parseSaveReport(body: unknown): SaveReportInput {
 @ApiErrors(401, 403)
 @Controller('visits/:id')
 export class VisitRecordsController {
-  constructor(private readonly records: VisitRecordsService) {}
+  private readonly apiPrefix: string;
+
+  constructor(
+    private readonly records: VisitRecordsService,
+    config: ConfigService,
+  ) {
+    this.apiPrefix = config.get<string>('apiPrefix') ?? '';
+  }
 
   @Post('report')
   @ApiOperation({
@@ -149,7 +157,10 @@ export class VisitRecordsController {
     if (!isImageMimeType(file.mimetype) || detected === null) {
       throw new BadRequestException(`file must be one of ${IMAGE_MIME_TYPES.join(', ')}`);
     }
-    return toMediaResponse(await this.records.addMedia(visitId, { data: file.buffer, mimeType: detected }, identity));
+    return toMediaResponse(
+      await this.records.addMedia(visitId, { data: file.buffer, mimeType: detected }, identity),
+      this.apiPrefix,
+    );
   }
 
   @Get('media/:mediaId')
@@ -200,7 +211,7 @@ export class VisitRecordsController {
     return {
       visit: toVisitResponse(visit),
       report: report ? toReportResponse(report) : null,
-      media: media.map(toMediaResponse),
+      media: media.map((item) => toMediaResponse(item, this.apiPrefix)),
     };
   }
 }

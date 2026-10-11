@@ -35,7 +35,7 @@ export class KeycloakAuthGuard implements CanActivate {
     const keycloak = config.getOrThrow<KeycloakConfig>('keycloak');
     this.issuer = keycloak.realmUrl;
     this.audience = keycloak.clientId;
-    this.jwks = createRemoteJWKSet(new URL(`${keycloak.realmUrl}/protocol/openid-connect/certs`));
+    this.jwks = createRemoteJWKSet(new URL(keycloak.jwksUrl));
   }
 
   async canActivate(context: ExecutionContext): Promise<boolean> {

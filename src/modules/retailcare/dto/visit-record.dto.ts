@@ -62,7 +62,7 @@ export class VisitMediaDto {
   @ApiProperty({ example: 48213 })
   fileSizeBytes!: number;
 
-  @ApiProperty({ example: '/visits/5f0c…/media/9a1e…', description: 'Download path (requires the bearer token)' })
+  @ApiProperty({ example: '/visits/5f0c…/media/9a1e…', description: 'Download path, including the API prefix if one is configured (requires the bearer token or an API key)' })
   url!: string;
 
   @ApiProperty({ type: String, format: 'date-time' })

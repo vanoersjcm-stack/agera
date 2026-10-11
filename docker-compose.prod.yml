@@ -1,0 +1,154 @@
+# Agera Symphony - production stack for a local Ubuntu server.
+# Start it with ./deploy.sh; it passes --env-file .env.production to every compose command.
+# Only the reverse proxy publishes ports; PostgreSQL, Keycloak and the backend stay on the internal network.
+name: agera-symphony-prod
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.production}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+      POSTGRES_DB: ${POSTGRES_DB:-agera_symphony}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+      # Used once, on first start, by 00_init_roles.sh to create the Keycloak and app roles.
+      KEYCLOAK_DB_NAME: ${KEYCLOAK_DB_NAME:-keycloak}
+      KEYCLOAK_DB_USER: ${KEYCLOAK_DB_USER:-keycloak}
+      KEYCLOAK_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Set KEYCLOAK_DB_PASSWORD in .env.production}
+      DB_USER: ${DB_USER:-symphony_app}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env.production}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/opt/agera/init.sql:ro
+      - ./docker/postgres/00_init_roles.sh:/docker-entrypoint-initdb.d/00_init_roles.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    logging: *logging
+
+  # One-shot: applies pending migrations (V1, V2, ...) on every deploy, then exits.
+  migrate:
+    image: postgres:16-alpine
+    restart: "no"
+    entrypoint: ["sh", "/opt/agera/migrate.sh"]
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:?Set POSTGRES_USER in .env.production}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+      PGDATABASE: ${POSTGRES_DB:-agera_symphony}
+      DB_USER: ${DB_USER:-symphony_app}
+    volumes:
+      - ./migrations:/migrations:ro
+      - ./docker/postgres/migrate.sh:/opt/agera/migrate.sh:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *logging
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0
+    restart: unless-stopped
+    command: ["start", "--import-realm"]
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://postgres:5432/${KEYCLOAK_DB_NAME:-keycloak}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Set KEYCLOAK_DB_PASSWORD in .env.production}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-admin}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD in .env.production}
+      KC_HOSTNAME: ${PUBLIC_URL:?Set PUBLIC_URL in .env.production}/auth
+      KC_HTTP_RELATIVE_PATH: /auth
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
+      KC_HEALTH_ENABLED: "true"
+      # Substituted into the realm file on import.
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?Set KEYCLOAK_CLIENT_SECRET in .env.production}
+    volumes:
+      - ./docker/keycloak/prod/realm-agera.json:/opt/keycloak/data/import/realm-agera.json:ro
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          printf 'GET /auth/health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          head -n1 <&3 | grep -q ' 200 '
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
+    depends_on:
+      postgres:
+        condition: service_healthy
+    logging: *logging
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: agera-symphony-backend:latest
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+      API_PREFIX: api
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-true}
+      STORAGE_DRIVER: local
+      UPLOAD_DIR: /uploads
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_NAME: ${POSTGRES_DB:-agera_symphony}
+      DB_USER: ${DB_USER:-symphony_app}
+      DB_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env.production}
+      KEYCLOAK_REALM_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env.production}/auth/realms/agera
+      KEYCLOAK_JWKS_URL: http://keycloak:8080/auth/realms/agera/protocol/openid-connect/certs
+      KEYCLOAK_CLIENT_ID: agera-backend
+    volumes:
+      - uploads:/uploads
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      keycloak:
+        condition: service_healthy
+    logging: *logging
+
+  proxy:
+    image: nginx:1.28-alpine
+    restart: unless-stopped
+    environment:
+      PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env.production}
+    ports:
+      - "${HTTP_PORT:-80}:80"
+      - "${HTTPS_PORT:-443}:443"
+    volumes:
+      - ./docker/nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./docker/nginx/certs:/etc/nginx/certs:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+    depends_on:
+      backend:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    logging: *logging
+
+volumes:
+  postgres_data:
+  uploads:

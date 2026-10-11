@@ -7,7 +7,10 @@ export interface DatabaseConfig {
 }
 
 export interface KeycloakConfig {
+  /** Public realm URL; must equal the `iss` claim of issued tokens. */
   realmUrl: string;
+  /** Where signing keys are fetched; may be an internal URL when Keycloak sits behind a proxy. */
+  jwksUrl: string;
   clientId: string;
 }
 
@@ -22,6 +25,8 @@ export interface StorageConfig {
 
 export interface AppConfig {
   port: number;
+  /** Path prefix for all API routes, e.g. `api` behind the production reverse proxy; empty = none. */
+  apiPrefix: string;
   /** Serve OpenAPI docs at /api/docs. Defaults to on unless NODE_ENV=production. */
   swaggerEnabled: boolean;
   storage: StorageConfig;
@@ -44,8 +49,18 @@ function storageDriver(value: string): StorageDriver {
   return value;
 }
 
+function keycloakConfig(): KeycloakConfig {
+  const realmUrl = required('KEYCLOAK_REALM_URL').replace(/\/+$/, '');
+  return {
+    realmUrl,
+    jwksUrl: process.env.KEYCLOAK_JWKS_URL || `${realmUrl}/protocol/openid-connect/certs`,
+    clientId: required('KEYCLOAK_CLIENT_ID'),
+  };
+}
+
 export default (): AppConfig => ({
   port: Number(process.env.PORT ?? 3000),
+  apiPrefix: (process.env.API_PREFIX ?? '').replace(/^\/+|\/+$/g, ''),
   swaggerEnabled: process.env.SWAGGER_ENABLED
     ? process.env.SWAGGER_ENABLED === 'true'
     : process.env.NODE_ENV !== 'production',
@@ -60,8 +75,5 @@ export default (): AppConfig => ({
     password: required('DB_PASSWORD'),
     name: required('DB_NAME'),
   },
-  keycloak: {
-    realmUrl: required('KEYCLOAK_REALM_URL').replace(/\/+$/, ''),
-    clientId: required('KEYCLOAK_CLIENT_ID'),
-  },
+  keycloak: keycloakConfig(),
 });

@@ -1,0 +1,79 @@
+# Reverse proxy for Agera Symphony. The nginx image renders this template at start-up and
+# substitutes ${PUBLIC_URL}; nginx variables ($host, ...) are left untouched.
+#   /api/       -> NestJS backend (REST API, Swagger UI at /api/docs)
+#   /auth/      -> Keycloak (login, tokens, admin console)
+
+server_tokens off;
+
+# Docker's embedded DNS; re-resolves containers after they are recreated.
+resolver 127.0.0.11 valid=10s ipv6=off;
+
+server {
+    listen 80 default_server;
+    server_name _;
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    location / {
+        return 301 ${PUBLIC_URL}$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl default_server;
+    http2 on;
+    server_name _;
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+    ssl_protocols       TLSv1.2 TLSv1.3;
+    ssl_session_cache   shared:SSL:10m;
+    ssl_session_timeout 1d;
+
+    add_header X-Content-Type-Options nosniff always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+
+    # Photos are limited to 10 MB by the API; allow for multipart overhead.
+    client_max_body_size 11m;
+
+    proxy_http_version 1.1;
+    proxy_set_header Host              $http_host;
+    proxy_set_header X-Real-IP         $remote_addr;
+    proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_set_header X-Forwarded-Host  $http_host;
+
+    location = / {
+        return 302 /api/docs;
+    }
+
+    location /api/ {
+        set $backend http://backend:3000;
+        proxy_pass $backend;
+        proxy_read_timeout 60s;
+    }
+
+    location /auth/ {
+        set $keycloak http://keycloak:8080;
+        proxy_pass $keycloak;
+        proxy_buffer_size 128k;
+        proxy_buffers 4 256k;
+        proxy_busy_buffers_size 256k;
+    }
+
+    # To limit the Keycloak admin console to the admin network, uncomment and adjust:
+    # location /auth/admin/ {
+    #     allow 192.168.1.0/24;
+    #     deny all;
+    #     set $keycloak http://keycloak:8080;
+    #     proxy_pass $keycloak;
+    # }
+
+    location / {
+        return 404;
+    }
+}
