@@ -9,3 +9,5 @@ migrations
 .env.*
 *.md
 *.tar.gz
+frontend/node_modules
+frontend/dist

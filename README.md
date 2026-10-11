@@ -345,6 +345,53 @@ curl -s -H "X-API-Key: $KEY" 'http://localhost:3000/portal/sync/overview?limit=5
 curl -i -H "X-API-Key: $KEY" -X POST http://localhost:3000/work-orders      # 403 (read-only)
 ```
 
+### Financials, DSR and Nexus (Phase 10)
+
+All routes are versioned under `/v1` (behind the production proxy: `/api/v1/...`). Bearer token
+only; API keys get 403.
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/v1/financials/pnl?modelId=&fiscalYear=&period=` | Projected vs. actual per period and category, plus totals. `period` is `2026`, `2026-Q1` or `2026-01`; without `modelId` only `approved` models count |
+| POST/GET | `/v1/financials/models` | Create / list financial models (`draft`, `approved`, `archived`) |
+| GET | `/v1/financials/models/:id` | One model |
+| PATCH | `/v1/financials/models/:id/status` | Change model status |
+| POST/GET | `/v1/financials/models/:id/line-items` | Add / list line items (`revenue`, `cogs`, `opex`, `license_fee`) |
+| PATCH | `/v1/financials/line-items/:id` | Update amounts (record actuals) |
+| GET | `/v1/nexus/dsr-status?windowDays=30&dsrId=` | Active DSRs, per-type activity counts, per-stakeholder status (`accepted` / `rejected` / `engaged`) |
+| POST | `/v1/nexus/dsr-activities` | Record a stakeholder activity (`view`, `download`, `comment`, `terms_accepted`, `terms_rejected`) |
+| POST | `/v1/nexus/command` | Command Bar input `{command, contextRoute}`; returns `{intent, navigateTo, parameters, context}` |
+| POST | `/v1/nexus/voice-event` | Multipart `file` (webm, ogg, wav, mp3, m4a; max 5 MB) + `contextRoute`; stored as `pending` |
+| GET | `/v1/nexus/voice-events/:id` | Poll a voice event's processing state |
+
+Amounts are decimal strings with 2 decimals. `actualAmount` stays `null` until actuals are
+recorded; `variance = actual - projected` is computed by PostgreSQL and is `null` without actuals,
+so P&L variance only counts lines that have actuals.
+
+**Row-level security.** The four V6 tables (`financial_models`, `financial_line_items`,
+`dsr_activities`, `nexus_voice_events`) have PostgreSQL RLS policies on
+`app.current_tenant`. The backend sets it per transaction (`TenantTransaction`, using
+`set_config(..., true)`), so the value never outlives the transaction on a pooled connection.
+Without it the application role sees no rows at all. The migration owner bypasses RLS (table
+owner), so never run the backend as the owner.
+
+**Web app (`frontend/`).** React + TypeScript (Vite): P&L overview table and a global
+`Cmd+K` / `Ctrl+K` command bar with DSR tracking. It logs in with the public Keycloak client
+`agera-frontend` (PKCE). Development, with the backend on :3000:
+
+```bash
+cd frontend
+docker run --rm -it --network host -v "$PWD:/app" -w /app node:22-alpine sh -c "npm ci && npm run dev -- --host"
+# http://localhost:5173 (the dev server maps /api to the backend)
+```
+
+An existing dev Keycloak (realm imported before Phase 10) needs the client added once; see
+DEPLOYMENT.md, "Agera Nexus web app and voice processing" (use `--server http://localhost:8080`
+and redirect `http://localhost:5173/*`).
+
+**Whisper.** `whisper-local` is a placeholder container (profile `voice`, not started by
+default): `docker compose -f docker/docker-compose.yml --profile voice up -d whisper-local`.
+
 ### Media storage drivers
 
 All file access goes through `StorageService` (`put` / `get` / `delete` on keys like
@@ -380,6 +427,9 @@ Apply the migrations your database doesn't have yet, in order, without losing da
 ```bash
 docker compose --env-file .env -f docker/docker-compose.yml exec -T postgres \
   psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V5__api_keys_and_portal_sync.sql
+# Phase 10
+docker compose -f docker/docker-compose.yml exec -T postgres \
+  psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V6__financials_dsr_nexus.sql
 ```
 
 Coming from Phase 2, recreate the volumes once (`down -v`) so the new seed and realm users are

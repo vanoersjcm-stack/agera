@@ -199,6 +199,7 @@ cmd_up() {
   info "Agera Symphony is running"
   cat <<INFO
     API:            $url/api
+    Web app:        $url/
     Swagger UI:     $url/api/docs
     Keycloak:       $url/auth  (admin console: $url/auth/admin, user ${ENV[KEYCLOAK_ADMIN]})
     Next (first install only): ./deploy.sh create-admin --email <you@company.eu> --tenant-name <Company> --tenant-domain <company.eu>

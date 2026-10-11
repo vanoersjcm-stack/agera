@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { VersioningType } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module.js';
@@ -12,6 +13,7 @@ async function bootstrap(): Promise<void> {
   if (apiPrefix) {
     app.setGlobalPrefix(apiPrefix);
   }
+  app.enableVersioning({ type: VersioningType.URI });
   if (config.get<boolean>('swaggerEnabled')) {
     setupSwagger(app);
   }

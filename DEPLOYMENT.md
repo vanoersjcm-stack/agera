@@ -148,9 +148,10 @@ On a fresh server this:
 2. validates `.env.production`;
 3. creates the self-signed certificate if needed;
 4. validates `docker-compose.prod.yml`;
-5. pulls the PostgreSQL, Keycloak and Nginx images and builds the backend image;
+5. pulls the PostgreSQL and Keycloak images and builds the backend image and the proxy image
+   (Nginx plus the Agera Nexus web app);
 6. starts everything in the background: PostgreSQL creates the databases and accounts, the
-   one-shot `migrate` container applies migrations V1 to V5, Keycloak imports the `agera` realm,
+   one-shot `migrate` container applies every migration not yet applied (V1 to V6), Keycloak imports the `agera` realm,
    then the backend and Nginx start;
 7. waits until `https://<server>/api/health` and Keycloak answer (a minute or two the first time).
 
@@ -159,6 +160,7 @@ It ends with:
 ```
 ==> Agera Symphony is running
     API:            https://symphony.example.lan/api
+    Web app:        https://symphony.example.lan/
     Swagger UI:     https://symphony.example.lan/api/docs
     Keycloak:       https://symphony.example.lan/auth  (admin console: .../auth/admin, user admin)
 ```
@@ -246,6 +248,36 @@ Poll again straight away while `hasMore` is `true`. Photo links in responses (`u
 include the `/api` prefix: download them with the same `X-API-Key` header.
 
 ---
+
+## Agera Nexus web app and voice processing
+
+The web app (financial projections, DSR activity, `Cmd+K` / `Ctrl+K` command bar) is served at
+`https://<server>/`. It logs in through Keycloak with the public `agera-frontend` client (PKCE),
+which the realm import creates on a fresh install.
+
+**Installs created before Phase 10:** Keycloak only imports the realm on its first start, so add
+the client once by hand (replace the address):
+
+```bash
+./deploy.sh compose exec keycloak sh -c '
+  /opt/keycloak/bin/kcadm.sh config credentials --server http://localhost:8080/auth --realm master --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD" &&
+  /opt/keycloak/bin/kcadm.sh create clients -r agera -s clientId=agera-frontend -s publicClient=true \
+    -s standardFlowEnabled=true -s directAccessGrantsEnabled=false \
+    -s "redirectUris=[\"https://symphony.example.lan/*\"]" -s "webOrigins=[\"https://symphony.example.lan\"]" \
+    -s "attributes={\"pkce.code.challenge.method\":\"S256\"}"'
+```
+
+then copy the `agera-backend-audience` and `tenant_id` mappers from `agera-backend` to it in the
+admin console (Clients → agera-frontend → Client scopes → Dedicated scope → Add mapper).
+
+**Voice clips** (`POST /api/v1/nexus/voice-event`) are stored in the `uploads` volume under
+`<tenantId>/voice/` and queued with status `pending`. The `whisper-local` container is a
+placeholder for local, open-source Whisper transcription; nothing leaves the server. It is not
+started by default and the backend does not call it yet:
+
+```bash
+./deploy.sh compose --profile voice up -d whisper-local   # downloads the model on first start
+```
 
 ## Operations
 

@@ -72,6 +72,7 @@ services:
       KC_HEALTH_ENABLED: "true"
       # Substituted into the realm file on import.
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?Set KEYCLOAK_CLIENT_SECRET in .env.production}
+      PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env.production}
     volumes:
       - ./docker/keycloak/prod/realm-agera.json:/opt/keycloak/data/import/realm-agera.json:ro
     healthcheck:
@@ -127,7 +128,10 @@ services:
     logging: *logging
 
   proxy:
-    image: nginx:1.28-alpine
+    build:
+      context: .
+      dockerfile: docker/nginx/Dockerfile
+    image: agera-symphony-proxy:latest
     restart: unless-stopped
     environment:
       PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env.production}
@@ -149,6 +153,21 @@ services:
         condition: service_healthy
     logging: *logging
 
+  # Placeholder for local voice-to-action processing (open-source Whisper, runs fully on this server;
+  # no audio leaves the machine). Not started by default and not yet called by the backend: voice
+  # events wait in status 'pending'. Start with: ./deploy.sh compose --profile voice up -d whisper-local
+  whisper-local:
+    image: onerahmet/openai-whisper-asr-webservice:v1.10.0
+    profiles: ["voice"]
+    restart: unless-stopped
+    environment:
+      ASR_ENGINE: faster_whisper
+      ASR_MODEL: ${WHISPER_MODEL:-base}
+    volumes:
+      - whisper_models:/root/.cache
+    logging: *logging
+
 volumes:
   postgres_data:
   uploads:
+  whisper_models:

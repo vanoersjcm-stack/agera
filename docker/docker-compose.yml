@@ -18,6 +18,7 @@ services:
       - ../migrations/V3__retailcare_initial_schema.sql:/docker-entrypoint-initdb.d/12_V3__retailcare_initial_schema.sql:ro
       - ../migrations/V4__retailcare_reports_and_media.sql:/docker-entrypoint-initdb.d/13_V4__retailcare_reports_and_media.sql:ro
       - ../migrations/V5__api_keys_and_portal_sync.sql:/docker-entrypoint-initdb.d/14_V5__api_keys_and_portal_sync.sql:ro
+      - ../migrations/V6__financials_dsr_nexus.sql:/docker-entrypoint-initdb.d/15_V6__financials_dsr_nexus.sql:ro
       - ./postgres/dev_seed.sql:/docker-entrypoint-initdb.d/20_dev_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -47,5 +48,21 @@ services:
       postgres:
         condition: service_healthy
 
+  # Placeholder for local voice-to-action processing (open-source Whisper, runs fully on this machine).
+  # Not started by default and not yet called by the backend: voice events wait in status 'pending'.
+  # Start with: docker compose -f docker/docker-compose.yml --profile voice up -d whisper-local
+  whisper-local:
+    image: onerahmet/openai-whisper-asr-webservice:v1.10.0
+    profiles: ["voice"]
+    restart: unless-stopped
+    environment:
+      ASR_ENGINE: faster_whisper
+      ASR_MODEL: base
+    ports:
+      - "127.0.0.1:${WHISPER_PORT:-9000}:9000"
+    volumes:
+      - whisper_models:/root/.cache
+
 volumes:
   postgres_data:
+  whisper_models:

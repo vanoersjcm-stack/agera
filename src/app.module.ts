@@ -4,6 +4,8 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
 import configuration from './config/configuration.js';
 import { AuthModule } from './modules/auth/auth.module.js';
 import { CoreModule } from './modules/core/core.module.js';
+import { FinancialsModule } from './modules/financials/financials.module.js';
+import { NexusModule } from './modules/nexus/nexus.module.js';
 import { PortalModule } from './modules/portal/portal.module.js';
 import { RetailCareModule } from './modules/retailcare/retailcare.module.js';
 import { UserModule } from './modules/user/user.module.js';
@@ -19,6 +21,8 @@ import { WorkOrdersModule } from './modules/work-orders/work-orders.module.js';
     WorkOrdersModule,
     RetailCareModule,
     PortalModule,
+    FinancialsModule,
+    NexusModule,
   ],
 })
 export class AppModule {}

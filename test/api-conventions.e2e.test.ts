@@ -114,6 +114,17 @@ describe('OpenAPI document', () => {
       '/api-keys/{id}': ['delete'],
       '/portal/sync/overview': ['get'],
       '/visits/{id}/summary': ['get'],
+      '/v1/financials/pnl': ['get'],
+      '/v1/financials/models': ['get', 'post'],
+      '/v1/financials/models/{id}': ['get'],
+      '/v1/financials/models/{id}/status': ['patch'],
+      '/v1/financials/models/{id}/line-items': ['get', 'post'],
+      '/v1/financials/line-items/{id}': ['patch'],
+      '/v1/nexus/dsr-status': ['get'],
+      '/v1/nexus/dsr-activities': ['post'],
+      '/v1/nexus/command': ['post'],
+      '/v1/nexus/voice-event': ['post'],
+      '/v1/nexus/voice-events/{id}': ['get'],
     };
     assert.match(document.openapi, /^3\./);
     assert.deepEqual(Object.keys(document.paths).sort(), Object.keys(expected).sort());
