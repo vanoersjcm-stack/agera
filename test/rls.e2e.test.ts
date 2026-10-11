@@ -327,6 +327,9 @@ describe('Phase 10: financials, DSR activity and Nexus voice events (RLS)', () =
       await record('Buyer@Retailer.example', 'view');
       await record('buyer@retailer.example', 'terms_accepted');
       await record('cfo@retailer.example', 'download');
+      await record('cfo@retailer.example', 'opened');
+      await record('cfo@retailer.example', 'zone_viewed');
+      await record('cfo@retailer.example', 'briefing_played');
       await record('legal@retailer.example', 'terms_accepted');
       await record('legal@retailer.example', 'terms_rejected');
 
@@ -334,8 +337,17 @@ describe('Phase 10: financials, DSR activity and Nexus voice events (RLS)', () =
       assert.equal(status.status, 200);
       assert.deepEqual(status.body.summary, { activeDsrs: 1, stakeholders: 3, accepted: 1, rejected: 1, pending: 1 });
       const [dsr] = status.body.dsrs;
-      assert.equal(dsr.activityCount, 5);
-      assert.deepEqual(dsr.activityCounts, { view: 1, download: 1, comment: 0, terms_accepted: 2, terms_rejected: 1 });
+      assert.equal(dsr.activityCount, 8);
+      assert.deepEqual(dsr.activityCounts, {
+        opened: 1,
+        zone_viewed: 1,
+        briefing_played: 1,
+        view: 1,
+        download: 1,
+        comment: 0,
+        terms_accepted: 2,
+        terms_rejected: 1,
+      });
       const byEmail = Object.fromEntries(dsr.stakeholders.map((s) => [s.email, s.status]));
       assert.deepEqual(byEmail, {
         'buyer@retailer.example': 'accepted',

@@ -359,7 +359,7 @@ only; API keys get 403.
 | POST/GET | `/v1/financials/models/:id/line-items` | Add / list line items (`revenue`, `cogs`, `opex`, `license_fee`) |
 | PATCH | `/v1/financials/line-items/:id` | Update amounts (record actuals) |
 | GET | `/v1/nexus/dsr-status?windowDays=30&dsrId=` | Active DSRs, per-type activity counts, per-stakeholder status (`accepted` / `rejected` / `engaged`) |
-| POST | `/v1/nexus/dsr-activities` | Record a stakeholder activity (`view`, `download`, `comment`, `terms_accepted`, `terms_rejected`) |
+| POST | `/v1/nexus/dsr-activities` | Record a stakeholder activity (`opened`, `zone_viewed`, `briefing_played`, `view`, `download`, `comment`, `terms_accepted`, `terms_rejected`) |
 | POST | `/v1/nexus/command` | Command Bar input `{command, contextRoute}`; returns `{intent, navigateTo, parameters, context}` |
 | POST | `/v1/nexus/voice-event` | Multipart `file` (webm, ogg, wav, mp3, m4a; max 5 MB) + `contextRoute`; stored as `pending` |
 | GET | `/v1/nexus/voice-events/:id` | Poll a voice event's processing state |
@@ -430,6 +430,8 @@ docker compose --env-file .env -f docker/docker-compose.yml exec -T postgres \
 # Phase 10
 docker compose -f docker/docker-compose.yml exec -T postgres \
   psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V6__financials_dsr_nexus.sql
+docker compose -f docker/docker-compose.yml exec -T postgres \
+  psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V7__dsr_activity_types.sql
 ```
 
 Coming from Phase 2, recreate the volumes once (`down -v`) so the new seed and realm users are

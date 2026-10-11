@@ -151,7 +151,7 @@ On a fresh server this:
 5. pulls the PostgreSQL and Keycloak images and builds the backend image and the proxy image
    (Nginx plus the Agera Nexus web app);
 6. starts everything in the background: PostgreSQL creates the databases and accounts, the
-   one-shot `migrate` container applies every migration not yet applied (V1 to V6), Keycloak imports the `agera` realm,
+   one-shot `migrate` container applies every migration not yet applied (V1 to V7), Keycloak imports the `agera` realm,
    then the backend and Nginx start;
 7. waits until `https://<server>/api/health` and Keycloak answer (a minute or two the first time).
 

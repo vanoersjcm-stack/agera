@@ -77,7 +77,16 @@ export class DsrStateDto {
   @ApiProperty({
     type: 'object',
     additionalProperties: { type: 'integer' },
-    example: { view: 4, download: 1, comment: 0, terms_accepted: 1, terms_rejected: 0 },
+    example: {
+      opened: 3,
+      zone_viewed: 5,
+      briefing_played: 1,
+      view: 4,
+      download: 1,
+      comment: 0,
+      terms_accepted: 1,
+      terms_rejected: 0,
+    },
   })
   activityCounts!: Record<string, number>;
 

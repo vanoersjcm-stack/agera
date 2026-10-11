@@ -1,6 +1,15 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
-export const DSR_ACTIVITY_TYPES = ['view', 'download', 'comment', 'terms_accepted', 'terms_rejected'] as const;
+export const DSR_ACTIVITY_TYPES = [
+  'opened',
+  'zone_viewed',
+  'briefing_played',
+  'view',
+  'download',
+  'comment',
+  'terms_accepted',
+  'terms_rejected',
+] as const;
 export type DsrActivityType = (typeof DSR_ACTIVITY_TYPES)[number];
 
 export function isDsrActivityType(value: unknown): value is DsrActivityType {
