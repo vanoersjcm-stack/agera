@@ -283,6 +283,157 @@
       "realmRoles": [
         "External_Client"
       ]
+    },
+    {
+      "id": "3c992143-f2a9-5b60-999e-75007534c784",
+      "username": "m.vanstrien",
+      "email": "m.vanstrien@aerobrand.nl",
+      "firstName": "Marc",
+      "lastName": "van Strien",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": [
+          "a9e1a000-0000-4000-8000-000000000001"
+        ]
+      },
+      "realmRoles": [
+        "admin",
+        "user"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "m.vanstrien",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "80992233-8836-595d-a86c-f0edf56eb842",
+      "username": "s.dejong",
+      "email": "s.dejong@aerobrand.nl",
+      "firstName": "Sanne",
+      "lastName": "de Jong",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": [
+          "a9e1a000-0000-4000-8000-000000000001"
+        ]
+      },
+      "realmRoles": [
+        "user"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "s.dejong",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "6e995e4c-52c5-52ed-aa9e-029d3c307971",
+      "username": "p.vandenberg",
+      "email": "p.vandenberg@aerobrand.nl",
+      "firstName": "Peter",
+      "lastName": "van den Berg",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": [
+          "a9e1a000-0000-4000-8000-000000000001"
+        ]
+      },
+      "realmRoles": [
+        "user"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "p.vandenberg",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "78de3695-2af2-5f7b-8abe-b9eb9f9e5e6f",
+      "username": "l.hermans",
+      "email": "l.hermans@aerobrand.nl",
+      "firstName": "Lotte",
+      "lastName": "Hermans",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": [
+          "a9e1a000-0000-4000-8000-000000000001"
+        ]
+      },
+      "realmRoles": [
+        "user"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "l.hermans",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "dffbcd9a-42fd-57fd-8e22-337d6e1ca18e",
+      "username": "a.visser",
+      "email": "a.visser@technova-electronics.nl",
+      "firstName": "Anouk",
+      "lastName": "Visser",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": [
+          "a9e1a000-0000-4000-8000-000000000001"
+        ],
+        "client_id": [
+          "a5400862-a6eb-5d5c-92ed-a822d4b3a47e"
+        ]
+      },
+      "realmRoles": [
+        "External_Client"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "a.visser",
+          "temporary": false
+        }
+      ]
+    },
+    {
+      "id": "597e9340-bd85-54fd-8a3c-718650bb9f06",
+      "username": "rj.meijer",
+      "email": "rj.meijer@lumina-care.com",
+      "firstName": "Robert-Jan",
+      "lastName": "Meijer",
+      "enabled": true,
+      "emailVerified": true,
+      "attributes": {
+        "tenant_id": [
+          "a9e1a000-0000-4000-8000-000000000001"
+        ],
+        "client_id": [
+          "3a71daaa-fc0e-5e63-adec-6fb05cb024e4"
+        ]
+      },
+      "realmRoles": [
+        "External_Client"
+      ],
+      "credentials": [
+        {
+          "type": "password",
+          "value": "rj.meijer",
+          "temporary": false
+        }
+      ]
     }
   ],
   "components": {

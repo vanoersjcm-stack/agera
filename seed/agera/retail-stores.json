@@ -1,0 +1,86 @@
+[
+  {
+    "account_id": "usr_007",
+    "entity_type": "retail_store",
+    "first_name": "Karel",
+    "last_name": "Bakker",
+    "email": "k.bakker@mediamarkt-amsterdamnoord.nl",
+    "phone_office": "+31 (0)20 714 2000",
+    "phone_mobile": "+31 (0)6 9012 3411",
+    "role": "retail_store_manager",
+    "title": "Winkelchef",
+    "company_name": "MediaMarkt Amsterdam Noord",
+    "store_code": "MM-AMS-01",
+    "address": {
+      "street": "Buikslotermeerplein 240",
+      "postal_code": "1025 XL",
+      "city": "Amsterdam",
+      "country": "Nederland"
+    },
+    "tenant": "agera",
+    "status": "Flagged Anomaly (Promotiedisplay niet opgebouwd)"
+  },
+  {
+    "account_id": "usr_008",
+    "entity_type": "retail_store",
+    "first_name": "Chantal",
+    "last_name": "Evers",
+    "email": "c.evers@mediamarkt-rotterdam.nl",
+    "phone_office": "+31 (0)10 892 1100",
+    "phone_mobile": "+31 (0)6 7712 8804",
+    "role": "retail_store_manager",
+    "title": "Winkelchef",
+    "company_name": "MediaMarkt Rotterdam Centrum",
+    "store_code": "MM-RTM-02",
+    "address": {
+      "street": "Binnenwegplein 60",
+      "postal_code": "3012 AK",
+      "city": "Rotterdam",
+      "country": "Nederland"
+    },
+    "tenant": "agera",
+    "status": "Variance Pending (Vertraagde schapinrichting)"
+  },
+  {
+    "account_id": "usr_009",
+    "entity_type": "retail_store",
+    "first_name": "Martijn",
+    "last_name": "de Wit",
+    "email": "m.dewit@bcc-utrecht.nl",
+    "phone_office": "+31 (0)30 600 3400",
+    "phone_mobile": "+31 (0)6 5509 1238",
+    "role": "retail_store_manager",
+    "title": "Winkelchef",
+    "company_name": "BCC Utrecht Kanaleneiland",
+    "store_code": "BCC-UTR-01",
+    "address": {
+      "street": "Hammarskjöldhof 58",
+      "postal_code": "3527 HB",
+      "city": "Utrecht",
+      "country": "Nederland"
+    },
+    "tenant": "agera",
+    "status": "Compliant"
+  },
+  {
+    "account_id": "usr_010",
+    "entity_type": "retail_store",
+    "first_name": "Eva",
+    "last_name": "Lindeman",
+    "email": "e.lindeman@coolblue-eindhoven.nl",
+    "phone_office": "+31 (0)40 303 1000",
+    "phone_mobile": "+31 (0)6 1123 4902",
+    "role": "retail_store_manager",
+    "title": "Winkelchef",
+    "company_name": "Coolblue XL Eindhoven",
+    "store_code": "CB-EIN-01",
+    "address": {
+      "street": "18 Septemberplein 10",
+      "postal_code": "5611 AL",
+      "city": "Eindhoven",
+      "country": "Nederland"
+    },
+    "tenant": "agera",
+    "status": "Compliant"
+  }
+]

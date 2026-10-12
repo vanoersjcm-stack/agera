@@ -88,7 +88,7 @@ export interface CommandResult {
 }
 
 export interface Anomaly {
-  anomalyType: 'financial_variance' | 'dsr_stagnation';
+  anomalyType: 'financial_variance' | 'dsr_stagnation' | 'store_compliance';
   sourceId: string;
   description: string;
   observedAt: string;
@@ -101,6 +101,26 @@ export interface Anomalies {
   anomalies: Anomaly[];
 }
 
+export interface Agreement {
+  id: string;
+  clientId: string;
+  title: string;
+  status: 'pending_approval' | 'active' | 'expired';
+  documentUrl: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SalesRoom {
+  id: string;
+  clientId: string;
+  agreementId: string | null;
+  roomName: string;
+  status: 'active' | 'archived';
+  createdAt: string;
+  updatedAt: string;
+}
+
 export const api = {
   tenant: () => request<Tenant>('GET', '/tenants/me'),
   models: () => request<FinancialModel[]>('GET', '/v1/financials/models'),
@@ -110,6 +130,8 @@ export const api = {
   },
   dsrStatus: (dsrId?: string) => request<DsrStatus>('GET', `/v1/nexus/dsr-status${dsrId ? `?dsrId=${dsrId}` : ''}`),
   anomalies: () => request<Anomalies>('GET', '/v1/nexus/anomalies'),
+  rooms: () => request<SalesRoom[]>('GET', '/v1/dsrs'),
+  agreements: () => request<Agreement[]>('GET', '/v1/agreements'),
   command: (command: string, contextRoute: string) =>
     request<CommandResult>('POST', '/v1/nexus/command', { command, contextRoute }),
 };

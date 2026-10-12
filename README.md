@@ -426,6 +426,40 @@ app shows the list under **Anomalies** (`#/anomalies`, or type "anomalies" in th
 **Whisper.** `whisper-local` is a placeholder container (profile `voice`, not started by
 default): `docker compose -f docker/docker-compose.yml --profile voice up -d whisper-local`.
 
+### Agera source import, store compliance and portal UX (V9)
+
+`seed/agera/` holds the three Agera source files (internal users, DSR clients, retail stores, all
+`"tenant": "agera"`). `npm run seed:agera` (after `npm run build`) imports them into the tenant with
+domain `agera.local` (`--tenant-domain` to change it). It is idempotent: rows get deterministic IDs
+and a re-run updates them in place. Records whose `tenant` is not `agera` abort the import.
+
+| Source field | Stored as |
+|---|---|
+| internal users | `users` (Keycloak ID = deterministic UUID, matching the dev realm users) |
+| DSR client `contract_value_eur` | an approved `financial_models` row per client (client details in `metadata`) with one `revenue` line, `projected_amount` = contract value, period `<current year>-Q3`, actuals empty |
+| DSR client `active_project` | an active `digital_sales_rooms` row named after the project; `client_id` is a deterministic UUID that the client contact's Keycloak user carries |
+| retail store | `stores` row + one `COMPLETED` visit (field rep: the `field_merchandiser` user) + a visit report |
+| retail store `status` | report `summary`, plus `auditData.complianceStatus` (`flagged_anomaly`, `variance_pending`, `compliant`) and `auditData.finding` |
+
+Migration V9 adds a third anomaly type to `GET /api/v1/nexus/anomalies`: `store_compliance`, raised
+when the latest visit report of a store has a `complianceStatus` other than `compliant`. Like the
+other branches it only returns rows for the transaction's tenant and internal scope.
+
+Dev realm users from the source files (password = username): `m.vanstrien` (admin), `s.dejong`,
+`p.vandenberg`, `l.hermans` (internal, tenant Agera Dev) and the client contacts `a.visser`
+(TechNova room) and `rj.meijer` (Lumina room), role `External_Client`.
+
+The web app now opens on a dashboard and shows:
+- a context badge in the top bar: `[INTERN PLATFORM ADMIN]`, `[INTERN ADMIN]`, `[INTERN TEAM]` or
+  `[CLIENT DSR PORTAL]`, derived from the token roles;
+- breadcrumbs, an empty state and a "Return to Dashboard" action on every view; client users only
+  get Dashboard and My sales rooms, any other address shows a "not part of the client portal" page;
+- a new Sales rooms view (rooms and agreements; clients see only their own);
+- an onboarding tip per view for first-time internal and client users. The tips are fixed texts
+  chosen in the browser from the user's role and the current view (no AI service, nothing leaves
+  the browser). "Assistant: on/off" in the top bar disables or re-enables them; the setting is
+  stored per user in `localStorage`, and turning it back on shows all tips again.
+
 ### Media storage drivers
 
 All file access goes through `StorageService` (`put` / `get` / `delete` on keys like
@@ -469,6 +503,9 @@ docker compose -f docker/docker-compose.yml exec -T postgres \
 # V8 (agreements, DSRs, external clients, anomalies)
 docker compose -f docker/docker-compose.yml exec -T postgres \
   psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V8__agreements_dsrs_external_access.sql
+# V9 (store compliance anomalies)
+docker compose -f docker/docker-compose.yml exec -T postgres \
+  psql -v ON_ERROR_STOP=1 -U agera -d agera_symphony < migrations/V9__store_compliance_anomalies.sql
 ```
 
 V8 also changes the Keycloak realm (role `External_Client`, `client_id` attribute and mapper, users

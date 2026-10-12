@@ -21,6 +21,7 @@ services:
       - ../migrations/V6__financials_dsr_nexus.sql:/docker-entrypoint-initdb.d/15_V6__financials_dsr_nexus.sql:ro
       - ../migrations/V7__dsr_activity_types.sql:/docker-entrypoint-initdb.d/16_V7__dsr_activity_types.sql:ro
       - ../migrations/V8__agreements_dsrs_external_access.sql:/docker-entrypoint-initdb.d/17_V8__agreements_dsrs_external_access.sql:ro
+      - ../migrations/V9__store_compliance_anomalies.sql:/docker-entrypoint-initdb.d/18_V9__store_compliance_anomalies.sql:ro
       - ./postgres/dev_seed.sql:/docker-entrypoint-initdb.d/20_dev_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]

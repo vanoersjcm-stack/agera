@@ -1,0 +1,46 @@
+[
+  {
+    "account_id": "usr_005",
+    "entity_type": "dsr_client",
+    "first_name": "Anouk",
+    "last_name": "Visser",
+    "email": "a.visser@technova-electronics.nl",
+    "phone_office": "+31 (0)30 219 4000",
+    "phone_mobile": "+31 (0)6 1092 3381",
+    "role": "dsr_client_user",
+    "title": "Trade Marketing Manager",
+    "company_name": "TechNova Electronics B.V.",
+    "vat_number": "NL859403211B01",
+    "address": {
+      "street": "Papendorpseweg 75",
+      "postal_code": "3528 BJ",
+      "city": "Utrecht",
+      "country": "Nederland"
+    },
+    "tenant": "agera",
+    "active_project": "Premium Audio Launch Q3/Q4",
+    "contract_value_eur": 240000.00
+  },
+  {
+    "account_id": "usr_006",
+    "entity_type": "dsr_client",
+    "first_name": "Robert-Jan",
+    "last_name": "Meijer",
+    "email": "rj.meijer@lumina-care.com",
+    "phone_office": "+31 (0)10 404 8820",
+    "phone_mobile": "+31 (0)6 3401 9925",
+    "role": "dsr_client_user",
+    "title": "National Account Manager Retail",
+    "company_name": "Lumina Home & Beauty Care B.V.",
+    "vat_number": "NL810293847B01",
+    "address": {
+      "street": "Weena 505",
+      "postal_code": "3013 AL",
+      "city": "Rotterdam",
+      "country": "Nederland"
+    },
+    "tenant": "agera",
+    "active_project": "Planogram Compliance & Actieweken",
+    "contract_value_eur": 185000.00
+  }
+]

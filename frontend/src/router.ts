@@ -8,7 +8,7 @@ export interface Route {
 
 function current(): Route {
   const [path, query = ''] = window.location.hash.replace(/^#/, '').split('?');
-  return { path: path || '/financials', params: new URLSearchParams(query) };
+  return { path: path || '/dashboard', params: new URLSearchParams(query) };
 }
 
 export function navigate(to: string): void {

@@ -307,6 +307,27 @@ realm `agera`):
    → By configuration → User Attribute: name and user attribute `client_id`, token claim name
    `client_id`, claim JSON type String, add to access token on.
 
+## Importing the Agera source data
+
+The release contains the Agera source files in `seed/agera/` (internal users, DSR clients with
+contract value and active project, retail stores with their compliance status). Import them into
+an existing tenant; running it again updates the same rows instead of duplicating them:
+
+```bash
+./deploy.sh seed-agera --tenant-domain agera.example.eu
+# also create the six matching Keycloak users (four internal, two External_Client contacts):
+./deploy.sh seed-agera --tenant-domain agera.example.eu --keycloak-users
+```
+
+`--keycloak-users` creates the users with the tenant's `tenant_id` (and the clients' `client_id`)
+and skips usernames that already exist. No passwords are set: give each user an initial password in
+the admin console (Users → user → Credentials, "Temporary" on). The users must be created this way
+(or with the same IDs) to be linked to the imported user rows; a user created by hand with the same
+e-mail address is refused at login because the address is already taken.
+
+What lands where is described in README.md, "Agera source import". Non-compliant stores show up
+as `store_compliance` anomalies; migration V9 is applied by `./deploy.sh` like any other.
+
 ## Operations
 
 All `docker compose` commands need the production settings; `./deploy.sh compose ...` adds them.

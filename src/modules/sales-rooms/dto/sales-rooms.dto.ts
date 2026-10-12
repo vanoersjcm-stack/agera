@@ -2,7 +2,7 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AGREEMENT_STATUSES, type AgreementStatus } from '../entities/agreement.entity.js';
 import { DSR_STATUSES, type DsrStatusValue } from '../entities/digital-sales-room.entity.js';
 
-export const ANOMALY_TYPES = ['financial_variance', 'dsr_stagnation'] as const;
+export const ANOMALY_TYPES = ['financial_variance', 'dsr_stagnation', 'store_compliance'] as const;
 export type AnomalyType = (typeof ANOMALY_TYPES)[number];
 
 export class CreateAgreementDto {
@@ -64,7 +64,7 @@ export class DigitalSalesRoomDto {
 
 export class AnomalyDto {
   @ApiProperty({ enum: ANOMALY_TYPES }) anomalyType!: AnomalyType;
-  @ApiProperty({ format: 'uuid', description: 'financial_line_items.id or digital_sales_rooms.id' }) sourceId!: string;
+  @ApiProperty({ format: 'uuid', description: 'financial_line_items.id, digital_sales_rooms.id or stores.id' }) sourceId!: string;
   @ApiProperty({ example: 'P&L variance exceeded 10%: revenue 2026-01 -150.00 EUR (-15.0%)' }) description!: string;
   @ApiProperty({ format: 'date-time', description: 'Last change of the line, or last stakeholder interaction' })
   observedAt!: Date;

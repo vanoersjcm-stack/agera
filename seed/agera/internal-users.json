@@ -1,0 +1,82 @@
+[
+  {
+    "account_id": "usr_001",
+    "entity_type": "internal_user",
+    "first_name": "Marc",
+    "last_name": "van Strien",
+    "email": "m.vanstrien@aerobrand.nl",
+    "phone_office": "+31 (0)20 584 9001",
+    "phone_mobile": "+31 (0)6 5123 9841",
+    "role": "c_suite_executive",
+    "title": "Operations Director",
+    "company_name": "AeroBrand Retail Solutions B.V.",
+    "address": {
+      "street": "Keizersgracht 482",
+      "postal_code": "1016 EG",
+      "city": "Amsterdam",
+      "country": "Nederland"
+    },
+    "tenant": "agera",
+    "focus": "Control Tower, Silent Briefings, High-level Governance"
+  },
+  {
+    "account_id": "usr_002",
+    "entity_type": "internal_user",
+    "first_name": "Sanne",
+    "last_name": "de Jong",
+    "email": "s.dejong@aerobrand.nl",
+    "phone_office": "+31 (0)20 584 9012",
+    "phone_mobile": "+31 (0)6 2384 1102",
+    "role": "middle_management",
+    "title": "Regio Manager Noord & West",
+    "company_name": "AeroBrand Retail Solutions B.V.",
+    "address": {
+      "street": "Keizersgracht 482",
+      "postal_code": "1016 EG",
+      "city": "Amsterdam",
+      "country": "Nederland"
+    },
+    "tenant": "agera",
+    "focus": "Winkelvloeruitrol, Merchandising compliance, Zero-noise reporting"
+  },
+  {
+    "account_id": "usr_003",
+    "entity_type": "internal_user",
+    "first_name": "Peter",
+    "last_name": "van den Berg",
+    "email": "p.vandenberg@aerobrand.nl",
+    "phone_office": "+31 (0)20 584 9015",
+    "phone_mobile": "+31 (0)6 8712 4439",
+    "role": "middle_management",
+    "title": "Regio Manager Zuid & Oost",
+    "company_name": "AeroBrand Retail Solutions B.V.",
+    "address": {
+      "street": "Keizersgracht 482",
+      "postal_code": "1016 EG",
+      "city": "Amsterdam",
+      "country": "Nederland"
+    },
+    "tenant": "agera",
+    "focus": "Store-level escalaties, Vendor Representation Guard"
+  },
+  {
+    "account_id": "usr_004",
+    "entity_type": "internal_user",
+    "first_name": "Lotte",
+    "last_name": "Hermans",
+    "email": "l.hermans@aerobrand.nl",
+    "phone_office": "+31 (0)20 584 9020",
+    "phone_mobile": "+31 (0)6 4190 8213",
+    "role": "field_merchandiser",
+    "title": "Senior Field Representative",
+    "company_name": "AeroBrand Retail Solutions B.V.",
+    "address": {
+      "street": "Keizersgracht 482",
+      "postal_code": "1016 EG",
+      "city": "Amsterdam",
+      "country": "Nederland"
+    },
+    "tenant": "agera",
+    "focus": "Audit-fotostroom, Schapcontrole, Ingestion op de vloer"
+  }
+]

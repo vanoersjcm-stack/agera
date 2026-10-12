@@ -5,6 +5,9 @@
 #   ./deploy.sh [up]                    validate, build and (re)start the stack, apply migrations
 #   ./deploy.sh create-admin --email <e> --tenant-name <n> --tenant-domain <d> [--first-name <f>] [--last-name <l>]
 #                                       create the first tenant and its platform-admin user
+#   ./deploy.sh seed-agera --tenant-domain <d> [--keycloak-users]
+#                                       import seed/agera/*.json into that tenant (idempotent); optionally
+#                                       create the matching Keycloak users (no passwords set)
 #   ./deploy.sh status                  show containers and health
 #   ./deploy.sh compose <args...>       any docker compose command with the production settings
 set -euo pipefail
@@ -275,6 +278,51 @@ KCADM
 INFO
 }
 
+cmd_seed_agera() {
+  local tenant_domain="" keycloak_users=false
+  while (($# > 0)); do
+    case $1 in
+      --tenant-domain) tenant_domain=${2:-}; shift 2 ;;
+      --keycloak-users) keycloak_users=true; shift ;;
+      *) die "unknown option: $1" ;;
+    esac
+  done
+  [[ -n $tenant_domain ]] || die "usage: ./deploy.sh seed-agera --tenant-domain <d> [--keycloak-users]"
+  tenant_domain=${tenant_domain,,}
+
+  check_tools
+  validate_env
+  [[ $(container_state backend) == running* && $(container_state postgres) == running* ]] \
+    || die "the stack is not running; run ./deploy.sh first"
+
+  info "Importing seed/agera into tenant $tenant_domain"
+  compose exec -T backend node dist/seed/agera-seed.js --tenant-domain "$tenant_domain" --dir seed/agera
+
+  $keycloak_users || return 0
+  local tenant_id
+  tenant_id=$(compose exec -T postgres psql -X -q -t -A -v ON_ERROR_STOP=1 \
+    -U "${ENV[POSTGRES_USER]}" -d "${ENV[POSTGRES_DB]}" -v domain="$tenant_domain" <<'SQL'
+SELECT id FROM tenants WHERE domain = :'domain';
+SQL
+  )
+  tenant_id=$(echo "$tenant_id" | tr -d '[:space:]')
+  [[ $tenant_id =~ ^[0-9a-f-]{36}$ ]] || die "tenant $tenant_domain not found"
+
+  info "Creating the seeded Keycloak users (existing usernames are skipped)"
+  local users
+  users=$(sed "s/a9e1a000-0000-4000-8000-000000000001/$tenant_id/g" seed/agera/keycloak-users.json)
+  compose exec -T -e AG_USERS="$users" keycloak bash -s <<'KCADM'
+set -euo pipefail
+kc() { /opt/keycloak/bin/kcadm.sh "$@" --config "$CFG"; }
+CFG=$(mktemp)
+trap 'rm -f "$CFG"' EXIT
+kc config credentials --server http://localhost:8080/auth --realm master \
+  --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD" >/dev/null
+printf '%s' "$AG_USERS" | kc create partialImport -r agera -f - >/dev/null
+KCADM
+  info "Done. Set a password for each user in the Keycloak admin console (Users -> Credentials)."
+}
+
 cmd_status() {
   check_tools
   load_env
@@ -285,8 +333,9 @@ case ${1:-up} in
   init-env) shift; cmd_init_env "$@" ;;
   up) cmd_up ;;
   create-admin) shift; cmd_create_admin "$@" ;;
+  seed-agera) shift; cmd_seed_agera "$@" ;;
   status) cmd_status ;;
   compose) shift; check_tools; load_env; compose "$@" ;;
-  -h | --help | help) sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//' ;;
+  -h | --help | help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//' ;;
   *) die "unknown command '$1' (try ./deploy.sh help)" ;;
 esac

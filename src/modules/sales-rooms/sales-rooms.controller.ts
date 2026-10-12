@@ -228,7 +228,9 @@ export class AnomaliesController {
     description:
       '`financial_variance`: a line of an approved model with actuals more than 10% unfavourable vs. projection ' +
       '(revenue/license_fee below, cogs/opex above). `dsr_stagnation`: an active room without stakeholder ' +
-      'interaction (opened, zone_viewed, briefing_played) for more than 7 days. Pull-based; nothing is pushed.',
+      'interaction (opened, zone_viewed, briefing_played) for more than 7 days. `store_compliance`: a store whose ' +
+      'latest visit report has `auditData.complianceStatus` set to anything other than `compliant`. ' +
+      'Pull-based; nothing is pushed.',
   })
   @ApiQuery({ name: 'type', required: false, enum: ANOMALY_TYPES })
   @ApiOkResponse({ type: AnomaliesDto })

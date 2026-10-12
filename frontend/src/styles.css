@@ -44,3 +44,31 @@ select, input { padding: 0.4rem; border: 1px solid #c4c9d4; border-radius: 4px; 
 .cmdk-dsr .kpis { margin: 0.5rem 0; font-size: 0.85rem; }
 .cmdk-context { font-size: 0.75rem; color: #5a6475; padding: 0.4rem 1rem; background: #f5f6f8; }
 .muted { color: #6b7280; font-size: 0.85em; }
+.context-badge { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.04em; padding: 0.2rem 0.55rem; border-radius: 4px; white-space: nowrap; }
+.context-badge.internal { background: #2f4b8a; color: #fff; }
+.context-badge.external { background: #f2b705; color: #14213d; }
+.assistant-toggle { background: none; border: 1px solid #3a4b73; color: #c9d4ea; border-radius: 6px; padding: 0.25rem 0.6rem; cursor: pointer; font-size: 0.8rem; }
+.assistant-toggle[aria-pressed='true'] { border-color: #8fb3ff; color: #fff; }
+.breadcrumbs { font-size: 0.85rem; color: #5a6475; margin-bottom: 0.25rem; }
+.breadcrumbs .sep { margin: 0 0.4rem; }
+.view-actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+button.secondary, .button-link { background: #fff; border: 1px solid #c4c9d4; border-radius: 6px; padding: 0.35rem 0.75rem; cursor: pointer; font: inherit; font-size: 0.9rem; color: #1d2433; text-decoration: none; }
+button.secondary:hover, .button-link:hover { background: #eef1f6; }
+.empty-state { background: #fff; border: 1px dashed #c4c9d4; border-radius: 8px; padding: 1.5rem; margin-top: 1rem; text-align: center; }
+.empty-state h2 { font-size: 1.05rem; margin: 0 0 0.5rem; }
+.empty-state p { color: #5a6475; margin: 0 auto 1rem; max-width: 560px; }
+.empty-actions { display: flex; gap: 0.75rem; justify-content: center; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.tile { display: flex; flex-direction: column; gap: 0.35rem; background: #fff; border: 1px solid #e3e6ec; border-radius: 8px; padding: 1rem; color: inherit; text-decoration: none; }
+.tile:hover { border-color: #1f5fbf; }
+.tile strong { font-size: 1.5rem; }
+.tile.text strong { font-size: 1.05rem; }
+.tile span { color: #5a6475; font-size: 0.85rem; }
+.tile.bad strong { color: #b42318; }
+.assistant-tip { background: #eaf1ff; border: 1px solid #b9cdf5; border-left: 4px solid #1f5fbf; border-radius: 6px; padding: 0.8rem 1rem; margin-bottom: 1rem; }
+.assistant-tip p { margin: 0.35rem 0 0.6rem; }
+.assistant-actions { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; font-size: 0.9rem; }
+.assistant-actions button { background: #1f5fbf; color: #fff; border: 0; border-radius: 4px; padding: 0.3rem 0.7rem; cursor: pointer; font: inherit; }
+.assistant-actions button.link-dark { background: none; color: #1f5fbf; padding: 0; text-decoration: underline; }
+.badge.active { background: #d1f0e3; color: #13795b; }
+.badge.expired, .badge.archived { background: #e3e6ec; color: #5a6475; }

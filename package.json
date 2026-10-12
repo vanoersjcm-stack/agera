@@ -9,6 +9,7 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "start": "node --env-file-if-exists=.env dist/main.js",
+    "seed:agera": "node --env-file-if-exists=.env dist/seed/agera-seed.js",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.test.json",
     "test:e2e": "node --env-file-if-exists=.env --test test/*.e2e.test.ts"
   },

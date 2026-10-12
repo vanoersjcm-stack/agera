@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type DsrStatus } from './api';
+import { EmptyState, ViewFrame } from './Layout';
 import { type Route } from './router';
 
 const POLL_MS = 30_000;
@@ -42,14 +43,22 @@ export function DsrView({ route }: { route: Route }) {
   const dsrId = route.params.get('dsrId') ?? undefined;
   const { status, error } = useDsrStatus(dsrId);
   return (
-    <section>
-      <header className="view-header">
-        <h1>DSR activity</h1>
-        {dsrId && <a href="#/dsr">Show all DSRs</a>}
-      </header>
+    <ViewFrame
+      title="DSR activity"
+      crumbs={[{ label: 'DSR activity', href: '#/dsr' }, ...(dsrId ? [{ label: `DSR ${dsrId.slice(0, 8)}` }] : [])]}
+      actions={dsrId && <a href="#/dsr">Show all DSRs</a>}
+    >
       {error && <p className="error">{error}</p>}
+      {!status && !error && <p>Loading…</p>}
       {status && <DsrSummary status={status} />}
-      {status?.dsrs.length === 0 && <p className="empty">No DSR activity in the last {status.windowDays} days.</p>}
+      {status?.dsrs.length === 0 && (
+        <EmptyState
+          title={dsrId ? 'No activity in this room yet' : `No DSR activity in the last ${status.windowDays} days`}
+          action={<a className="button-link" href="#/rooms">View sales rooms</a>}
+        >
+          Stakeholder interactions (opened, zone viewed, briefing played, downloads, comments, terms) appear here as soon as they are recorded.
+        </EmptyState>
+      )}
       {status?.dsrs.map((dsr) => (
         <article key={dsr.dsrId} className="card">
           <h2>
@@ -78,6 +87,6 @@ export function DsrView({ route }: { route: Route }) {
           </table>
         </article>
       ))}
-    </section>
+    </ViewFrame>
   );
 }
