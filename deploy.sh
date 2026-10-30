@@ -186,8 +186,8 @@ cmd_up() {
   compose config --quiet
   info "Pulling base images"
   compose pull --quiet --ignore-buildable
-  info "Building the backend image"
-  compose build --pull backend
+  info "Building the backend and web app images"
+  compose build --pull backend proxy
   info "Starting the stack (migrations run automatically)"
   local started
   started=$(date -u +%Y-%m-%dT%H:%M:%SZ)
