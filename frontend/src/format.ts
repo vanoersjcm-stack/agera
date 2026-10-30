@@ -1,12 +1,5 @@
 import type { Category } from './api';
 
-export const CATEGORY_LABELS: Record<Category, string> = {
-  revenue: 'Revenue',
-  license_fee: 'License fees',
-  cogs: 'Cost of goods sold',
-  opex: 'Operating expenses',
-};
-
 /** Above plan is good for income, bad for costs. */
 const COST_CATEGORIES: Category[] = ['cogs', 'opex'];
 

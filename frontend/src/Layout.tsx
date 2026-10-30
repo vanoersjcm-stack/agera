@@ -1,49 +1,42 @@
 import type { ReactNode } from 'react';
-import { navigate } from './router';
 
 export interface Crumb {
   label: string;
   href?: string;
 }
 
-function ReturnToDashboard() {
-  return (
-    <button className="secondary" onClick={() => navigate('/dashboard')}>
-      ← Return to Dashboard
-    </button>
-  );
-}
-
-/** Common frame for every view: breadcrumbs starting at the dashboard, title, and a way back. */
+/** Common frame for every view: breadcrumb (Suite › Section › Record), title and page actions. */
 export function ViewFrame({
   title,
+  subtitle,
   crumbs = [],
   actions,
   children,
 }: {
   title: string;
+  subtitle?: ReactNode;
   crumbs?: Crumb[];
   actions?: ReactNode;
   children: ReactNode;
 }) {
-  const isDashboard = crumbs.length === 0 && title === 'Dashboard';
-  const trail: Crumb[] = isDashboard ? [{ label: 'Dashboard' }] : [{ label: 'Dashboard', href: '#/dashboard' }, ...crumbs];
   return (
     <section>
-      <nav className="breadcrumbs" aria-label="Breadcrumb">
-        {trail.map((c, i) => (
-          <span key={`${c.label}-${i}`}>
-            {i > 0 && <span className="sep">/</span>}
-            {c.href && i < trail.length - 1 ? <a href={c.href}>{c.label}</a> : <span aria-current="page">{c.label}</span>}
-          </span>
-        ))}
-      </nav>
+      {crumbs.length > 0 && (
+        <nav className="breadcrumbs" aria-label="Breadcrumb">
+          {crumbs.map((c, i) => (
+            <span key={`${c.label}-${i}`}>
+              {i > 0 && <span className="sep">›</span>}
+              {c.href && i < crumbs.length - 1 ? <a href={c.href}>{c.label}</a> : <span aria-current={i === crumbs.length - 1 ? 'page' : undefined}>{c.label}</span>}
+            </span>
+          ))}
+        </nav>
+      )}
       <header className="view-header">
-        <h1>{title}</h1>
-        <div className="view-actions">
-          {actions}
-          {!isDashboard && <ReturnToDashboard />}
+        <div>
+          <h1>{title}</h1>
+          {subtitle && <p className="view-subtitle">{subtitle}</p>}
         </div>
+        {actions && <div className="view-actions">{actions}</div>}
       </header>
       {children}
     </section>
@@ -55,10 +48,7 @@ export function EmptyState({ title, children, action }: { title: string; childre
     <div className="empty-state">
       <h2>{title}</h2>
       {children && <p>{children}</p>}
-      <div className="empty-actions">
-        {action}
-        <ReturnToDashboard />
-      </div>
+      {action && <div className="empty-actions">{action}</div>}
     </div>
   );
 }

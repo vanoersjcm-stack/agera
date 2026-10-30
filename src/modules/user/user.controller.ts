@@ -34,12 +34,50 @@ export class UserProfileDto {
   createdAt!: Date;
 }
 
+export const USER_ROLES = ['platform-admin', 'admin', 'user'] as const;
+export type UserRole = (typeof USER_ROLES)[number];
+
+/** Highest internal role, from the realm roles recorded at the user's last request. */
+export function primaryRole(roles: string[]): UserRole {
+  return USER_ROLES.find((r) => roles.includes(r)) ?? 'user';
+}
+
+export class UserSummaryDto {
+  @ApiProperty({ format: 'uuid' })
+  id!: string;
+
+  @ApiProperty({ example: 'Sanne de Jong', description: 'Full name, or the e-mail address when no name is known' })
+  name!: string;
+
+  @ApiProperty({ example: 's.dejong@agera.local' })
+  email!: string;
+
+  @ApiProperty({ enum: USER_ROLES, description: 'Highest realm role seen at the user\'s last sign-in' })
+  role!: UserRole;
+}
+
 @ApiTags('users')
 @ApiBearerAuth(BEARER_AUTH)
 @ApiErrors(401, 403)
 @Controller('users')
 export class UserController {
   constructor(private readonly userService: UserService) {}
+
+  @Get()
+  @ApiOperation({
+    summary: 'Active internal users of the active tenant',
+    description: 'For assignee and field-rep pickers. Client (External_Client) users are excluded.',
+  })
+  @ApiOkResponse({ type: [UserSummaryDto] })
+  async list(): Promise<UserSummaryDto[]> {
+    const users = await this.userService.listInternal();
+    return users.map((u) => ({
+      id: u.id,
+      name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email,
+      email: u.email,
+      role: primaryRole(u.realmRoles),
+    }));
+  }
 
   @Get('me')
   @ApiOperation({

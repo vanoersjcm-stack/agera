@@ -2,12 +2,19 @@ import { ConflictException, ForbiddenException, Injectable } from '@nestjs/commo
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
+import { EXTERNAL_CLIENT_ROLE } from '../auth/roles.decorator.js';
 import { AuditService } from '../core/audit/audit.service.js';
 import { User } from '../core/entities/index.js';
 import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantRepository } from '../core/tenancy/tenant-repository.js';
 
 const PG_UNIQUE_VIOLATION = '23505';
+
+function sameRoles(stored: string[] | null | undefined, current: string[]): boolean {
+  const a = [...(stored ?? [])].sort();
+  const b = [...current].sort();
+  return a.length === b.length && a.every((role, i) => role === b[i]);
+}
 
 @Injectable()
 export class UserService {
@@ -34,11 +41,24 @@ export class UserService {
     return (await this.ensure(identity)).user;
   }
 
+  /** Active internal users of the active tenant, for assignee and field-rep pickers. */
+  async listInternal(): Promise<User[]> {
+    const users = await this.users.find({
+      where: { isActive: true },
+      order: { firstName: 'ASC', lastName: 'ASC', email: 'ASC' },
+    });
+    return users.filter((u) => !u.realmRoles.includes(EXTERNAL_CLIENT_ROLE));
+  }
+
   private async ensure(identity: AuthenticatedUser): Promise<{ user: User; provisioned: boolean }> {
     const existing = await this.users.findOneBy({ keycloakId: identity.keycloakId });
     if (existing) {
       if (!existing.isActive) {
         throw new ForbiddenException('User is deactivated');
+      }
+      if (!sameRoles(existing.realmRoles, identity.roles)) {
+        existing.realmRoles = [...identity.roles].sort();
+        await this.users.save(existing);
       }
       return { user: existing, provisioned: false };
     }
@@ -56,6 +76,7 @@ export class UserService {
           email: identity.email,
           firstName: identity.firstName,
           lastName: identity.lastName,
+          realmRoles: [...identity.roles].sort(),
         }),
       );
     } catch (error) {

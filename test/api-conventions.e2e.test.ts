@@ -95,7 +95,9 @@ describe('OpenAPI document', () => {
   it('documents every endpoint', () => {
     const expected: Record<string, string[]> = {
       '/health': ['get'],
+      '/users': ['get'],
       '/users/me': ['get'],
+      '/search': ['get'],
       '/tenants/me': ['get'],
       '/tenants': ['post'],
       '/audit-logs': ['get'],

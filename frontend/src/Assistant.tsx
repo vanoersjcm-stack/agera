@@ -1,11 +1,9 @@
 import { useCallback, useState } from 'react';
 import { keycloak } from './auth';
-import type { Scope } from './context';
 
 interface Tip {
   title: string;
   text: string;
-  links?: { label: string; href: string }[];
 }
 
 interface AssistantState {
@@ -13,45 +11,39 @@ interface AssistantState {
   dismissed: string[];
 }
 
-/**
- * Rule-based onboarding tips, chosen from the user's scope and the current view.
- * Everything runs in the browser; the preference is kept per user in localStorage.
- */
-const TIPS: Record<Scope, Record<string, Tip>> = {
-  internal: {
-    '/dashboard': {
-      title: 'Welcome to Agera Nexus',
-      text: 'The tiles summarise client contracts, sales-room engagement and open anomalies for your tenant. Press ⌘K / Ctrl+K anywhere and type e.g. “variance”, “DSR” or “anomalies” to jump to a view.',
-      links: [{ label: 'Check open anomalies', href: '#/anomalies' }],
-    },
-    '/financials': {
-      title: 'Financial projections',
-      text: 'Every approved model counts towards the P&L. Pick one model to see a single client contract, or filter on a period such as 2026, 2026-Q3 or 2026-09. Variance only appears once actuals are recorded.',
-    },
-    '/dsr': {
-      title: 'DSR activity',
-      text: 'Shows stakeholder interactions in your Digital Sales Rooms. Rooms that have no activity yet are listed under Sales rooms.',
-      links: [{ label: 'Open sales rooms', href: '#/rooms' }],
-    },
-    '/rooms': {
-      title: 'Sales rooms & agreements',
-      text: 'All rooms and agreements of this tenant. An active room without “opened”, “zone viewed” or “briefing played” activity for more than 7 days is reported as an anomaly.',
-    },
-    '/anomalies': {
-      title: 'Operational anomalies',
-      text: 'Three checks: P&L lines more than 10% unfavourable, rooms inactive for more than 7 days, and stores whose latest visit report is not compliant. The list refreshes every minute.',
-    },
+/** Rule-based onboarding tips per page; the preference is kept per user in localStorage. */
+const TIPS: Record<string, Tip> = {
+  '/symphony': {
+    title: 'Welcome to Agera',
+    text: 'Use the suite switcher at the top left to move between Symphony (HQ & governance), Nexus (commercial) and RetailPower (field work). “+ New” creates any record from every page, and the search box finds stores, work orders, agreements and client rooms.',
   },
-  external: {
-    '/dashboard': {
-      title: 'Welcome to your client portal',
-      text: 'You only see the sales rooms and agreements Agera shares with your organisation. Nothing is sent to you automatically; open the portal whenever you want the latest state.',
-      links: [{ label: 'View my sales rooms', href: '#/rooms' }],
-    },
-    '/rooms': {
-      title: 'Your sales rooms',
-      text: 'Active rooms and your agreements with their current status. Missing a room or document? Contact your Agera account manager.',
-    },
+  '/nexus': {
+    title: 'Nexus overview',
+    text: 'Contract value from approved financial plans, active client rooms and open alerts. Click a tile to open the list behind it.',
+  },
+  '/nexus/financial-plans': {
+    title: 'Financial plans',
+    text: 'A plan starts as a draft. Open it to add plan lines, then approve it: only approved plans count in Profit & loss and Alerts.',
+  },
+  '/nexus/client-rooms': {
+    title: 'Client rooms',
+    text: 'One online room per client deal. Open a room to see per contact what they did. A room without client activity for 7 days raises an alert.',
+  },
+  '/nexus/alerts': {
+    title: 'Alerts',
+    text: 'Three checks run continuously: plan lines more than 10% unfavourable, client rooms inactive for 7+ days, and stores whose latest visit report is not compliant. An alert disappears once its cause is fixed.',
+  },
+  '/retailpower': {
+    title: 'RetailPower overview',
+    text: 'Plan store visits, follow up on work orders and see which stores need attention.',
+  },
+  '/retailpower/store-visits': {
+    title: 'Store visits',
+    text: 'Open a visit to walk through it step by step: start the visit, write the report with a compliance result and photos, then complete it.',
+  },
+  '/portal': {
+    title: 'Welcome to your client portal',
+    text: 'You see the client rooms and agreements Agera shares with your organisation. Missing something? Contact your Agera account manager.',
   },
 };
 
@@ -77,43 +69,23 @@ export function useAssistant() {
   return {
     enabled: state.enabled,
     dismissed: state.dismissed,
-    /** Turning the assistant back on shows all tips again. */
+    /** Turning tips back on shows all tips again. */
     toggle: () => update(state.enabled ? { ...state, enabled: false } : { enabled: true, dismissed: [] }),
     dismiss: (id: string) => update({ ...state, dismissed: [...new Set([...state.dismissed, id])] }),
     disable: () => update({ ...state, enabled: false }),
   };
 }
 
-export function AssistantToggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void }) {
+export function AssistantTip({ path, assistant }: { path: string; assistant: ReturnType<typeof useAssistant> }) {
+  const tip = TIPS[path];
+  if (!assistant.enabled || !tip || assistant.dismissed.includes(path)) return null;
   return (
-    <button className="assistant-toggle" aria-pressed={enabled} onClick={onToggle} title="Show or hide onboarding tips">
-      Assistant: {enabled ? 'on' : 'off'}
-    </button>
-  );
-}
-
-export function AssistantTip({
-  scope,
-  path,
-  assistant,
-}: {
-  scope: Scope;
-  path: string;
-  assistant: ReturnType<typeof useAssistant>;
-}) {
-  const tip = TIPS[scope][path];
-  const id = `${scope}:${path}`;
-  if (!assistant.enabled || !tip || assistant.dismissed.includes(id)) return null;
-  return (
-    <aside className="assistant-tip" role="note" aria-label="Onboarding tip">
+    <aside className="assistant-tip" role="note" aria-label="Tip">
       <strong>{tip.title}</strong>
       <p>{tip.text}</p>
       <div className="assistant-actions">
-        {tip.links?.map((l) => (
-          <a key={l.href} href={l.href}>{l.label}</a>
-        ))}
-        <button onClick={() => assistant.dismiss(id)}>Got it</button>
-        <button className="link-dark" onClick={assistant.disable}>Turn assistant off</button>
+        <button onClick={() => assistant.dismiss(path)}>Got it</button>
+        <button className="link-dark" onClick={assistant.disable}>Turn tips off</button>
       </div>
     </aside>
   );
