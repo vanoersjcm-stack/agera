@@ -1,7 +1,7 @@
 import { type FormEvent, useState } from 'react';
-import { api, type Client, type ClientRecord, type Contact, type RoomActivity } from '../api';
-import { invalidateDirectory } from '../directory';
-import { ACTIVITY_TYPE, AGREEMENT_STATUS, CLIENT_STATUS, formatDate, formatDateTime, PLAN_STATUS, ROOM_STATUS } from '../labels';
+import { api, type Client, type ClientRecord, type Contact, type CreditStatus, type RoomActivity } from '../api';
+import { invalidateDirectory, useUsers } from '../directory';
+import { ACTIVITY_TYPE, AGREEMENT_STATUS, CLIENT_STATUS, CREDIT_STATUS, formatDate, formatDateTime, PLAN_STATUS, ROOM_STATUS } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
@@ -19,13 +19,14 @@ export function contactName(c: Pick<Contact, 'firstName' | 'lastName'>): string 
 }
 
 export function ClientsView({ route }: { route: Route }) {
+  const base = `/${route.segments[0] === 'symphony' ? 'symphony' : 'nexus'}/clients`;
   const { openNew } = useShell();
   const status = route.params.get('status') ?? 'active';
   const q = route.params.get('q') ?? '';
   const { data, error } = useLoad(() => api.clients());
   const items = data ?? [];
   const count = (s: string) => items.filter((c) => c.status === s).length;
-  const filtered = items.filter((c) => (status === 'all' || c.status === status) && includesText([c.name, c.legalName, c.city, c.vatNumber], q));
+  const filtered = items.filter((c) => (status === 'all' || c.status === status) && includesText([c.name, c.legalName, c.city, c.vatNumber, c.erpId, c.kvkNumber, c.accountManagerName], q));
   return (
     <ViewFrame title="Clients" crumbs={[SUITE, { label: 'Clients' }]} actions={<button className="primary" onClick={() => openNew('client')}>+ New client</button>}>
       <div className="list-toolbar">
@@ -38,7 +39,7 @@ export function ClientsView({ route }: { route: Route }) {
             { value: 'all', label: 'All', count: items.length },
           ]}
         />
-        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder="Filter by name, city or VAT number" />
+        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder="Filter by name, city, ERP ID, KvK or account manager" />
       </div>
       {!data && <Loading error={error} />}
       {data && filtered.length === 0 && (
@@ -52,6 +53,8 @@ export function ClientsView({ route }: { route: Route }) {
           <thead>
             <tr>
               <th>Client</th>
+              <th>ERP ID</th>
+              <th>Account manager</th>
               <th>City</th>
               <th>Status</th>
               <th className="num">Active agreements</th>
@@ -61,11 +64,13 @@ export function ClientsView({ route }: { route: Route }) {
           </thead>
           <tbody>
             {filtered.map((c) => (
-              <tr key={c.id} onClick={() => navigate(`/nexus/clients/${c.id}`)}>
+              <tr key={c.id} onClick={() => navigate(`${base}/${c.id}`)}>
                 <td>
-                  <a href={`#/nexus/clients/${c.id}`}>{c.name}</a>
+                  <a href={`#${base}/${c.id}`}>{c.name}</a>
                   {c.legalName && c.legalName !== c.name && <div className="muted small">{c.legalName}</div>}
                 </td>
+                <td>{c.erpId ?? <span className="muted">—</span>}</td>
+                <td>{c.accountManagerName ?? <span className="muted">Not assigned</span>}</td>
                 <td>{c.city ?? '—'}</td>
                 <td><StatusBadge status={c.status} label={CLIENT_STATUS[c.status]} /></td>
                 <td className="num">{c.activeAgreements}</td>
@@ -87,14 +92,37 @@ function EditClientDrawer({ client, onClose, onSaved }: { client: Client; onClos
     vatNumber: client.vatNumber ?? '',
     city: client.city ?? '',
     country: client.country ?? '',
+    kvkNumber: client.kvkNumber ?? '',
+    sector: client.sector ?? '',
+    address: client.address ?? '',
+    erpId: client.erpId ?? '',
+    paymentTerms: client.paymentTerms,
+    creditLimit: client.creditLimit,
+    creditStatus: client.creditStatus,
+    accountManagerId: client.accountManagerId ?? '',
   });
+  const users = useUsers();
   const { busy, error, run } = useAction();
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
   const submit = (e: FormEvent) => {
     e.preventDefault();
     const opt = (v: string) => v.trim() || null;
     void run(() =>
-      api.updateClient(client.id, { name: form.name.trim(), legalName: opt(form.legalName), vatNumber: opt(form.vatNumber), city: opt(form.city), country: opt(form.country) }),
+      api.updateClient(client.id, {
+        name: form.name.trim(),
+        legalName: opt(form.legalName),
+        vatNumber: opt(form.vatNumber),
+        city: opt(form.city),
+        country: opt(form.country),
+        kvkNumber: opt(form.kvkNumber),
+        sector: opt(form.sector),
+        address: opt(form.address),
+        erpId: opt(form.erpId),
+        paymentTerms: form.paymentTerms.trim() || 'Net 30 days',
+        creditLimit: form.creditLimit || '0',
+        creditStatus: form.creditStatus,
+        accountManagerId: form.accountManagerId || null,
+      }),
     ).then((r) => r && onSaved());
   };
   return (
@@ -105,6 +133,25 @@ function EditClientDrawer({ client, onClose, onSaved }: { client: Client; onClos
         <Field label="VAT number"><input maxLength={50} value={form.vatNumber} onChange={set('vatNumber')} /></Field>
         <Field label="City"><input maxLength={100} value={form.city} onChange={set('city')} /></Field>
         <Field label="Country"><input maxLength={100} value={form.country} onChange={set('country')} /></Field>
+        <Field label="Street and number"><input maxLength={255} value={form.address} onChange={set('address')} /></Field>
+        <Field label="Chamber of Commerce (KvK) number"><input maxLength={20} value={form.kvkNumber} onChange={set('kvkNumber')} /></Field>
+        <Field label="Sector"><input maxLength={100} value={form.sector} onChange={set('sector')} placeholder="e.g. Consumer electronics" /></Field>
+        <Field label="ERP customer number" hint="Customer number in your ERP system; must be unique"><input maxLength={50} value={form.erpId} onChange={set('erpId')} /></Field>
+        <Field label="Account manager">
+          <select value={form.accountManagerId} onChange={set('accountManagerId')}>
+            <option value="">Not assigned</option>
+            {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+        </Field>
+        <Field label="Payment terms"><input required maxLength={100} value={form.paymentTerms} onChange={set('paymentTerms')} /></Field>
+        <div className="field-row">
+          <Field label="Credit limit (EUR)"><input type="number" min={0} step="0.01" value={form.creditLimit} onChange={set('creditLimit')} /></Field>
+          <Field label="Credit status">
+            <select value={form.creditStatus} onChange={set('creditStatus')}>
+              {(Object.keys(CREDIT_STATUS) as CreditStatus[]).map((s) => <option key={s} value={s}>{CREDIT_STATUS[s]}</option>)}
+            </select>
+          </Field>
+        </div>
         <ErrorText error={error} />
         <FormActions busy={busy} submitLabel="Save changes" onCancel={onClose} />
       </form>
@@ -196,7 +243,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
       </ViewFrame>
     );
   }
-  const { client, contacts, agreements, rooms, plans } = data;
+  const { client, contacts, agreements, rooms, plans, stores } = data;
   const primary = contacts.find((k) => k.isPrimary);
   const saved = (message: string) => {
     setEditing(false);
@@ -227,11 +274,12 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
       <ErrorText error={action.error} />
       <Tabs
         tabs={[
-          { id: 'overview', label: 'Overview' },
+          { id: 'overview', label: 'Master data' },
           { id: 'contacts', label: `Contacts (${contacts.length})` },
           { id: 'agreements', label: `Agreements (${agreements.length})` },
           { id: 'rooms', label: `Client rooms (${rooms.length})` },
           { id: 'financials', label: `Financial plans (${plans.length})` },
+          { id: 'stores', label: `Stores (${stores.length})` },
           { id: 'activity', label: 'Activity' },
         ]}
         active={tab}
@@ -248,10 +296,16 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
             items={[
               ['Company name', client.name],
               ['Legal name', client.legalName ?? '—'],
+              ['ERP customer number', client.erpId ?? '—'],
               ['VAT number', client.vatNumber ?? '—'],
-              ['City', client.city ?? '—'],
-              ['Country', client.country ?? '—'],
-              ['Primary contact', primary ? `${contactName(primary)}${primary.email ? ` · ${primary.email}` : ''}` : '—'],
+              ['Chamber of Commerce (KvK)', client.kvkNumber ?? '—'],
+              ['Sector', client.sector ?? '—'],
+              ['Address', [client.address, client.city, client.country].filter(Boolean).join(', ') || '—'],
+              ['Account manager', client.accountManagerName ?? 'Not assigned'],
+              ['Payment terms', client.paymentTerms],
+              ['Credit limit', money(client.creditLimit)],
+              ['Credit status', CREDIT_STATUS[client.creditStatus]],
+              ['Primary contact', primary ? `${contactName(primary)}${primary.roleTitle ? ` (${primary.roleTitle})` : ''}${primary.email ? ` · ${primary.email}` : ''}${primary.phone ? ` · ${primary.phone}` : ''}` : '—'],
               ['Client since', formatDate(client.createdAt)],
             ]}
           />
@@ -344,6 +398,28 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
                     <td><a href={`#/nexus/financial-plans/${p.id}`}>{p.modelName}</a></td>
                     <td>{p.fiscalYear}</td>
                     <td><StatusBadge status={p.status} label={PLAN_STATUS[p.status]} /></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+      {tab === 'stores' && (
+        <div className="card-panel">
+          <div className="panel-head">
+            <h2>Stores of this client</h2>
+          </div>
+          {stores.length === 0 ? <p className="muted">No stores linked yet. Link a store to this client from the store's Edit panel in RetailPower.</p> : (
+            <table className="grid clickable">
+              <thead><tr><th>Store</th><th>Code</th><th>City</th><th>Status</th></tr></thead>
+              <tbody>
+                {stores.map((s) => (
+                  <tr key={s.id} onClick={() => navigate(`/retailpower/stores/${s.id}`)}>
+                    <td><a href={`#/retailpower/stores/${s.id}`}>{s.name}</a></td>
+                    <td>{s.storeCode}</td>
+                    <td>{s.city ?? '—'}</td>
+                    <td><StatusBadge status={s.status} label={s.status === 'active' ? 'Open' : 'Closed'} /></td>
                   </tr>
                 ))}
               </tbody>

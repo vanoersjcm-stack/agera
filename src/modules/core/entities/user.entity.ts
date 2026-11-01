@@ -36,6 +36,12 @@ export class User {
   @Column({ name: 'realm_roles', type: 'text', array: true, default: () => "'{}'" })
   realmRoles!: string[];
 
+  @Column({ type: 'varchar', length: 150, nullable: true })
+  title!: string | null;
+
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  zone!: string | null;
+
   @Column({ name: 'is_active', type: 'boolean', default: true })
   isActive!: boolean;
 

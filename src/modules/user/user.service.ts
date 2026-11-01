@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, Injectable } from '@nestjs/common';
+import { ConflictException, ForbiddenException, Injectable , NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
@@ -48,6 +48,21 @@ export class UserService {
       order: { firstName: 'ASC', lastName: 'ASC', email: 'ASC' },
     });
     return users.filter((u) => !u.realmRoles.includes(EXTERNAL_CLIENT_ROLE));
+  }
+
+  /** Active internal user of the active tenant, or null. */
+  async findInternal(id: string): Promise<User | null> {
+    const user = await this.users.findOneBy({ id, isActive: true });
+    return user && !user.realmRoles.includes(EXTERNAL_CLIENT_ROLE) ? user : null;
+  }
+
+  async updateProfile(id: string, changes: { title?: string | null; zone?: string | null }, actorId: string): Promise<User> {
+    const user = await this.users.findOneBy({ id });
+    if (!user) throw new NotFoundException('User not found');
+    Object.assign(user, changes);
+    await this.users.save(user);
+    this.audit.logAction(user.tenantId, actorId, 'user.profile_updated', { userId: id, changes: Object.keys(changes) });
+    return user;
   }
 
   private async ensure(identity: AuthenticatedUser): Promise<{ user: User; provisioned: boolean }> {

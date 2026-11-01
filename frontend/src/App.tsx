@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, type SearchHit, type Tenant, switchOrganisation, viewingOrganisation } from './api';
+import { api, type SearchHit, type Tenant, switchOrganisation, viewingOrganisation, type UserProfile } from './api';
 import { AssistantTip, useAssistant } from './Assistant';
 import { keycloak } from './auth';
 import { displayName, type UserContext, userContext } from './context';
@@ -39,6 +39,8 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
   switch (key) {
     case 'symphony/':
       return <SymphonyOverview />;
+    case 'symphony/clients':
+      return id ? <ClientDossier id={id} route={route} /> : <ClientsView route={route} />;
     case 'symphony/activity':
       return <ActivityLogView route={route} />;
     case 'symphony/people':
@@ -278,13 +280,18 @@ function UserMenu({ user, tenant, tipsOn, onToggleTips }: { user: UserContext; t
   const { open, setOpen, ref } = useDropdown();
   const name = displayName();
   const email = keycloak.tokenParsed?.email as string | undefined;
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  useEffect(() => {
+    api.me().then(setProfile, () => setProfile(null));
+  }, []);
+  const subtitle = [profile?.title, profile?.zone].filter(Boolean).join(' · ');
   return (
     <div className="dropdown" ref={ref}>
       <button className="user-button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
         <span className="avatar" aria-hidden>{initials(name)}</span>
         <span className="user-meta">
           <span className="user-name">{name}</span>
-          <small>{user.roleLabel}</small>
+          <small>{profile?.title ?? user.roleLabel}</small>
         </span>
       </button>
       {open && (
@@ -292,6 +299,7 @@ function UserMenu({ user, tenant, tipsOn, onToggleTips }: { user: UserContext; t
           <div className="menu-profile">
             <strong>{name}</strong>
             {email && <span>{email}</span>}
+            {subtitle && <span>{subtitle}</span>}
             <span>{user.roleLabel} · {tenant?.name ?? '…'}</span>
           </div>
           <button role="menuitem" onClick={onToggleTips}>{tipsOn ? 'Hide page tips' : 'Show page tips'}</button>

@@ -4,7 +4,7 @@ import { AllowApiKey } from '../auth/allow-api-key.decorator.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, ApiPagination, BEARER_AUTH } from '../core/http/api-docs.js';
-import { asObject, assertPagination, optionalString, requiredString } from '../core/http/validation.js';
+import { asObject, assertPagination, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
 import { CreateStoreDto, StoreDto, StorePageDto, UpdateStoreDto } from './dto/store.dto.js';
 import { STORE_STATUSES, type Store, type StoreStatus } from './entities/store.entity.js';
 import { type CreateStoreInput, StoresService, type UpdateStoreInput } from './stores.service.js';
@@ -20,13 +20,14 @@ function toResponse(store: Store): StoreDto {
     postalCode: store.postalCode ?? null,
     country: store.country ?? null,
     status: store.status,
+    clientId: store.clientId ?? null,
     createdAt: store.createdAt,
     updatedAt: store.updatedAt,
   };
 }
 
 function parseCreateStore(body: unknown): CreateStoreInput {
-  const { storeCode, name, address, city, postalCode, country } = asObject(body);
+  const { storeCode, name, address, city, postalCode, country, clientId } = asObject(body);
   return {
     storeCode: requiredString('storeCode', storeCode, 50),
     name: requiredString('name', name, 200),
@@ -34,6 +35,7 @@ function parseCreateStore(body: unknown): CreateStoreInput {
     city: optionalString('city', city, 100),
     postalCode: optionalString('postalCode', postalCode, 20),
     country: optionalString('country', country, 100) ?? 'ES',
+    clientId: optionalUuid('clientId', clientId),
   };
 }
 
@@ -45,6 +47,7 @@ function parseUpdateStore(body: unknown): UpdateStoreInput {
   for (const [key, max] of [['address', 255], ['city', 100], ['postalCode', 20], ['country', 100]] as const) {
     if (raw[key] !== undefined) out[key] = optionalString(key, raw[key], max);
   }
+  if (raw.clientId !== undefined) out.clientId = optionalUuid('clientId', raw.clientId);
   if (raw.status !== undefined) {
     if (!STORE_STATUSES.includes(raw.status as StoreStatus)) {
       throw new BadRequestException(`status must be one of ${STORE_STATUSES.join(', ')}`);

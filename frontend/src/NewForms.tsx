@@ -153,7 +153,8 @@ function StoreVisitForm({ defaults, onDone, onCancel }: FormProps) {
 }
 
 function StoreForm({ onDone, onCancel }: FormProps) {
-  const [form, setForm] = useState({ storeCode: '', name: '', address: '', postalCode: '', city: '', country: 'Netherlands' });
+  const [form, setForm] = useState({ storeCode: '', name: '', address: '', postalCode: '', city: '', country: 'Netherlands', clientId: '' });
+  const storeClients = activeClients(useClients());
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
   const { busy, error, submit } = useSubmit(onDone);
   return (
@@ -167,6 +168,7 @@ function StoreForm({ onDone, onCancel }: FormProps) {
             postalCode: form.postalCode.trim() || undefined,
             city: form.city.trim() || undefined,
             country: form.country.trim() || undefined,
+            clientId: form.clientId || null,
           });
           return { route: `/retailpower/stores/${s.id}`, message: `Store “${s.name}” added` };
         })
@@ -191,6 +193,12 @@ function StoreForm({ onDone, onCancel }: FormProps) {
       </div>
       <Field label="Country">
         <input maxLength={100} value={form.country} onChange={set('country')} />
+      </Field>
+      <Field label="Client" hint="Optional: the brand or client whose products this store carries">
+        <select value={form.clientId} onChange={set('clientId')}>
+          <option value="">No client</option>
+          {storeClients.map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
+        </select>
       </Field>
       <ErrorText error={error} />
       <FormActions busy={busy} submitLabel="Add store" onCancel={onCancel} />

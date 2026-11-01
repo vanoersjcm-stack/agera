@@ -124,6 +124,7 @@ export function formatDateTime(value: string | null | undefined): string {
 }
 
 export const CLIENT_STATUS: Record<string, string> = { active: 'Active', archived: 'Archived' };
+export const CREDIT_STATUS: Record<'approved' | 'review_required' | 'locked', string> = { approved: 'Approved', review_required: 'Review required', locked: 'Locked (credit hold)' };
 
 export const STORE_STATUS: Record<string, string> = { active: 'Open', closed: 'Closed' };
 

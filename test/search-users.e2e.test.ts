@@ -46,7 +46,7 @@ describe('GET /users', () => {
     assert.equal(me.email, 'dev.admin@agera.local');
     assert.ok(me.name.length > 0);
     assert.ok(['platform-admin', 'admin', 'user'].includes(me.role));
-    assert.deepEqual(Object.keys(me).sort(), ['email', 'id', 'name', 'role']);
+    assert.deepEqual(Object.keys(me).sort(), ['email', 'id', 'name', 'role', 'title']);
   });
 
   it('is tenant-isolated and excludes client users', async () => {

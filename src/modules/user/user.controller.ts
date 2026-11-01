@@ -3,7 +3,7 @@ import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation
 import { PLATFORM_ADMIN_ROLE, Roles } from '../auth/roles.decorator.js';
 import type { User } from '../core/entities/index.js';
 import { ApiPagination, PageMetaDto } from '../core/http/api-docs.js';
-import { asObject, assertPagination, optionalUuid, requiredString } from '../core/http/validation.js';
+import { asObject, assertPagination, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
 import { ACCOUNT_ROLES, type AccountRole, accountRole, UserAdminService } from './user-admin.service.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
@@ -37,6 +37,12 @@ export class UserProfileDto {
 
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: Date;
+
+  @ApiProperty({ type: String, nullable: true, example: 'Key account manager' })
+  title!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, example: 'Noord-Holland' })
+  zone!: string | null;
 }
 
 export const USER_ROLES = ['platform-admin', 'admin', 'user'] as const;
@@ -59,6 +65,9 @@ export class UserSummaryDto {
 
   @ApiProperty({ enum: USER_ROLES, description: 'Highest realm role seen at the user\'s last sign-in' })
   role!: UserRole;
+
+  @ApiProperty({ type: String, nullable: true, example: 'Key account manager' })
+  title!: string | null;
 }
 
 export class UserAccountDto {
@@ -85,6 +94,12 @@ export class UserAccountDto {
 
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: Date;
+
+  @ApiProperty({ type: String, nullable: true, example: 'Key account manager' })
+  title!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, example: 'Noord-Holland' })
+  zone!: string | null;
 }
 
 export class UserAccountPageDto extends PageMetaDto {
@@ -128,6 +143,8 @@ function toAccount(u: User): UserAccountDto {
     firstName: u.firstName,
     lastName: u.lastName,
     role: accountRole(u.realmRoles),
+    title: u.title,
+    zone: u.zone,
     isActive: u.isActive,
     createdAt: u.createdAt,
   };
@@ -165,6 +182,7 @@ export class UserController {
       name: [u.firstName, u.lastName].filter(Boolean).join(' ') || u.email,
       email: u.email,
       role: primaryRole(u.realmRoles),
+      title: u.title,
     }));
   }
 
@@ -240,6 +258,22 @@ export class UserController {
     return toAccount(await this.admin.setActive(id, isActive, identity));
   }
 
+  @Patch(':id/profile')
+  @Roles('admin', PLATFORM_ADMIN_ROLE)
+  @ApiOperation({ summary: 'Set job title and zone/region of a user (audit: user.profile_updated)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOkResponse({ type: UserAccountDto })
+  @ApiErrors(400, 404)
+  async setProfile(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<UserAccountDto> {
+    const raw = asObject(body);
+    const changes: { title?: string | null; zone?: string | null } = {};
+    if (raw.title !== undefined) changes.title = optionalString('title', raw.title, 150)?.trim() || null;
+    if (raw.zone !== undefined) changes.zone = optionalString('zone', raw.zone, 100)?.trim() || null;
+    if (Object.keys(changes).length === 0) throw new BadRequestException('Provide title and/or zone');
+    const actor = await this.userService.resolveActor(identity);
+    return toAccount(await this.userService.updateProfile(id, changes, actor.id));
+  }
+
   @Get('me')
   @ApiOperation({
     summary: 'Current user profile',
@@ -255,6 +289,8 @@ export class UserController {
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
+      title: user.title,
+      zone: user.zone,
       isActive: user.isActive,
       roles: identity.roles,
       createdAt: user.createdAt,

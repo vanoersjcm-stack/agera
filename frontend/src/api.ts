@@ -72,6 +72,8 @@ export interface UserProfile {
   email: string;
   firstName: string | null;
   lastName: string | null;
+  title: string | null;
+  zone: string | null;
   roles: string[];
 }
 
@@ -82,6 +84,7 @@ export interface UserSummary {
   name: string;
   email: string;
   role: UserRole;
+  title: string | null;
 }
 
 export interface AuditLog {
@@ -150,6 +153,7 @@ export interface Store {
   postalCode: string | null;
   country: string | null;
   status: StoreStatus;
+  clientId: string | null;
   createdAt: string;
 }
 
@@ -274,6 +278,8 @@ export interface Alerts {
 
 export type ClientStatus = 'active' | 'archived';
 
+export type CreditStatus = 'approved' | 'review_required' | 'locked';
+
 export interface Client {
   id: string;
   name: string;
@@ -282,6 +288,15 @@ export interface Client {
   city: string | null;
   country: string | null;
   status: ClientStatus;
+  kvkNumber: string | null;
+  sector: string | null;
+  address: string | null;
+  paymentTerms: string;
+  creditLimit: string;
+  creditStatus: CreditStatus;
+  erpId: string | null;
+  accountManagerId: string | null;
+  accountManagerName: string | null;
   activeAgreements: number;
   activeRooms: number;
   contractValue: string;
@@ -300,7 +315,8 @@ export interface Contact {
   isPrimary: boolean;
 }
 
-export type ClientInput = Pick<Client, 'name' | 'legalName' | 'vatNumber' | 'city' | 'country'>;
+export type ClientInput = Pick<Client, 'name' | 'legalName' | 'vatNumber' | 'city' | 'country'> &
+  Partial<Pick<Client, 'kvkNumber' | 'sector' | 'address' | 'paymentTerms' | 'creditLimit' | 'creditStatus' | 'erpId' | 'accountManagerId'>>;
 export type ContactInput = Omit<Contact, 'id' | 'clientId'>;
 
 export interface ClientRecord {
@@ -308,6 +324,7 @@ export interface ClientRecord {
   contacts: Contact[];
   agreements: Agreement[];
   rooms: ClientRoom[];
+  stores: { id: string; storeCode: string; name: string; city: string | null; status: StoreStatus }[];
   plans: { id: string; modelName: string; fiscalYear: number; status: PlanStatus }[];
 }
 
@@ -331,6 +348,8 @@ export interface UserAccount {
   firstName: string | null;
   lastName: string | null;
   role: AccountRole;
+  title: string | null;
+  zone: string | null;
   isActive: boolean;
   createdAt: string;
 }
@@ -386,11 +405,12 @@ export const api = {
     request<UserAccountPage>('GET', `/users/accounts${query(params)}`),
   inviteUser: (body: { email: string; firstName: string; lastName: string; role: AccountRole; clientId?: string }) =>
     request<{ user: UserAccount; temporaryPassword: string }>('POST', '/users', body),
+  setUserProfile: (id: string, body: { title: string | null; zone: string | null }) => request<UserAccount>('PATCH', `/users/${id}/profile`, body),
   setUserRole: (id: string, role: AccountRole) => request<UserAccount>('PATCH', `/users/${id}/role`, { role }),
   setUserStatus: (id: string, isActive: boolean) => request<UserAccount>('PATCH', `/users/${id}/status`, { isActive }),
   updateWorkOrder: (id: string, body: { title?: string; description?: string | null; priority?: WorkOrderPriority }) =>
     request<WorkOrder>('PATCH', `/work-orders/${id}`, body),
-  updateStore: (id: string, body: Partial<Pick<Store, 'storeCode' | 'name' | 'address' | 'city' | 'postalCode' | 'country' | 'status'>>) =>
+  updateStore: (id: string, body: Partial<Pick<Store, 'storeCode' | 'name' | 'address' | 'city' | 'postalCode' | 'country' | 'status' | 'clientId'>>) =>
     request<Store>('PATCH', `/stores/${id}`, body),
   updateVisit: (id: string, body: { visitDate?: string; notes?: string | null; fieldRepId?: string }) =>
     request<Visit>('PATCH', `/visits/${id}`, body),
@@ -402,7 +422,7 @@ export const api = {
     request<WorkOrder>('PATCH', `/work-orders/${id}/assign`, { assignedUserId }),
   setWorkOrderStatus: (id: string, status: WorkOrderStatus) => request<WorkOrder>('PATCH', `/work-orders/${id}/status`, { status }),
   stores: () => request<Page<Store>>('GET', '/stores?limit=100'),
-  createStore: (body: { storeCode: string; name: string; address?: string; city?: string; postalCode?: string; country?: string }) =>
+  createStore: (body: { storeCode: string; name: string; address?: string; city?: string; postalCode?: string; country?: string; clientId?: string | null }) =>
     request<Store>('POST', '/stores', body),
   visits: (storeId?: string) => request<Page<Visit>>('GET', `/visits${query({ limit: 100, storeId })}`),
   visitSummary: (id: string) => request<VisitSummary>('GET', `/visits/${id}/summary`),

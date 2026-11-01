@@ -2,6 +2,7 @@ import { type FormEvent, useState } from 'react';
 import { api, type Agreement, type Store, type StoreStatus, type Visit, type WorkOrder, type WorkOrderPriority } from './api';
 import { useUsers } from './directory';
 import { STORE_STATUS, WORK_ORDER_PRIORITY } from './labels';
+import { activeClients, useClients } from './directory';
 import { Drawer, ErrorText, Field, FormActions, useAction } from './ui';
 
 type Change = { target: { value: string } };
@@ -28,7 +29,9 @@ export function EditStoreDrawer({ record, onClose, onSaved }: EditProps<Store>) 
     city: record.city ?? '',
     country: record.country ?? '',
     status: record.status,
+    clientId: record.clientId ?? '',
   });
+  const storeClients = useClients();
   const { busy, error, run } = useAction();
   const set = (k: keyof typeof form) => (e: Change) => setForm({ ...form, [k]: e.target.value });
   const submit = (e: FormEvent) => {
@@ -42,6 +45,7 @@ export function EditStoreDrawer({ record, onClose, onSaved }: EditProps<Store>) 
         city: opt(form.city),
         country: opt(form.country),
         status: form.status,
+        clientId: form.clientId || null,
       }),
     ).then((r) => r && onSaved(r));
   };
@@ -54,6 +58,12 @@ export function EditStoreDrawer({ record, onClose, onSaved }: EditProps<Store>) 
         <Field label="Postal code"><input maxLength={20} value={form.postalCode} onChange={set('postalCode')} /></Field>
         <Field label="City"><input maxLength={100} value={form.city} onChange={set('city')} /></Field>
         <Field label="Country"><input maxLength={100} value={form.country} onChange={set('country')} /></Field>
+        <Field label="Client" hint="The brand or client whose products this store carries">
+          <select value={form.clientId} onChange={set('clientId')}>
+            <option value="">No client</option>
+            {activeClients(storeClients).concat(storeClients.filter((c) => c.clientId === record.clientId && !activeClients(storeClients).includes(c))).map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
+          </select>
+        </Field>
         <Field label="Status">
           <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as StoreStatus })}>
             {Object.entries(STORE_STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}

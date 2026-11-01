@@ -54,8 +54,29 @@ function InviteDrawer({ canGrantPlatformAdmin, onClose, onInvited }: { canGrantP
   );
 }
 
+function ProfileDrawer({ account, onClose, onSaved }: { account: UserAccount; onClose: () => void; onSaved: () => void }) {
+  const [title, setTitle] = useState(account.title ?? '');
+  const [zone, setZone] = useState(account.zone ?? '');
+  const { busy, error, run } = useAction();
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    void run(() => api.setUserProfile(account.id, { title: title.trim() || null, zone: zone.trim() || null })).then((r) => r && onSaved());
+  };
+  return (
+    <Drawer title={`Job title and region · ${account.name}`} onClose={onClose}>
+      <form onSubmit={submit}>
+        <Field label="Job title" hint="Shown in the profile menu, e.g. Key account manager"><input maxLength={150} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></Field>
+        <Field label="Region / zone" hint="e.g. Noord-Holland or Benelux"><input maxLength={100} value={zone} onChange={(e) => setZone(e.target.value)} /></Field>
+        <ErrorText error={error} />
+        <FormActions busy={busy} submitLabel="Save" onCancel={onClose} />
+      </form>
+    </Drawer>
+  );
+}
+
 function AccountRow({ account, self, canGrantPlatformAdmin, onChanged }: { account: UserAccount; self: boolean; canGrantPlatformAdmin: boolean; onChanged: (message: string) => void }) {
   const { busy, error, run } = useAction();
+  const [editing, setEditing] = useState(false);
   const locked = self || (account.role === 'platform-admin' && !canGrantPlatformAdmin);
   const external = account.role === 'External_Client';
   const roles = (external ? ['External_Client'] : ['platform-admin', 'admin', 'user']).filter((r) => r !== 'platform-admin' || canGrantPlatformAdmin || account.role === 'platform-admin') as AccountRole[];
@@ -71,6 +92,11 @@ function AccountRow({ account, self, canGrantPlatformAdmin, onChanged }: { accou
         <select aria-label={`Role of ${account.name}`} value={account.role} disabled={locked || busy || external} onChange={(e) => changeRole(e.target.value as AccountRole)}>
           {roles.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
         </select>
+      </td>
+      <td>
+        {[account.title, account.zone].filter(Boolean).join(' · ') || <span className="muted">—</span>}{' '}
+        <button className="link-button" onClick={() => setEditing(true)} aria-label={`Edit job title of ${account.name}`}>Edit</button>
+        {editing && <ProfileDrawer account={account} onClose={() => setEditing(false)} onSaved={() => (setEditing(false), onChanged(`${account.name} updated`))} />}
       </td>
       <td><StatusBadge status={account.isActive ? 'active' : 'archived'} label={account.isActive ? 'Active' : 'Deactivated'} /></td>
       <td>{formatDate(account.createdAt)}</td>
@@ -127,10 +153,10 @@ export function PeopleView({ route, user }: { route: Route; user: UserContext })
       {data && data.items.length === 0 && <EmptyState title="Nobody matches this filter" />}
       {data && data.items.length > 0 && (
         <table className="grid">
-          <thead><tr><th>Person</th><th>Role</th><th>Status</th><th>Added</th><th /></tr></thead>
+          <thead><tr><th>Person</th><th>Role</th><th>Job title · region</th><th>Status</th><th>Added</th><th /></tr></thead>
           <tbody>
             {data.items.map((a) => (
-              <AccountRow key={`${a.id}-${a.role}-${a.isActive}`} account={a} self={a.id === me.data?.id} canGrantPlatformAdmin={canGrant} onChanged={(m) => (setMessage(m), reload())} />
+              <AccountRow key={`${a.id}-${a.role}-${a.isActive}-${a.title}-${a.zone}`} account={a} self={a.id === me.data?.id} canGrantPlatformAdmin={canGrant} onChanged={(m) => (setMessage(m), reload())} />
             ))}
           </tbody>
         </table>

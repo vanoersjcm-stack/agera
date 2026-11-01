@@ -98,6 +98,7 @@ describe('OpenAPI document', () => {
       '/users': ['get', 'post'],
       '/users/accounts': ['get'],
       '/users/{id}/role': ['patch'],
+      '/users/{id}/profile': ['patch'],
       '/users/{id}/status': ['patch'],
       '/users/me': ['get'],
       '/search': ['get'],

@@ -26,6 +26,7 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
     case 'symphony':
       return [
         { path: '/symphony', label: 'Overview', description: 'Key figures across all suites' },
+        { path: '/symphony/clients', label: 'Client dossiers', description: 'Open360: master data, contacts, contracts and stores per client' },
         { path: '/symphony/activity', label: 'Activity log', description: 'Who did what, and when' },
         ...(user.role === 'admin' || user.isPlatformAdmin
           ? [{ path: '/symphony/people', label: 'People & access', description: 'Invite colleagues and clients, roles, deactivate accounts' }]

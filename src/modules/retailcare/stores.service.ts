@@ -1,4 +1,5 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
@@ -17,6 +18,7 @@ export interface CreateStoreInput {
   city: string | null;
   postalCode: string | null;
   country: string | null;
+  clientId: string | null;
 }
 
 export type UpdateStoreInput = Partial<CreateStoreInput> & { status?: StoreStatus };
@@ -37,12 +39,23 @@ export class StoresService {
     private readonly context: TenantContext,
     private readonly userService: UserService,
     private readonly audit: AuditService,
+    private readonly tx: TenantTransaction,
   ) {
     this.stores = new TenantRepository(stores, context);
   }
 
+  /** Clients are RLS-protected, so check the link inside a tenant transaction. */
+  private async assertClient(clientId: string | null | undefined): Promise<void> {
+    if (!clientId) return;
+    const rows: unknown[] = await this.tx.run((manager) =>
+      manager.query('SELECT 1 FROM clients WHERE tenant_id = $1 AND id = $2', [this.context.tenantId, clientId]),
+    );
+    if (rows.length === 0) throw new BadRequestException('clientId must be a client of the active tenant');
+  }
+
   async create(input: CreateStoreInput, identity: AuthenticatedUser): Promise<Store> {
     const actor = await this.userService.resolveActor(identity);
+    await this.assertClient(input.clientId);
     let store: Store;
     try {
       store = await this.stores.save(this.stores.create(input));
@@ -65,6 +78,7 @@ export class StoresService {
     if (!current) {
       throw new NotFoundException('Store not found');
     }
+    await this.assertClient(changes.clientId);
     Object.assign(current, changes);
     try {
       await this.stores.save(current);

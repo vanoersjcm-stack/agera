@@ -3,9 +3,9 @@ import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
-import { asObject, optionalString, requiredString } from '../core/http/validation.js';
+import { asObject, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
 import { type ClientInput, type ClientRecord, ClientsService, type ClientSummary, type ClientUpdate, type ContactInput } from './clients.service.js';
-import { CLIENT_STATUSES, type ClientStatus } from './entities/client.entity.js';
+import { CLIENT_STATUSES, type ClientStatus, CREDIT_STATUSES, type CreditStatus } from './entities/client.entity.js';
 import type { Contact } from './entities/contact.entity.js';
 
 export class ClientInputDto {
@@ -14,6 +14,14 @@ export class ClientInputDto {
   @ApiProperty({ required: false, nullable: true, type: String }) vatNumber?: string | null;
   @ApiProperty({ required: false, nullable: true, type: String }) city?: string | null;
   @ApiProperty({ required: false, nullable: true, type: String }) country?: string | null;
+  @ApiProperty({ required: false, nullable: true, type: String, description: 'Chamber of Commerce (KvK) number' }) kvkNumber?: string | null;
+  @ApiProperty({ required: false, nullable: true, type: String }) sector?: string | null;
+  @ApiProperty({ required: false, nullable: true, type: String }) address?: string | null;
+  @ApiProperty({ required: false, example: 'Net 30 days' }) paymentTerms?: string;
+  @ApiProperty({ required: false, example: '50000.00' }) creditLimit?: string;
+  @ApiProperty({ required: false, enum: CREDIT_STATUSES }) creditStatus?: CreditStatus;
+  @ApiProperty({ required: false, nullable: true, type: String, description: 'Customer number in the ERP system' }) erpId?: string | null;
+  @ApiProperty({ required: false, nullable: true, type: String, format: 'uuid' }) accountManagerId?: string | null;
 }
 
 export class ClientUpdateDto extends ClientInputDto {
@@ -29,6 +37,15 @@ export class ClientDto {
   @ApiProperty({ type: String, nullable: true }) city!: string | null;
   @ApiProperty({ type: String, nullable: true }) country!: string | null;
   @ApiProperty({ enum: CLIENT_STATUSES }) status!: ClientStatus;
+  @ApiProperty({ type: String, nullable: true }) kvkNumber!: string | null;
+  @ApiProperty({ type: String, nullable: true }) sector!: string | null;
+  @ApiProperty({ type: String, nullable: true }) address!: string | null;
+  @ApiProperty() paymentTerms!: string;
+  @ApiProperty({ example: '50000.00' }) creditLimit!: string;
+  @ApiProperty({ enum: CREDIT_STATUSES }) creditStatus!: CreditStatus;
+  @ApiProperty({ type: String, nullable: true }) erpId!: string | null;
+  @ApiProperty({ type: String, nullable: true, format: 'uuid' }) accountManagerId!: string | null;
+  @ApiProperty({ type: String, nullable: true }) accountManagerName!: string | null;
   @ApiProperty() activeAgreements!: number;
   @ApiProperty() activeRooms!: number;
   @ApiProperty({ description: 'Planned revenue of approved financial plans for this client', example: '240000.00' }) contractValue!: string;
@@ -71,6 +88,7 @@ export class ClientRecordDto {
   @ApiProperty({ type: 'array', items: { type: 'object' } }) agreements!: unknown[];
   @ApiProperty({ type: 'array', items: { type: 'object' } }) rooms!: unknown[];
   @ApiProperty({ type: [PlanRefDto] }) plans!: PlanRefDto[];
+  @ApiProperty({ type: 'array', items: { type: 'object' }, description: 'Stores linked to this client' }) stores!: unknown[];
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -78,9 +96,24 @@ const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 function clientFields(raw: Record<string, unknown>, partial: boolean): ClientUpdate {
   const out: ClientUpdate = {};
   if (!partial || raw.name !== undefined) out.name = requiredString('name', raw.name, 200).trim();
-  for (const [key, max] of [['legalName', 200], ['vatNumber', 50], ['city', 100], ['country', 100]] as const) {
+  for (const [key, max] of [['legalName', 200], ['vatNumber', 50], ['city', 100], ['country', 100], ['kvkNumber', 20], ['sector', 100], ['address', 255], ['erpId', 50]] as const) {
     if (!partial || raw[key] !== undefined) out[key] = optionalString(key, raw[key], max)?.trim() || null;
   }
+  if (raw.paymentTerms !== undefined) out.paymentTerms = requiredString('paymentTerms', raw.paymentTerms, 100).trim();
+  if (raw.creditLimit !== undefined) {
+    const value = typeof raw.creditLimit === 'number' ? raw.creditLimit : Number(raw.creditLimit);
+    if (raw.creditLimit === '' || raw.creditLimit === null || !Number.isFinite(value) || value < 0 || value >= 1e12) {
+      throw new BadRequestException('creditLimit must be a non-negative amount');
+    }
+    out.creditLimit = value.toFixed(2);
+  }
+  if (raw.creditStatus !== undefined) {
+    if (!CREDIT_STATUSES.includes(raw.creditStatus as CreditStatus)) {
+      throw new BadRequestException(`creditStatus must be one of ${CREDIT_STATUSES.join(', ')}`);
+    }
+    out.creditStatus = raw.creditStatus as CreditStatus;
+  }
+  if (raw.accountManagerId !== undefined) out.accountManagerId = optionalUuid('accountManagerId', raw.accountManagerId);
   if (raw.status !== undefined) {
     if (!partial || !CLIENT_STATUSES.includes(raw.status as ClientStatus)) {
       throw new BadRequestException(`status must be one of ${CLIENT_STATUSES.join(', ')}`);

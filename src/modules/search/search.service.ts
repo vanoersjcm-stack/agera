@@ -77,7 +77,7 @@ export class SearchService {
     // Agreements and client rooms are protected by row-level security, so read them in a tenant transaction.
     const { clients, agreements, rooms } = await this.tx.run(async (manager) => ({
       clients: await this.clients.withManager(manager).find({
-        where: [{ name: pattern }, { legalName: pattern }, { city: pattern }],
+        where: [{ name: pattern }, { legalName: pattern }, { city: pattern }, { erpId: pattern }, { kvkNumber: pattern }],
         order: { name: 'ASC' },
         take,
       }),
@@ -90,7 +90,7 @@ export class SearchService {
         entityType: 'client',
         id: c.id,
         title: c.name,
-        subtitle: `Client · ${[c.city, STATUS_LABELS[c.status]].filter(Boolean).join(' · ')}`,
+        subtitle: `Client · ${[c.erpId && `ERP ${c.erpId}`, c.city, STATUS_LABELS[c.status]].filter(Boolean).join(' · ')}`,
         route: `/nexus/clients/${c.id}`,
       })),
       ...workOrders.map<SearchHit>((w) => ({

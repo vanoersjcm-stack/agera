@@ -32,6 +32,9 @@ export class Store {
   @Column({ type: 'varchar', length: 20, default: 'active' })
   status!: StoreStatus;
 
+  @Column({ name: 'client_id', type: 'uuid', nullable: true })
+  clientId!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz', precision: 3 })
   createdAt!: Date;
 
