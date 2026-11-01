@@ -12,6 +12,8 @@ export interface KeycloakConfig {
   /** Where signing keys are fetched; may be an internal URL when Keycloak sits behind a proxy. */
   jwksUrl: string;
   clientId: string;
+  /** Secret of the agera-backend client; enables in-app user management via its service account. */
+  clientSecret: string | null;
 }
 
 export type StorageDriver = 'local';
@@ -55,6 +57,7 @@ function keycloakConfig(): KeycloakConfig {
     realmUrl,
     jwksUrl: process.env.KEYCLOAK_JWKS_URL || `${realmUrl}/protocol/openid-connect/certs`,
     clientId: required('KEYCLOAK_CLIENT_ID'),
+    clientSecret: process.env.KEYCLOAK_CLIENT_SECRET || null,
   };
 }
 

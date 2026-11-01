@@ -220,3 +220,5 @@ textarea { resize: vertical; }
 .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
 .panel-head h2 { margin: 0; }
 .small { font-size: 0.85em; }
+.secret { display: block; margin: 0.5rem 0; padding: 0.4rem 0.6rem; background: #f3f4f7; border-radius: 4px; font-size: 1rem; user-select: all; }
+.pager { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; }

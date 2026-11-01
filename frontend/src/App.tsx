@@ -20,6 +20,7 @@ import { WorkOrderDossier, WorkOrdersView } from './retailpower/WorkOrders';
 import { navigate, type Route, useRoute } from './router';
 import { type NewDefaults, type NewKind, ShellContext } from './shell';
 import { LEGACY_ROUTES, lastSuite, type NavItem, navFor, PORTAL_NAV, rememberSuite, SUITES, type Suite, type SuiteId } from './suites';
+import { PeopleView } from './symphony/People';
 import { ActivityLogView, IntegrationsView, OrganisationsView, SymphonyOverview } from './symphony/SymphonyViews';
 
 function NotAvailable({ path }: { path: string }) {
@@ -40,6 +41,8 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return <SymphonyOverview />;
     case 'symphony/activity':
       return <ActivityLogView route={route} />;
+    case 'symphony/people':
+      return user.role === 'admin' || user.isPlatformAdmin ? <PeopleView route={route} user={user} /> : <NotAvailable path={route.path} />;
     case 'symphony/organisations':
       return user.isPlatformAdmin ? <OrganisationsView route={route} /> : <NotAvailable path={route.path} />;
     case 'symphony/integrations':

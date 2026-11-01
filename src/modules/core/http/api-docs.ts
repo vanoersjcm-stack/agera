@@ -30,6 +30,7 @@ export class PageMetaDto {
 
 const ERRORS: Record<number, { description: string; error: string; message: string }> = {
   400: { description: 'Invalid input', error: 'Bad Request', message: 'storeId must be a UUID' },
+  503: { description: 'A dependent service (e.g. Keycloak user management) is unavailable or not configured', error: 'Service Unavailable', message: 'User management is not configured' },
   401: {
     description: 'Missing, invalid or expired Keycloak access token',
     error: 'Unauthorized',

@@ -112,6 +112,7 @@ services:
       KEYCLOAK_REALM_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env.production}/auth/realms/agera
       KEYCLOAK_JWKS_URL: http://keycloak:8080/auth/realms/agera/protocol/openid-connect/certs
       KEYCLOAK_CLIENT_ID: agera-backend
+      KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?Set KEYCLOAK_CLIENT_SECRET in .env.production}
     volumes:
       - uploads:/uploads
     healthcheck:

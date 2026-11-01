@@ -197,6 +197,17 @@ cmd_up() {
     die "the stack failed to start (migration output and container status above)"
   fi
   wait_until_ready
+  info "Granting the backend user-management rights in Keycloak (People & access)"
+  compose exec -T keycloak bash -s <<'KCADM' || info "warning: could not grant user-management rights; People & access will report it as unavailable"
+set -euo pipefail
+kc() { /opt/keycloak/bin/kcadm.sh "$@" --config "$CFG"; }
+CFG=$(mktemp)
+trap 'rm -f "$CFG"' EXIT
+kc config credentials --server http://localhost:8080/auth --realm master \
+  --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD" >/dev/null
+kc add-roles -r agera --uusername service-account-agera-backend --cclientid realm-management \
+  --rolename manage-users --rolename view-users --rolename query-users
+KCADM
   compose logs --no-color --since "$started" migrate | sed -n 's/^.*migrate: /    migrate: /p'
   local url=${ENV[PUBLIC_URL]}
   info "Agera Symphony is running"

@@ -27,6 +27,9 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
       return [
         { path: '/symphony', label: 'Overview', description: 'Key figures across all suites' },
         { path: '/symphony/activity', label: 'Activity log', description: 'Who did what, and when' },
+        ...(user.role === 'admin' || user.isPlatformAdmin
+          ? [{ path: '/symphony/people', label: 'People & access', description: 'Invite colleagues and clients, roles, deactivate accounts' }]
+          : []),
         ...(user.isPlatformAdmin
           ? [
               { path: '/symphony/organisations', label: 'Organisations', description: 'Your organisation and new organisations' },

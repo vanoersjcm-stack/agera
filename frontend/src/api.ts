@@ -302,6 +302,27 @@ export interface RoomActivity {
 
 export type AgreementStatus = 'pending_approval' | 'active' | 'expired';
 
+export type AccountRole = 'platform-admin' | 'admin' | 'user' | 'External_Client';
+
+export interface UserAccount {
+  id: string;
+  name: string;
+  email: string;
+  firstName: string | null;
+  lastName: string | null;
+  role: AccountRole;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface UserAccountPage {
+  items: UserAccount[];
+  page: number;
+  limit: number;
+  total: number;
+  managementAvailable: boolean;
+}
+
 export interface Agreement {
   id: string;
   clientId: string;
@@ -340,6 +361,12 @@ export const api = {
   workOrders: () => request<Page<WorkOrder>>('GET', '/work-orders?limit=100'),
   workOrder: (id: string) => request<WorkOrder>('GET', `/work-orders/${id}`),
   workOrderLogs: (id: string) => request<WorkOrderLog[]>('GET', `/work-orders/${id}/logs`),
+  userAccounts: (params: { q?: string; role?: string; status?: string; page?: number; limit?: number }) =>
+    request<UserAccountPage>('GET', `/users/accounts${query(params)}`),
+  inviteUser: (body: { email: string; firstName: string; lastName: string; role: AccountRole; clientId?: string }) =>
+    request<{ user: UserAccount; temporaryPassword: string }>('POST', '/users', body),
+  setUserRole: (id: string, role: AccountRole) => request<UserAccount>('PATCH', `/users/${id}/role`, { role }),
+  setUserStatus: (id: string, isActive: boolean) => request<UserAccount>('PATCH', `/users/${id}/status`, { isActive }),
   updateWorkOrder: (id: string, body: { title?: string; description?: string | null; priority?: WorkOrderPriority }) =>
     request<WorkOrder>('PATCH', `/work-orders/${id}`, body),
   updateStore: (id: string, body: Partial<Pick<Store, 'storeCode' | 'name' | 'address' | 'city' | 'postalCode' | 'country' | 'status'>>) =>

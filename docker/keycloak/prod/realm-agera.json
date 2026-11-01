@@ -26,6 +26,9 @@
       }
     ]
   },
+  "users": [
+    {"username": "service-account-agera-backend", "enabled": true, "serviceAccountClientId": "agera-backend", "clientRoles": {"realm-management": ["manage-users", "view-users", "query-users"]}}
+  ],
   "clients": [
     {
       "clientId": "agera-backend",
