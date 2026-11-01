@@ -102,7 +102,7 @@ describe('OpenAPI document', () => {
       '/users/me': ['get'],
       '/search': ['get'],
       '/tenants/me': ['get'],
-      '/tenants': ['post'],
+      '/tenants': ['get', 'post'],
       '/audit-logs': ['get'],
       '/work-orders': ['get', 'post'],
       '/work-orders/{id}': ['get', 'patch'],

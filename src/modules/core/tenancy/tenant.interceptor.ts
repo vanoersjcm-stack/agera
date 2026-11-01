@@ -1,4 +1,4 @@
-import { type CallHandler, type ExecutionContext, Injectable, type NestInterceptor } from '@nestjs/common';
+import { type CallHandler, type ExecutionContext, ForbiddenException, Injectable, type NestInterceptor } from '@nestjs/common';
 import { Observable } from 'rxjs';
 import type { AuthenticatedRequest } from '../../auth/authenticated-user.js';
 import { type ActiveTenant, TenantContext } from './tenant-context.service.js';
@@ -12,10 +12,15 @@ export class TenantInterceptor implements NestInterceptor {
   ) {}
 
   async intercept(context: ExecutionContext, next: CallHandler): Promise<Observable<unknown>> {
-    const { user, apiKey } = context.switchToHttp().getRequest<AuthenticatedRequest>();
+    const request = context.switchToHttp().getRequest<AuthenticatedRequest & { method: string; headers: Record<string, string | string[] | undefined> }>();
+    const { user, apiKey } = request;
     let tenant: ActiveTenant;
     if (user) {
-      tenant = await this.resolver.resolve(user);
+      const header = request.headers['x-agera-organisation'];
+      tenant = await this.resolver.resolve(user, Array.isArray(header) ? header[0] : header);
+      if (tenant.readOnly && !['GET', 'HEAD', 'OPTIONS'].includes(request.method)) {
+        throw new ForbiddenException('Read-only: you are viewing another organisation. Switch back to your own organisation to make changes.');
+      }
     } else if (apiKey) {
       tenant = await this.resolver.resolveApiKey(apiKey);
     } else {

@@ -27,6 +27,11 @@ export class TenantsService {
     this.users = new TenantRepository(users, context);
   }
 
+  /** All organisations; for the platform-admin organisation switcher. */
+  list(): Promise<Tenant[]> {
+    return this.tenants.find({ order: { name: 'ASC' } });
+  }
+
   async getActive(): Promise<Tenant> {
     const tenant = await this.tenants.findOneBy({ id: this.context.tenantId });
     if (!tenant) {

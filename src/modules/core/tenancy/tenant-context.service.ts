@@ -1,7 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import { Injectable } from '@nestjs/common';
 
-export type TenantSource = 'claim' | 'domain' | 'apiKey';
+export type TenantSource = 'claim' | 'domain' | 'apiKey' | 'switch';
 
 /** Row-level security scope within the tenant; mirrored into `app.access_scope` / `app.current_client`. */
 export type TenantAccess = { scope: 'internal' } | { scope: 'external'; clientId: string } | { scope: 'apiKey' };
@@ -12,6 +12,8 @@ export interface ActiveTenant {
   domain: string;
   source: TenantSource;
   access: TenantAccess;
+  /** Set when a platform admin views another organisation; all writes are rejected. */
+  readOnly?: boolean;
 }
 
 @Injectable()

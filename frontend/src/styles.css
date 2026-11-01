@@ -222,3 +222,5 @@ textarea { resize: vertical; }
 .small { font-size: 0.85em; }
 .secret { display: block; margin: 0.5rem 0; padding: 0.4rem 0.6rem; background: #f3f4f7; border-radius: 4px; font-size: 1rem; user-select: all; }
 .pager { display: flex; align-items: center; gap: 0.75rem; margin-top: 1rem; }
+.org-switch { cursor: pointer; border: none; font: inherit; }
+.readonly-banner { border-left: 4px solid #d97706; background: #fffbeb; }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, type SearchHit, type Tenant } from './api';
+import { api, type SearchHit, type Tenant, switchOrganisation, viewingOrganisation } from './api';
 import { AssistantTip, useAssistant } from './Assistant';
 import { keycloak } from './auth';
 import { displayName, type UserContext, userContext } from './context';
@@ -305,6 +305,27 @@ function redirectFor(route: Route, external: boolean): string | null {
   return null;
 }
 
+function OrgBadge({ user, tenant }: { user: UserContext; tenant: Tenant | null }) {
+  const [tenants, setTenants] = useState<Tenant[] | null>(null);
+  useEffect(() => {
+    if (user.isPlatformAdmin) api.tenants().then(setTenants, () => setTenants(null));
+  }, [user.isPlatformAdmin]);
+  if (!user.isPlatformAdmin || !tenant || !tenants || tenants.length < 2) {
+    return <span className="org-badge" title="Organisation you are working in">{tenant?.name ?? '…'}</span>;
+  }
+  return (
+    <select
+      className="org-badge org-switch"
+      aria-label="Switch organisation"
+      title="Platform administrators can view other organisations (read-only)"
+      value={tenant.id}
+      onChange={(e) => switchOrganisation(e.target.value)}
+    >
+      {tenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+    </select>
+  );
+}
+
 export function App() {
   const route = useRoute();
   const user = useMemo(userContext, []);
@@ -315,7 +336,10 @@ export function App() {
   const [toast, setToast] = useState<string | null>(null);
 
   useEffect(() => {
-    api.tenant().then(setTenant, () => setTenant(null));
+    api.tenant().then((t) => {
+      if (!t.readOnly && viewingOrganisation()) sessionStorage.removeItem('agera.viewOrganisation');
+      setTenant(t);
+    }, () => setTenant(null));
     // Records the caller's current roles for the user list (GET /users); internal users only.
     if (!external) api.me().catch(() => undefined);
   }, [external]);
@@ -348,9 +372,9 @@ export function App() {
       <div className={`shell suite-${external ? 'portal' : suite.id}`}>
         <header className="topbar">
           {external ? <span className="brand">Agera · Client portal</span> : <SuiteSwitcher active={suite} />}
-          <span className="org-badge" title="Organisation you are working in">{tenant?.name ?? '…'}</span>
+          <OrgBadge user={user} tenant={tenant} />
           {!external && <SearchBox user={user} />}
-          {!external && <NewMenu suite={suite.id} user={user} onPick={(kind) => openNew(kind)} />}
+          {!external && !tenant?.readOnly && <NewMenu suite={suite.id} user={user} onPick={(kind) => openNew(kind)} />}
           <span className="topbar-spacer" />
           <UserMenu user={user} tenant={tenant} tipsOn={assistant.enabled} onToggleTips={assistant.toggle} />
         </header>
@@ -361,6 +385,12 @@ export function App() {
             <SideNav items={navFor(suite.id, user)} path={route.path} heading={`${suite.name} · ${suite.tagline}`} />
           )}
           <main>
+            {tenant?.readOnly && (
+              <p className="callout readonly-banner">
+                You are viewing <strong>{tenant.name}</strong> read-only. Changes are only possible in your own organisation.{' '}
+                <button className="link-button" onClick={() => switchOrganisation(null)}>Back to my organisation</button>
+              </p>
+            )}
             <AssistantTip path={route.path} assistant={assistant} />
             {external ? <PortalView route={route} /> : <InternalView route={route} user={user} />}
           </main>

@@ -10,7 +10,7 @@ export class ApiError extends Error {
 }
 
 async function send<T>(method: string, path: string, body?: BodyInit, contentType?: string): Promise<T> {
-  const headers: Record<string, string> = { Authorization: `Bearer ${await accessToken()}` };
+  const headers: Record<string, string> = { Authorization: `Bearer ${await accessToken()}`, ...organisationHeader() };
   if (contentType) headers['Content-Type'] = contentType;
   const response = await fetch(path.startsWith('/api/') ? path : `/api${path}`, { method, headers, body });
   const data: unknown = await response.json().catch(() => null);
@@ -19,6 +19,25 @@ async function send<T>(method: string, path: string, body?: BodyInit, contentTyp
     throw new ApiError(response.status, Array.isArray(message) ? message.join(', ') : (message ?? response.statusText));
   }
   return data as T;
+}
+
+const VIEW_KEY = 'agera.viewOrganisation';
+
+/** Organisation a platform admin is viewing read-only, or null for their own organisation. */
+export function viewingOrganisation(): string | null {
+  return sessionStorage.getItem(VIEW_KEY);
+}
+
+export function switchOrganisation(id: string | null): void {
+  if (id) sessionStorage.setItem(VIEW_KEY, id);
+  else sessionStorage.removeItem(VIEW_KEY);
+  window.location.hash = '#/symphony';
+  window.location.reload();
+}
+
+function organisationHeader(): Record<string, string> {
+  const id = viewingOrganisation();
+  return id ? { 'X-Agera-Organisation': id } : {};
 }
 
 function request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -41,6 +60,7 @@ export interface Page<T> {
 /* ---------- Symphony ---------- */
 
 export interface Tenant {
+  readOnly?: boolean;
   id: string;
   name: string;
   domain: string;
@@ -348,6 +368,7 @@ export interface ClientRoom {
 export const api = {
   // Symphony
   tenant: () => request<Tenant>('GET', '/tenants/me'),
+  tenants: () => request<Tenant[]>('GET', '/tenants'),
   createTenant: (body: { name: string; domain: string }) => request<Tenant>('POST', '/tenants', body),
   me: () => request<UserProfile>('GET', '/users/me'),
   users: () => request<UserSummary[]>('GET', '/users'),
@@ -398,7 +419,7 @@ export const api = {
   deleteVisitPhoto: (visitId: string, mediaId: string) => request<null>('DELETE', `/visits/${visitId}/media/${mediaId}`),
   /** Photos need the bearer token, so they are fetched as blobs and shown via object URLs. */
   photoBlob: async (url: string) => {
-    const response = await fetch(url, { headers: { Authorization: `Bearer ${await accessToken()}` } });
+    const response = await fetch(url, { headers: { Authorization: `Bearer ${await accessToken()}`, ...organisationHeader() } });
     if (!response.ok) throw new ApiError(response.status, response.statusText);
     return response.blob();
   },

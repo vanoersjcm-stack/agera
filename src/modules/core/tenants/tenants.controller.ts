@@ -47,7 +47,10 @@ export class TenantDto {
 }
 
 export class ActiveTenantDto extends TenantDto {
-  @ApiProperty({ enum: ['claim', 'domain', 'apiKey'], description: 'How the tenant was resolved for this request' })
+  @ApiProperty({ description: 'True while a platform admin views another organisation (X-Agera-Organisation); writes are rejected' })
+  readOnly!: boolean;
+
+  @ApiProperty({ enum: ['claim', 'domain', 'apiKey', 'switch'], description: 'How the tenant was resolved for this request' })
   resolvedBy!: TenantSource;
 }
 
@@ -90,7 +93,15 @@ export class TenantsController {
   @ApiOkResponse({ type: ActiveTenantDto })
   async me(): Promise<ActiveTenantDto> {
     const tenant = await this.tenants.getActive();
-    return { ...toResponse(tenant), resolvedBy: this.context.tenant.source };
+    return { ...toResponse(tenant), resolvedBy: this.context.tenant.source, readOnly: this.context.tenant.readOnly === true };
+  }
+
+  @Get()
+  @Roles(PLATFORM_ADMIN_ROLE)
+  @ApiOperation({ summary: 'All organisations, for the organisation switcher (realm role platform-admin)' })
+  @ApiOkResponse({ type: [TenantDto] })
+  async list(): Promise<TenantDto[]> {
+    return (await this.tenants.list()).map(toResponse);
   }
 
   @Post()
