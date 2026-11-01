@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react';
+import { createPortal } from 'react-dom';
+import { type ReactNode, useEffect, useState } from 'react';
 
 export interface Crumb {
   label: string;
@@ -19,9 +20,20 @@ export function ViewFrame({
   actions?: ReactNode;
   children: ReactNode;
 }) {
+  const crumbSlot = useCrumbSlot();
   return (
     <section>
-      {crumbs.length > 0 && (
+      {crumbs.length > 0 && (crumbSlot ? createPortal(
+        <nav className="breadcrumbs" aria-label="Breadcrumb">
+          {crumbs.map((c, i) => (
+            <span key={`${c.label}-${i}`}>
+              {i > 0 && <span className="sep">›</span>}
+              {c.href && i < crumbs.length - 1 ? <a href={c.href}>{c.label}</a> : <span aria-current={i === crumbs.length - 1 ? 'page' : undefined}>{c.label}</span>}
+            </span>
+          ))}
+        </nav>,
+        crumbSlot,
+      ) : (
         <nav className="breadcrumbs" aria-label="Breadcrumb">
           {crumbs.map((c, i) => (
             <span key={`${c.label}-${i}`}>
@@ -30,7 +42,7 @@ export function ViewFrame({
             </span>
           ))}
         </nav>
-      )}
+      ))}
       <header className="view-header">
         <div>
           <h1>{title}</h1>
@@ -51,4 +63,11 @@ export function EmptyState({ title, children, action }: { title: string; childre
       {action && <div className="empty-actions">{action}</div>}
     </div>
   );
+}
+
+/** The action bar under the top bar shows the page breadcrumb (see App). */
+function useCrumbSlot(): HTMLElement | null {
+  const [slot, setSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => setSlot(document.getElementById('actionbar-crumbs')), []);
+  return slot;
 }

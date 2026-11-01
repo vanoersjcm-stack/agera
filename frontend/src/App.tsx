@@ -106,22 +106,27 @@ function useDropdown() {
   return { open, setOpen, ref };
 }
 
-function SuiteSwitcher({ active }: { active: Suite }) {
+function WaffleMenu({ active }: { active: Suite }) {
   const { open, setOpen, ref } = useDropdown();
   return (
     <div className="dropdown" ref={ref}>
-      <button className="suite-button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className="suite-grid" aria-hidden>▦</span> Agera <span className="suite-current">{active.name}</span> ▾
+      <button className={`waffle-button${open ? ' open' : ''}`} aria-haspopup="menu" aria-expanded={open} aria-label="Switch suite" title="Switch suite" onClick={() => setOpen(!open)}>
+        <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden><g fill="currentColor">{[3, 9, 15].flatMap((x) => [3, 9, 15].map((y) => <rect key={`${x}-${y}`} x={x - 1.5} y={y - 1.5} width="3" height="3" rx="0.8" />))}</g></svg>
       </button>
       {open && (
-        <div className="menu suite-menu" role="menu">
-          {SUITES.map((s) => (
-            <a key={s.id} role="menuitem" href={`#${s.home}`} className={s.id === active.id ? 'selected' : undefined} onClick={() => setOpen(false)}>
-              <strong>{s.name}</strong>
-              <span>{s.tagline}</span>
-              {s.id === active.id && <span className="check" aria-label="current">✓</span>}
-            </a>
-          ))}
+        <div className="waffle-panel" role="menu">
+          <div className="waffle-head">
+            <span>Agera suites</span>
+            <span className="waffle-hint">1 click</span>
+          </div>
+          <div className="waffle-grid">
+            {SUITES.map((s) => (
+              <a key={s.id} role="menuitem" href={`#${s.home}`} className={`waffle-card ${s.id}${s.id === active.id ? ' current' : ''}`} onClick={() => setOpen(false)}>
+                <strong>Agera {s.name}</strong>
+                {s.tagline}
+              </a>
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -144,32 +149,27 @@ function pageHits(user: UserContext, q: string): PageHit[] {
   ).slice(0, 4);
 }
 
-function SearchBox({ user }: { user: UserContext }) {
+function SearchPalette({ user }: { user: UserContext }) {
+  const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<SearchHit[]>([]);
-  const [open, setOpen] = useState(false);
   const [searching, setSearching] = useState(false);
-  const input = useRef<HTMLInputElement>(null);
-  const box = useRef<HTMLDivElement>(null);
+  const [selected, setSelected] = useState(0);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault();
-        input.current?.focus();
+        setOpen(true);
       }
     };
-    const onDown = (e: MouseEvent) => box.current && !box.current.contains(e.target as Node) && setOpen(false);
     window.addEventListener('keydown', onKey);
-    document.addEventListener('mousedown', onDown);
-    return () => {
-      window.removeEventListener('keydown', onKey);
-      document.removeEventListener('mousedown', onDown);
-    };
+    return () => window.removeEventListener('keydown', onKey);
   }, []);
 
   useEffect(() => {
     const term = q.trim();
+    setSelected(0);
     if (term.length < 2) {
       setHits([]);
       return;
@@ -184,44 +184,63 @@ function SearchBox({ user }: { user: UserContext }) {
     return () => window.clearTimeout(timer);
   }, [q]);
 
+  const close = () => (setOpen(false), setQ(''));
   const pages = pageHits(user, q);
-  const results: PageHit[] = [...pages, ...hits.map((h) => ({ route: h.route, title: h.title, subtitle: h.subtitle }))];
-  const go = (route: string) => {
-    setOpen(false);
-    setQ('');
-    navigate(route);
-  };
+  const results = [
+    ...pages.map((p) => ({ ...p, type: 'Page' })),
+    ...hits.map((h) => ({ route: h.route, title: h.title, subtitle: h.subtitle, type: SEARCH_TYPE[h.entityType] ?? '' })),
+  ];
+  const go = (route: string) => (close(), navigate(route));
 
   return (
-    <div className="search" ref={box}>
-      <input
-        ref={input}
-        type="search"
-        value={q}
-        placeholder="Search stores, work orders, agreements, client rooms or pages…"
-        aria-label="Search"
-        onChange={(e) => (setQ(e.target.value), setOpen(true))}
-        onFocus={() => setOpen(true)}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter' && results[0]) go(results[0].route);
-          if (e.key === 'Escape') (setOpen(false), input.current?.blur());
-        }}
-      />
-      <kbd className="search-kbd" title="Keyboard shortcut">Ctrl K</kbd>
-      {open && q.trim().length >= 2 && (
-        <div className="menu search-results" role="listbox">
-          {results.map((r) => (
-            <button key={r.route} role="option" aria-selected={false} onClick={() => go(r.route)}>
-              <strong>{r.title}</strong>
-              <span>{r.subtitle}</span>
-            </button>
-          ))}
-          {results.length === 0 && <p className="muted menu-note">{searching ? 'Searching…' : 'Nothing found'}</p>}
+    <>
+      <button className="search-trigger" onClick={() => setOpen(true)} title="Search (Ctrl K)">
+        <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" strokeWidth="1.6" /><path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
+        <span className="search-label">Search…</span>
+        <kbd>Ctrl K</kbd>
+      </button>
+      {open && (
+        <div className="palette-backdrop" onMouseDown={(e) => e.target === e.currentTarget && close()}>
+          <div className="palette" role="dialog" aria-label="Search">
+            <input
+              autoFocus
+              type="search"
+              value={q}
+              placeholder="Search clients, stores, work orders, agreements, client rooms or pages…"
+              aria-label="Search"
+              onChange={(e) => setQ(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Escape') close();
+                if (e.key === 'ArrowDown') (e.preventDefault(), setSelected((i) => Math.min(i + 1, results.length - 1)));
+                if (e.key === 'ArrowUp') (e.preventDefault(), setSelected((i) => Math.max(i - 1, 0)));
+                if (e.key === 'Enter' && results[selected]) go(results[selected].route);
+              }}
+            />
+            <div className="palette-results" role="listbox">
+              {q.trim().length < 2 && <p className="muted menu-note">Type at least two letters. Use ↑ ↓ and Enter to open a result.</p>}
+              {results.map((r, i) => (
+                <button key={r.route} role="option" aria-selected={i === selected} className={i === selected ? 'selected' : undefined} onMouseEnter={() => setSelected(i)} onClick={() => go(r.route)}>
+                  <strong>{r.title}{r.type && <em className="palette-type">{r.type}</em>}</strong>
+                  <span>{r.subtitle}</span>
+                </button>
+              ))}
+              {q.trim().length >= 2 && results.length === 0 && <p className="muted menu-note">{searching ? 'Searching…' : 'Nothing found'}</p>}
+            </div>
+          </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
+
+const SEARCH_TYPE: Record<string, string> = {
+  client: 'Client',
+  store: 'Store',
+  work_order: 'Work order',
+  agreement: 'Agreement',
+  client_room: 'Client room',
+  digital_sales_room: 'Client room',
+};
 
 function NewMenu({ suite, user, onPick }: { suite: SuiteId; user: UserContext; onPick: (kind: NewKind) => void }) {
   const { open, setOpen, ref } = useDropdown();
@@ -231,7 +250,7 @@ function NewMenu({ suite, user, onPick }: { suite: SuiteId; user: UserContext; o
   return (
     <div className="dropdown" ref={ref}>
       <button className="new-button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
-        + New ▾
+        + New
       </button>
       {open && (
         <div className="menu new-menu" role="menu">
@@ -262,8 +281,11 @@ function UserMenu({ user, tenant, tipsOn, onToggleTips }: { user: UserContext; t
   return (
     <div className="dropdown" ref={ref}>
       <button className="user-button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
-        <span className="avatar" aria-hidden>{name.slice(0, 1).toUpperCase()}</span>
-        <span className="user-name">{name}</span> ▾
+        <span className="avatar" aria-hidden>{initials(name)}</span>
+        <span className="user-meta">
+          <span className="user-name">{name}</span>
+          <small>{user.roleLabel}</small>
+        </span>
       </button>
       {open && (
         <div className="menu user-menu" role="menu">
@@ -278,6 +300,11 @@ function UserMenu({ user, tenant, tipsOn, onToggleTips }: { user: UserContext; t
       )}
     </div>
   );
+}
+
+function initials(name: string): string {
+  const parts = name.split(/[\s.@]+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
 }
 
 function SideNav({ items, path, heading }: { items: NavItem[]; path: string; heading: string }) {
@@ -371,13 +398,40 @@ export function App() {
     <ShellContext.Provider value={shell}>
       <div className={`shell suite-${external ? 'portal' : suite.id}`}>
         <header className="topbar">
-          {external ? <span className="brand">Agera · Client portal</span> : <SuiteSwitcher active={suite} />}
-          <OrgBadge user={user} tenant={tenant} />
-          {!external && <SearchBox user={user} />}
-          {!external && !tenant?.readOnly && <NewMenu suite={suite.id} user={user} onPick={(kind) => openNew(kind)} />}
+          {external ? (
+            <span className="brand">Agera · Client portal</span>
+          ) : (
+            <>
+              <WaffleMenu active={suite} />
+              <div className="suite-indicator">
+                <span className="suite-title">Agera {suite.name}</span>
+                <span className="suite-tag">{suite.tagline}</span>
+              </div>
+              <nav className="suite-nav" aria-label="Suites">
+                {SUITES.map((s) => (
+                  <a key={s.id} href={`#${s.home}`} className={s.id === suite.id ? 'active' : undefined}>
+                    <span className={`suite-dot dot-${s.id}`} aria-hidden />
+                    {s.name}
+                  </a>
+                ))}
+              </nav>
+            </>
+          )}
           <span className="topbar-spacer" />
+          {!external && <SearchPalette user={user} />}
           <UserMenu user={user} tenant={tenant} tipsOn={assistant.enabled} onToggleTips={assistant.toggle} />
         </header>
+        <div className="actionbar">
+          <div className="actionbar-crumbs">
+            <strong>Agera</strong>
+            <span className="sep" aria-hidden>›</span>
+            <span id="actionbar-crumbs" className="crumbs-slot" data-fallback={external ? 'Client portal' : suite.name} />
+          </div>
+          <div className="actionbar-actions">
+            <OrgBadge user={user} tenant={tenant} />
+            {!external && !tenant?.readOnly && <NewMenu suite={suite.id} user={user} onPick={(kind) => openNew(kind)} />}
+          </div>
+        </div>
         <div className="workspace">
           {external ? (
             <SideNav items={PORTAL_NAV} path={route.path} heading="Client portal" />
