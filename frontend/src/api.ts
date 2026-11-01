@@ -246,6 +246,15 @@ export interface Alerts {
   anomalies: Alert[];
 }
 
+export interface RoomActivity {
+  id: string;
+  dsrId: string;
+  stakeholderEmail: string;
+  activityType: string;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
 export type AgreementStatus = 'pending_approval' | 'active' | 'expired';
 
 export interface Agreement {
@@ -329,6 +338,9 @@ export const api = {
     request<LineItem>('PATCH', `/v1/financials/line-items/${id}`, body),
   pnl: (params: { modelId?: string; period?: string }) => request<Pnl>('GET', `/v1/financials/pnl${query(params)}`),
   engagement: (roomId?: string) => request<EngagementStatus>('GET', `/v1/nexus/dsr-status${query({ dsrId: roomId })}`),
+  activities: (roomId: string) => request<RoomActivity[]>('GET', `/v1/nexus/dsr-activities${query({ dsrId: roomId })}`),
+  recordActivity: (body: { dsrId: string; stakeholderEmail: string; activityType: string; details?: Record<string, unknown> }) =>
+    request<RoomActivity>('POST', '/v1/nexus/dsr-activities', body),
   alerts: () => request<Alerts>('GET', '/v1/nexus/anomalies'),
   rooms: () => request<ClientRoom[]>('GET', '/v1/dsrs'),
   room: (id: string) => request<ClientRoom>('GET', `/v1/dsrs/${id}`),

@@ -93,6 +93,13 @@ export class NexusService {
     this.voiceEvents = new TenantRepository(voiceEvents, context);
   }
 
+  /** Newest first. Row-level security limits client users to activities in their own rooms. */
+  listActivities(dsrId: string, limit: number): Promise<DsrActivity[]> {
+    return this.tx.run((manager) =>
+      this.activities.withManager(manager).find({ where: { dsrId }, order: { createdAt: 'DESC', id: 'DESC' }, take: limit }),
+    );
+  }
+
   async recordActivity(input: RecordActivityInput, identity: AuthenticatedUser): Promise<DsrActivity> {
     const actor = await this.userService.resolveActor(identity);
     const external = this.context.tenant.access.scope === 'external';

@@ -4,6 +4,7 @@ import { ACTIVITY_TYPE, AGREEMENT_STATUS, ENGAGEMENT_STATUS, formatDate, formatD
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
+import { RoomActivityPanel, useRecordOpened } from './RoomActivity';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
 
 function crumbs(external: boolean) {
@@ -131,6 +132,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
   const engagement = useLoad(() => api.engagement(id), [id]);
   const agreement = useLoad(() => (room.data?.agreementId ? api.agreement(room.data.agreementId) : Promise.resolve(null)), [room.data?.agreementId]);
   const action = useAction();
+  useRecordOpened(id, external);
   const c = crumbs(external);
   const r = room.data;
   if (!r) {
@@ -165,6 +167,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
         tabs={[
           { id: 'details', label: 'Details' },
           { id: 'engagement', label: `Engagement${stats ? ` (${stats.stakeholderCount})` : ''}` },
+          { id: 'activity', label: 'Comments & activity' },
         ]}
         active={tab}
         onChange={(t) => navigate(withParams(route, { tab: t === 'details' ? null : t }))}
@@ -188,6 +191,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
           ]}
         />
       )}
+      {tab === 'activity' && <RoomActivityPanel roomId={id} canComment={r.status === 'active'} />}
       {tab === 'engagement' && (
         <>
           {!engagement.data && <Loading error={engagement.error} />}

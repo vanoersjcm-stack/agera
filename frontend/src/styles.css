@@ -213,3 +213,6 @@ textarea { resize: vertical; }
   main { padding: 1rem; }
   .timeline li { grid-template-columns: 1fr; gap: 0.1rem; }
 }
+.comment-form { margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.4rem; }
+.comment-text { display: block; margin-top: 0.2rem; white-space: pre-wrap; color: #1d2433; }
+.decision { display: flex; flex-direction: column; gap: 0.5rem; }

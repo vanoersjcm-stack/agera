@@ -123,7 +123,7 @@ describe('OpenAPI document', () => {
       '/v1/financials/models/{id}/line-items': ['get', 'post'],
       '/v1/financials/line-items/{id}': ['patch'],
       '/v1/nexus/dsr-status': ['get'],
-      '/v1/nexus/dsr-activities': ['post'],
+      '/v1/nexus/dsr-activities': ['get', 'post'],
       '/v1/nexus/command': ['post'],
       '/v1/nexus/voice-event': ['post'],
       '/v1/nexus/voice-events/{id}': ['get'],

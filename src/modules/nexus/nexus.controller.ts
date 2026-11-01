@@ -140,6 +140,28 @@ export class NexusController {
     return this.nexus.dsrStatus(days, optionalUuid('dsrId', dsrId));
   }
 
+  @Get('dsr-activities')
+  @AllowExternal()
+  @ApiOperation({
+    summary: 'Activity stream of a DSR, newest first',
+    description: 'Client users (External_Client) only see activities in their own rooms; other rooms return an empty list.',
+  })
+  @ApiQuery({ name: 'dsrId', required: true, format: 'uuid' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, description: '1–200, default 50' })
+  @ApiOkResponse({ type: [DsrActivityDto] })
+  @ApiErrors(400)
+  async listActivities(@Query('dsrId') dsrId?: string, @Query('limit') limit?: string): Promise<DsrActivityDto[]> {
+    const id = optionalUuid('dsrId', dsrId);
+    if (id === null) {
+      throw new BadRequestException('dsrId is required');
+    }
+    const take = limit === undefined ? 50 : Number(limit);
+    if (!Number.isInteger(take) || take < 1 || take > 200) {
+      throw new BadRequestException('limit must be an integer between 1 and 200');
+    }
+    return (await this.nexus.listActivities(id, take)).map(toActivityResponse);
+  }
+
   @Post('dsr-activities')
   @AllowExternal()
   @ApiOperation({

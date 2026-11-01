@@ -4,6 +4,8 @@ import { AGREEMENT_STATUS, formatDate, ROOM_STATUS } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
+import { useState } from 'react';
+import { myEmail } from './RoomActivity';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
 
 const NEXT: Record<AgreementStatus, { status: AgreementStatus; label: string; confirm?: string }[]> = {
@@ -88,6 +90,39 @@ export function AgreementsView({ route, external }: { route: Route; external: bo
   );
 }
 
+/** Client decision on an agreement awaiting approval, recorded as terms_accepted / terms_rejected in the linked room. */
+function ClientDecision({ agreementId, title, roomId }: { agreementId: string; title: string; roomId: string | null }) {
+  const { notify } = useShell();
+  const [reason, setReason] = useState('');
+  const activities = useLoad(() => (roomId ? api.activities(roomId) : Promise.resolve([])), [roomId]);
+  const { busy, error, run } = useAction();
+  if (!roomId) return <p className="callout">To accept or reject this agreement, please contact your Agera account manager.</p>;
+  const decision = activities.data?.find(
+    (a) => (a.activityType === 'terms_accepted' || a.activityType === 'terms_rejected') && a.details.agreementId === agreementId && a.stakeholderEmail === myEmail(),
+  );
+  const decide = (activityType: 'terms_accepted' | 'terms_rejected') =>
+    void run(() =>
+      api.recordActivity({ dsrId: roomId, stakeholderEmail: myEmail(), activityType, details: { agreementId, agreementTitle: title, reason: reason.trim() } }),
+    ).then((r) => r && (notify(activityType === 'terms_accepted' ? 'You accepted the agreement' : 'You rejected the agreement'), activities.reload()));
+  return (
+    <div className="card-panel decision">
+      <h2>Your decision</h2>
+      {decision && (
+        <p className={decision.activityType === 'terms_accepted' ? 'good' : 'bad'}>
+          You {decision.activityType === 'terms_accepted' ? 'accepted' : 'rejected'} this agreement on {formatDate(decision.createdAt)}. Agera will process your decision.
+        </p>
+      )}
+      <label className="field-label" htmlFor="decision-reason">Comment or reason (optional)</label>
+      <textarea id="decision-reason" rows={3} maxLength={2000} value={reason} onChange={(e) => setReason(e.target.value)} />
+      <div className="form-actions start">
+        <button className="primary" disabled={busy} onClick={() => decide('terms_accepted')}>Accept</button>
+        <button className="secondary danger" disabled={busy} onClick={() => decide('terms_rejected')}>Reject</button>
+      </div>
+      <ErrorText error={error} />
+    </div>
+  );
+}
+
 export function AgreementDossier({ id, external }: { id: string; external: boolean }) {
   const { openNew, notify } = useShell();
   const clients = useClients(!external);
@@ -134,6 +169,9 @@ export function AgreementDossier({ id, external }: { id: string; external: boole
         </ol>
       )}
       <ErrorText error={action.error} />
+      {external && a.status === 'pending_approval' && rooms.data && (
+        <ClientDecision agreementId={id} title={a.title} roomId={rooms.data.find((r) => r.agreementId === id && r.status === 'active')?.id ?? null} />
+      )}
       <DetailList
         items={[
           ...(external ? [] : ([['Client', clientName(clients, a.clientId)]] as [string, string][])),
