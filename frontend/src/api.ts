@@ -86,7 +86,7 @@ export interface CreatedApiKey extends ApiKey {
 }
 
 export interface SearchHit {
-  entityType: 'store' | 'work_order' | 'agreement' | 'client_room';
+  entityType: 'client' | 'store' | 'work_order' | 'agreement' | 'client_room';
   id: string;
   title: string;
   subtitle: string;
@@ -246,6 +246,45 @@ export interface Alerts {
   anomalies: Alert[];
 }
 
+export type ClientStatus = 'active' | 'archived';
+
+export interface Client {
+  id: string;
+  name: string;
+  legalName: string | null;
+  vatNumber: string | null;
+  city: string | null;
+  country: string | null;
+  status: ClientStatus;
+  activeAgreements: number;
+  activeRooms: number;
+  contractValue: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Contact {
+  id: string;
+  clientId: string;
+  firstName: string;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  roleTitle: string | null;
+  isPrimary: boolean;
+}
+
+export type ClientInput = Pick<Client, 'name' | 'legalName' | 'vatNumber' | 'city' | 'country'>;
+export type ContactInput = Omit<Contact, 'id' | 'clientId'>;
+
+export interface ClientRecord {
+  client: Client;
+  contacts: Contact[];
+  agreements: Agreement[];
+  rooms: ClientRoom[];
+  plans: { id: string; modelName: string; fiscalYear: number; status: PlanStatus }[];
+}
+
 export interface RoomActivity {
   id: string;
   dsrId: string;
@@ -346,6 +385,13 @@ export const api = {
   room: (id: string) => request<ClientRoom>('GET', `/v1/dsrs/${id}`),
   createRoom: (body: { clientId: string; roomName: string; agreementId?: string | null }) => request<ClientRoom>('POST', '/v1/dsrs', body),
   setRoomStatus: (id: string, status: RoomStatus) => request<ClientRoom>('PATCH', `/v1/dsrs/${id}/status`, { status }),
+  clients: () => request<Client[]>('GET', '/v1/clients'),
+  client: (id: string) => request<ClientRecord>('GET', `/v1/clients/${id}`),
+  createClient: (body: ClientInput) => request<Client>('POST', '/v1/clients', body),
+  updateClient: (id: string, body: Partial<ClientInput> & { status?: ClientStatus }) => request<Client>('PATCH', `/v1/clients/${id}`, body),
+  addContact: (clientId: string, body: ContactInput) => request<Contact>('POST', `/v1/clients/${clientId}/contacts`, body),
+  updateContact: (clientId: string, contactId: string, body: Partial<ContactInput>) =>
+    request<Contact>('PATCH', `/v1/clients/${clientId}/contacts/${contactId}`, body),
   agreements: () => request<Agreement[]>('GET', '/v1/agreements'),
   agreement: (id: string) => request<Agreement>('GET', `/v1/agreements/${id}`),
   createAgreement: (body: { clientId: string; title: string; documentUrl: string }) => request<Agreement>('POST', '/v1/agreements', body),

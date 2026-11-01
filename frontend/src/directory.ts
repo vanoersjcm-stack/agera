@@ -1,23 +1,10 @@
 import { useEffect, useState } from 'react';
-import { api, type FinancialModel, type UserSummary } from './api';
+import { api, type ClientStatus, type UserSummary } from './api';
 
 export interface ClientRef {
   clientId: string;
   name: string;
-}
-
-/**
- * Clients have no table of their own yet (audit gap B1): their id and company name are kept in the
- * metadata of financial plans. This collects them so pickers and lists can show names.
- */
-export function clientsFromPlans(models: FinancialModel[]): ClientRef[] {
-  const byId = new Map<string, string>();
-  for (const m of models) {
-    const id = m.metadata.clientId;
-    const name = m.metadata.companyName;
-    if (typeof id === 'string' && !byId.has(id)) byId.set(id, typeof name === 'string' && name ? name : m.modelName);
-  }
-  return [...byId].map(([clientId, name]) => ({ clientId, name })).sort((a, b) => a.name.localeCompare(b.name));
+  status: ClientStatus;
 }
 
 let usersCache: Promise<UserSummary[]> | null = null;
@@ -38,15 +25,22 @@ export function useUsers(): UserSummary[] {
   return users;
 }
 
-/** Client names come from financial plans, which only internal users can read. */
+/** All clients (incl. archived, for names); pickers should offer only active ones. Internal users only. */
 export function useClients(enabled = true): ClientRef[] {
   const [clients, setClients] = useState<ClientRef[]>([]);
   useEffect(() => {
     if (!enabled) return;
-    clientsCache ??= api.models().then(clientsFromPlans, () => []);
+    clientsCache ??= api.clients().then(
+      (list) => list.map((c) => ({ clientId: c.id, name: c.name, status: c.status })),
+      () => [],
+    );
     void clientsCache.then(setClients);
   }, [enabled]);
   return clients;
+}
+
+export function activeClients(clients: ClientRef[]): ClientRef[] {
+  return clients.filter((c) => c.status === 'active');
 }
 
 export function userName(users: UserSummary[], id: string | null | undefined, fallback = '—'): string {

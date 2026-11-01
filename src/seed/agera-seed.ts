@@ -163,6 +163,30 @@ async function main(): Promise<void> {
         address: c.address ?? null,
       };
       await client.query(
+        `INSERT INTO clients (id, tenant_id, name, legal_name, vat_number, city, country)
+         VALUES ($1, $2, $3, $3, $4, $5, $6)
+         ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, legal_name = EXCLUDED.legal_name,
+           vat_number = EXCLUDED.vat_number, city = EXCLUDED.city, country = EXCLUDED.country`,
+        [clientId, tenantId, c.company_name, c.vat_number ?? null, c.address?.city ?? null, c.address?.country ?? null],
+      );
+      const [firstName, ...lastName] = `${c.first_name ?? ''}`.trim() ? [c.first_name as string, c.last_name as string] : ['Contact'];
+      await client.query(
+        `INSERT INTO contacts (id, tenant_id, client_id, first_name, last_name, email, phone, role_title, is_primary)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, TRUE)
+         ON CONFLICT (tenant_id, client_id) WHERE is_primary DO UPDATE SET first_name = EXCLUDED.first_name, last_name = EXCLUDED.last_name,
+           email = EXCLUDED.email, phone = EXCLUDED.phone, role_title = EXCLUDED.role_title`,
+        [
+          seedUuid(`${tenantId}:contact:${c.account_id}`),
+          tenantId,
+          clientId,
+          firstName,
+          lastName.join(' ') || null,
+          c.email ? String(c.email).toLowerCase() : null,
+          c.phone_mobile ?? c.phone_office ?? null,
+          c.title ?? null,
+        ],
+      );
+      await client.query(
         `INSERT INTO financial_models (id, tenant_id, model_name, fiscal_year, status, metadata)
          VALUES ($1, $2, $3, $4, 'approved', $5)
          ON CONFLICT (id) DO UPDATE SET model_name = EXCLUDED.model_name, metadata = EXCLUDED.metadata`,

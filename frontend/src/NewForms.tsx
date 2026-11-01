@@ -1,6 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react';
 import { api, type Agreement, type CreatedApiKey, type Store, type WorkOrder } from './api';
-import { clientName, invalidateDirectory, useClients, useUsers } from './directory';
+import { activeClients, clientName, invalidateDirectory, useClients, useUsers } from './directory';
 import { navigate } from './router';
 import type { NewDefaults, NewKind } from './shell';
 import { Drawer, ErrorText, Field, FormActions, useAction } from './ui';
@@ -13,6 +13,8 @@ export interface NewItem {
 }
 
 export const NEW_ITEMS: NewItem[] = [
+  { kind: 'client', label: 'Client', group: 'Nexus' },
+  { kind: 'contact', label: 'Contact', group: 'Nexus' },
   { kind: 'agreement', label: 'Agreement', group: 'Nexus' },
   { kind: 'client_room', label: 'Client room', group: 'Nexus' },
   { kind: 'financial_plan', label: 'Financial plan', group: 'Nexus' },
@@ -196,13 +198,13 @@ function StoreForm({ onDone, onCancel }: FormProps) {
   );
 }
 
-function NoClients({ onCancel, onPlan }: { onCancel: () => void; onPlan: () => void }) {
+function NoClients({ onCancel, onNewClient }: { onCancel: () => void; onNewClient: () => void }) {
   return (
     <div>
-      <p>There are no clients yet. A client is registered together with its first financial plan.</p>
+      <p>There are no clients yet. Add the client company first.</p>
       <div className="form-actions">
         <button className="secondary" onClick={onCancel}>Cancel</button>
-        <button className="primary" onClick={onPlan}>New financial plan</button>
+        <button className="primary" onClick={onNewClient}>+ New client</button>
       </div>
     </div>
   );
@@ -214,7 +216,7 @@ function AgreementForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { o
   const [title, setTitle] = useState('');
   const [documentUrl, setDocumentUrl] = useState('');
   const { busy, error, submit } = useSubmit(onDone);
-  if (clients.length === 0) return <NoClients onCancel={onCancel} onPlan={() => onSwitch('financial_plan')} />;
+  if (activeClients(clients).length === 0) return <NoClients onCancel={onCancel} onNewClient={() => onSwitch('client')} />;
   return (
     <form
       onSubmit={(e) =>
@@ -227,7 +229,7 @@ function AgreementForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { o
       <Field label="Client">
         <select required value={clientId} onChange={(e) => setClientId(e.target.value)} autoFocus>
           <option value="">Choose a client…</option>
-          {clients.map((c) => (
+          {activeClients(clients).map((c) => (
             <option key={c.clientId} value={c.clientId}>{c.name}</option>
           ))}
         </select>
@@ -255,7 +257,7 @@ function ClientRoomForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { 
   useEffect(() => {
     api.agreements().then(setAgreements, () => undefined);
   }, []);
-  if (clients.length === 0) return <NoClients onCancel={onCancel} onPlan={() => onSwitch('financial_plan')} />;
+  if (activeClients(clients).length === 0) return <NoClients onCancel={onCancel} onNewClient={() => onSwitch('client')} />;
   const forClient = agreements.filter((a) => a.clientId === clientId && a.status !== 'expired');
   return (
     <form
@@ -269,7 +271,7 @@ function ClientRoomForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { 
       <Field label="Client">
         <select required value={clientId} onChange={(e) => (setClientId(e.target.value), setAgreementId(''))} autoFocus>
           <option value="">Choose a client…</option>
-          {clients.map((c) => (
+          {activeClients(clients).map((c) => (
             <option key={c.clientId} value={c.clientId}>{c.name}</option>
           ))}
         </select>
@@ -305,8 +307,10 @@ function FinancialPlanForm({ defaults, onDone, onCancel }: FormProps) {
       onSubmit={(e) =>
         submit(e, async () => {
           let metadata: Record<string, unknown> | undefined;
-          if (client === 'new') metadata = { clientId: crypto.randomUUID(), companyName: newClient.trim() };
-          else if (client) metadata = { clientId: client, companyName: clientName(clients, client) };
+          if (client === 'new') {
+            const created = await api.createClient({ name: newClient.trim(), legalName: null, vatNumber: null, city: null, country: null });
+            metadata = { clientId: created.id, companyName: created.name };
+          } else if (client) metadata = { clientId: client, companyName: clientName(clients, client) };
           const m = await api.createModel({ modelName: modelName.trim(), fiscalYear: Number(fiscalYear), metadata });
           return { route: `/nexus/financial-plans/${m.id}`, message: `Financial plan “${m.modelName}” created as draft` };
         })
@@ -325,7 +329,7 @@ function FinancialPlanForm({ defaults, onDone, onCancel }: FormProps) {
       <Field label="Client">
         <select value={client} onChange={(e) => setClient(e.target.value)}>
           <option value="">No client (internal plan)</option>
-          {clients.map((c) => (
+          {activeClients(clients).map((c) => (
             <option key={c.clientId} value={c.clientId}>{c.name}</option>
           ))}
           <option value="new">New client…</option>
@@ -339,6 +343,105 @@ function FinancialPlanForm({ defaults, onDone, onCancel }: FormProps) {
       <p className="muted">The plan starts as a draft. Add plan lines in the plan, then approve it.</p>
       <ErrorText error={error} />
       <FormActions busy={busy} submitLabel="Create plan" onCancel={onCancel} />
+    </form>
+  );
+}
+
+function ClientForm({ onDone, onCancel }: FormProps) {
+  const [name, setName] = useState('');
+  const [legalName, setLegalName] = useState('');
+  const [vatNumber, setVatNumber] = useState('');
+  const [city, setCity] = useState('');
+  const [country, setCountry] = useState('Netherlands');
+  const { busy, error, submit } = useSubmit(onDone);
+  const opt = (v: string) => v.trim() || null;
+  return (
+    <form
+      onSubmit={(e) =>
+        submit(e, async () => {
+          const c = await api.createClient({ name: name.trim(), legalName: opt(legalName), vatNumber: opt(vatNumber), city: opt(city), country: opt(country) });
+          return { route: `/nexus/clients/${c.id}`, message: `Client “${c.name}” created` };
+        })
+      }
+    >
+      <Field label="Company name">
+        <input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. TechNova Electronics" autoFocus />
+      </Field>
+      <Field label="Legal name" hint="Optional, as registered with the Chamber of Commerce">
+        <input maxLength={200} value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="e.g. TechNova Electronics B.V." />
+      </Field>
+      <Field label="VAT number" hint="Optional">
+        <input maxLength={50} value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} placeholder="e.g. NL123456789B01" />
+      </Field>
+      <Field label="City">
+        <input maxLength={100} value={city} onChange={(e) => setCity(e.target.value)} />
+      </Field>
+      <Field label="Country">
+        <input maxLength={100} value={country} onChange={(e) => setCountry(e.target.value)} />
+      </Field>
+      <p className="muted">After creating the client you can add contacts, agreements and client rooms from its record.</p>
+      <ErrorText error={error} />
+      <FormActions busy={busy} submitLabel="Create client" onCancel={onCancel} />
+    </form>
+  );
+}
+
+function ContactForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onSwitch: (kind: NewKind) => void }) {
+  const clients = useClients();
+  const [clientId, setClientId] = useState(defaults.clientId ?? '');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [roleTitle, setRoleTitle] = useState('');
+  const [isPrimary, setIsPrimary] = useState(false);
+  const { busy, error, submit } = useSubmit(onDone);
+  if (activeClients(clients).length === 0 && !defaults.clientId) return <NoClients onCancel={onCancel} onNewClient={() => onSwitch('client')} />;
+  const opt = (v: string) => v.trim() || null;
+  return (
+    <form
+      onSubmit={(e) =>
+        submit(e, async () => {
+          const k = await api.addContact(clientId, {
+            firstName: firstName.trim(),
+            lastName: opt(lastName),
+            email: opt(email),
+            phone: opt(phone),
+            roleTitle: opt(roleTitle),
+            isPrimary,
+          });
+          return { route: `/nexus/clients/${clientId}?tab=contacts`, message: `Contact “${k.firstName}${k.lastName ? ` ${k.lastName}` : ''}” added` };
+        })
+      }
+    >
+      <Field label="Client">
+        <select required value={clientId} onChange={(e) => setClientId(e.target.value)}>
+          <option value="">Choose a client…</option>
+          {activeClients(clients).map((c) => (
+            <option key={c.clientId} value={c.clientId}>{c.name}</option>
+          ))}
+        </select>
+      </Field>
+      <Field label="First name">
+        <input required maxLength={100} value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
+      </Field>
+      <Field label="Last name">
+        <input maxLength={100} value={lastName} onChange={(e) => setLastName(e.target.value)} />
+      </Field>
+      <Field label="Job title" hint="Optional, e.g. Category manager">
+        <input maxLength={150} value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} />
+      </Field>
+      <Field label="E-mail">
+        <input type="email" maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} />
+      </Field>
+      <Field label="Phone">
+        <input type="tel" maxLength={50} value={phone} onChange={(e) => setPhone(e.target.value)} />
+      </Field>
+      <label className="checkbox">
+        <input type="checkbox" checked={isPrimary} onChange={(e) => setIsPrimary(e.target.checked)} /> Primary contact for this client
+      </label>
+      <ErrorText error={error} />
+      <FormActions busy={busy} submitLabel="Add contact" onCancel={onCancel} />
     </form>
   );
 }
@@ -413,6 +516,8 @@ const TITLES: Record<NewKind, string> = {
   store: 'New store',
   agreement: 'New agreement',
   client_room: 'New client room',
+  client: 'New client',
+  contact: 'New contact',
   financial_plan: 'New financial plan',
   organisation: 'New organisation',
   integration_key: 'New integration key',
@@ -444,6 +549,8 @@ export function NewDrawer({
       {kind === 'store' && <StoreForm {...props} />}
       {kind === 'agreement' && <AgreementForm {...props} onSwitch={onSwitch} />}
       {kind === 'client_room' && <ClientRoomForm {...props} onSwitch={onSwitch} />}
+      {kind === 'client' && <ClientForm {...props} />}
+      {kind === 'contact' && <ContactForm {...props} onSwitch={onSwitch} />}
       {kind === 'financial_plan' && <FinancialPlanForm {...props} />}
       {kind === 'organisation' && <OrganisationForm {...props} />}
       {kind === 'integration_key' && <IntegrationKeyForm {...props} />}

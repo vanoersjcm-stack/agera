@@ -6,6 +6,8 @@ export type NewKind =
   | 'store'
   | 'agreement'
   | 'client_room'
+  | 'client'
+  | 'contact'
   | 'financial_plan'
   | 'organisation'
   | 'integration_key';

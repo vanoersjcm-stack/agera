@@ -70,6 +70,10 @@ export const COMPLIANCE: Record<string, string> = {
 };
 
 export const AUDIT_ACTION: Record<string, string> = {
+  'client.created': 'Created a client',
+  'client.updated': 'Updated a client',
+  'contact.created': 'Added a contact',
+  'contact.updated': 'Updated a contact',
   'agreement.created': 'Created an agreement',
   'agreement.status_changed': 'Changed an agreement status',
   'api_key.created': 'Created an integration key',
@@ -110,3 +114,5 @@ export function formatDateTime(value: string | null | undefined): string {
     ? new Date(value).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : '—';
 }
+
+export const CLIENT_STATUS: Record<string, string> = { active: 'Active', archived: 'Archived' };

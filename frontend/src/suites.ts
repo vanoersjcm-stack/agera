@@ -37,6 +37,7 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
     case 'nexus':
       return [
         { path: '/nexus', label: 'Overview', description: 'Contract value, client rooms and alerts' },
+        { path: '/nexus/clients', label: 'Clients', description: 'Client companies, contacts and their deals' },
         { path: '/nexus/agreements', label: 'Agreements', description: 'Client agreements and approvals' },
         { path: '/nexus/client-rooms', label: 'Client rooms', description: 'Online rooms per client deal, with engagement' },
         { path: '/nexus/financial-plans', label: 'Financial plans', description: 'Plans, plan lines and approval' },

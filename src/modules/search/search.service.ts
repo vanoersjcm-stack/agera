@@ -4,12 +4,13 @@ import { ILike, type Repository } from 'typeorm';
 import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantRepository } from '../core/tenancy/tenant-repository.js';
 import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
+import { Client } from '../clients/entities/client.entity.js';
 import { Store } from '../retailcare/entities/store.entity.js';
 import { Agreement } from '../sales-rooms/entities/agreement.entity.js';
 import { DigitalSalesRoom } from '../sales-rooms/entities/digital-sales-room.entity.js';
 import { WorkOrder } from '../work-orders/entities/work-order.entity.js';
 
-export const SEARCH_ENTITY_TYPES = ['store', 'work_order', 'agreement', 'client_room'] as const;
+export const SEARCH_ENTITY_TYPES = ['client', 'store', 'work_order', 'agreement', 'client_room'] as const;
 export type SearchEntityType = (typeof SEARCH_ENTITY_TYPES)[number];
 
 export interface SearchHit {
@@ -43,12 +44,14 @@ export class SearchService {
   private readonly workOrders: TenantRepository<WorkOrder>;
   private readonly agreements: TenantRepository<Agreement>;
   private readonly rooms: TenantRepository<DigitalSalesRoom>;
+  private readonly clients: TenantRepository<Client>;
 
   constructor(
     @InjectRepository(Store) stores: Repository<Store>,
     @InjectRepository(WorkOrder) workOrders: Repository<WorkOrder>,
     @InjectRepository(Agreement) agreements: Repository<Agreement>,
     @InjectRepository(DigitalSalesRoom) rooms: Repository<DigitalSalesRoom>,
+    @InjectRepository(Client) clients: Repository<Client>,
     context: TenantContext,
     private readonly tx: TenantTransaction,
   ) {
@@ -56,6 +59,7 @@ export class SearchService {
     this.workOrders = new TenantRepository(workOrders, context);
     this.agreements = new TenantRepository(agreements, context);
     this.rooms = new TenantRepository(rooms, context);
+    this.clients = new TenantRepository(clients, context);
   }
 
   async search(query: string, limitPerType: number): Promise<SearchHit[]> {
@@ -71,12 +75,24 @@ export class SearchService {
       this.workOrders.find({ where: { title: pattern }, order: { updatedAt: 'DESC' }, take }),
     ]);
     // Agreements and client rooms are protected by row-level security, so read them in a tenant transaction.
-    const { agreements, rooms } = await this.tx.run(async (manager) => ({
+    const { clients, agreements, rooms } = await this.tx.run(async (manager) => ({
+      clients: await this.clients.withManager(manager).find({
+        where: [{ name: pattern }, { legalName: pattern }, { city: pattern }],
+        order: { name: 'ASC' },
+        take,
+      }),
       agreements: await this.agreements.withManager(manager).find({ where: { title: pattern }, order: { updatedAt: 'DESC' }, take }),
       rooms: await this.rooms.withManager(manager).find({ where: { roomName: pattern }, order: { updatedAt: 'DESC' }, take }),
     }));
 
     return [
+      ...clients.map<SearchHit>((c) => ({
+        entityType: 'client',
+        id: c.id,
+        title: c.name,
+        subtitle: `Client · ${[c.city, STATUS_LABELS[c.status]].filter(Boolean).join(' · ')}`,
+        route: `/nexus/clients/${c.id}`,
+      })),
       ...workOrders.map<SearchHit>((w) => ({
         entityType: 'work_order',
         id: w.id,

@@ -132,6 +132,10 @@ describe('OpenAPI document', () => {
       '/v1/agreements/{id}': ['get'],
       '/v1/agreements/{id}/status': ['patch'],
       '/v1/dsrs': ['get', 'post'],
+      '/v1/clients': ['get', 'post'],
+      '/v1/clients/{id}': ['get', 'patch'],
+      '/v1/clients/{id}/contacts': ['post'],
+      '/v1/clients/{id}/contacts/{contactId}': ['patch'],
       '/v1/dsrs/{id}': ['get'],
       '/v1/dsrs/{id}/status': ['patch'],
     };

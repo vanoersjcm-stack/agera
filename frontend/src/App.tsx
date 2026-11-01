@@ -8,6 +8,7 @@ import { NEW_ITEMS, NewDrawer } from './NewForms';
 import { AgreementDossier, AgreementsView } from './nexus/Agreements';
 import { AlertsView } from './nexus/Alerts';
 import { ClientRoomDossier, ClientRoomsView } from './nexus/ClientRooms';
+import { ClientDossier, ClientsView } from './nexus/Clients';
 import { FinancialPlansView, PlanDossier } from './nexus/FinancialPlans';
 import { NexusOverview } from './nexus/NexusOverview';
 import { ProfitLossView } from './nexus/ProfitLoss';
@@ -45,6 +46,8 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return user.isPlatformAdmin ? <IntegrationsView route={route} /> : <NotAvailable path={route.path} />;
     case 'nexus/':
       return <NexusOverview />;
+    case 'nexus/clients':
+      return id ? <ClientDossier id={id} route={route} /> : <ClientsView route={route} />;
     case 'nexus/agreements':
       return id ? <AgreementDossier id={id} external={false} /> : <AgreementsView route={route} external={false} />;
     case 'nexus/client-rooms':
