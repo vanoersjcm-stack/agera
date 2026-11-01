@@ -1,5 +1,8 @@
 import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
+export const STORE_STATUSES = ['active', 'closed'] as const;
+export type StoreStatus = (typeof STORE_STATUSES)[number];
+
 @Entity({ name: 'stores' })
 export class Store {
   @PrimaryGeneratedColumn('uuid')
@@ -25,6 +28,9 @@ export class Store {
 
   @Column({ type: 'varchar', length: 100, nullable: true, default: 'ES' })
   country!: string | null;
+
+  @Column({ type: 'varchar', length: 20, default: 'active' })
+  status!: StoreStatus;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz', precision: 3 })
   createdAt!: Date;

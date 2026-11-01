@@ -33,10 +33,10 @@ import {
   optionalUuid,
   parseTimestamp,
 } from '../core/http/validation.js';
-import { CreateVisitDto, MAX_NOTES_LENGTH, UpdateVisitStatusDto, VisitDto, VisitPageDto } from './dto/visit.dto.js';
+import { CreateVisitDto, MAX_NOTES_LENGTH, UpdateVisitDto, UpdateVisitStatusDto, VisitDto, VisitPageDto } from './dto/visit.dto.js';
 import type { MerchandisingVisit } from './entities/merchandising-visit.entity.js';
 import { VISIT_STATUSES, isVisitStatus } from './entities/visit-status.js';
-import { type CreateVisitInput, VisitsService } from './visits.service.js';
+import { type CreateVisitInput, type UpdateVisitInput, VisitsService } from './visits.service.js';
 
 export function toVisitResponse(visit: MerchandisingVisit): VisitDto {
   return {
@@ -51,6 +51,23 @@ export function toVisitResponse(visit: MerchandisingVisit): VisitDto {
     createdAt: visit.createdAt,
     updatedAt: visit.updatedAt,
   };
+}
+
+function parseUpdateVisit(body: unknown): UpdateVisitInput {
+  const raw = asObject(body);
+  const out: UpdateVisitInput = {};
+  if (raw.visitDate !== undefined) {
+    const date = parseTimestamp('visitDate', raw.visitDate);
+    if (date === null) throw new BadRequestException('visitDate must be a timestamp');
+    out.visitDate = date;
+  }
+  if (raw.notes !== undefined) out.notes = optionalString('notes', raw.notes, MAX_NOTES_LENGTH);
+  if (raw.fieldRepId !== undefined) {
+    if (!isUuid(raw.fieldRepId)) throw new BadRequestException('fieldRepId must be a UUID');
+    out.fieldRepId = raw.fieldRepId;
+  }
+  if (Object.keys(out).length === 0) throw new BadRequestException('Provide at least one field to change');
+  return out;
 }
 
 function parseCreateVisit(body: unknown): CreateVisitInput {
@@ -112,6 +129,19 @@ export class VisitsController {
       updatedSince: parseTimestamp('updatedSince', updatedSince),
     });
     return { ...result, items: result.items.map(toVisitResponse) };
+  }
+
+  @Patch(':id')
+  @ApiOperation({
+    summary: 'Edit date, notes or field representative of a visit (audit: visit.updated)',
+    description: 'Completed or cancelled visits return 409.',
+  })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({ type: UpdateVisitDto })
+  @ApiOkResponse({ type: VisitDto })
+  @ApiErrors(400, 404, 409)
+  async update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<VisitDto> {
+    return toVisitResponse(await this.visits.update(id, parseUpdateVisit(body), identity));
   }
 
   @Patch(':id/status')

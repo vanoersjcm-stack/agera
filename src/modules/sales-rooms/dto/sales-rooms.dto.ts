@@ -24,6 +24,14 @@ export class UpdateAgreementStatusDto {
   status!: AgreementStatus;
 }
 
+export class UpdateAgreementDto {
+  @ApiPropertyOptional({ maxLength: 200 })
+  title?: string;
+
+  @ApiPropertyOptional({ maxLength: 500, description: 'Absolute http(s) URL' })
+  documentUrl?: string;
+}
+
 export class AgreementDto {
   @ApiProperty({ format: 'uuid' }) id!: string;
   @ApiProperty({ format: 'uuid' }) tenantId!: string;

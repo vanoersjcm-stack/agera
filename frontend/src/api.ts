@@ -97,11 +97,14 @@ export interface SearchHit {
 
 export type WorkOrderStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
 
+export type WorkOrderPriority = 'low' | 'normal' | 'high' | 'urgent';
+
 export interface WorkOrder {
   id: string;
   title: string;
   description: string | null;
   status: WorkOrderStatus;
+  priority: WorkOrderPriority;
   assignedUserId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -116,6 +119,8 @@ export interface WorkOrderLog {
   createdAt: string;
 }
 
+export type StoreStatus = 'active' | 'closed';
+
 export interface Store {
   id: string;
   storeCode: string;
@@ -124,6 +129,7 @@ export interface Store {
   city: string | null;
   postalCode: string | null;
   country: string | null;
+  status: StoreStatus;
   createdAt: string;
 }
 
@@ -334,7 +340,15 @@ export const api = {
   workOrders: () => request<Page<WorkOrder>>('GET', '/work-orders?limit=100'),
   workOrder: (id: string) => request<WorkOrder>('GET', `/work-orders/${id}`),
   workOrderLogs: (id: string) => request<WorkOrderLog[]>('GET', `/work-orders/${id}/logs`),
-  createWorkOrder: (body: { title: string; description?: string; assignedUserId?: string | null }) =>
+  updateWorkOrder: (id: string, body: { title?: string; description?: string | null; priority?: WorkOrderPriority }) =>
+    request<WorkOrder>('PATCH', `/work-orders/${id}`, body),
+  updateStore: (id: string, body: Partial<Pick<Store, 'storeCode' | 'name' | 'address' | 'city' | 'postalCode' | 'country' | 'status'>>) =>
+    request<Store>('PATCH', `/stores/${id}`, body),
+  updateVisit: (id: string, body: { visitDate?: string; notes?: string | null; fieldRepId?: string }) =>
+    request<Visit>('PATCH', `/visits/${id}`, body),
+  updateAgreement: (id: string, body: { title?: string; documentUrl?: string }) =>
+    request<Agreement>('PATCH', `/v1/agreements/${id}`, body),
+  createWorkOrder: (body: { title: string; description?: string; priority?: WorkOrderPriority; assignedUserId?: string | null }) =>
     request<WorkOrder>('POST', '/work-orders', body),
   assignWorkOrder: (id: string, assignedUserId: string | null) =>
     request<WorkOrder>('PATCH', `/work-orders/${id}/assign`, { assignedUserId }),

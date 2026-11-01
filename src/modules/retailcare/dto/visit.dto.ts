@@ -26,6 +26,17 @@ export class CreateVisitDto {
   notes?: string | null;
 }
 
+export class UpdateVisitDto {
+  @ApiPropertyOptional({ type: String, format: 'date-time' })
+  visitDate?: string;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: MAX_NOTES_LENGTH })
+  notes?: string | null;
+
+  @ApiPropertyOptional({ type: String, format: 'uuid', description: 'Active user of the same tenant' })
+  fieldRepId?: string;
+}
+
 export class UpdateVisitStatusDto {
   @ApiProperty({ enum: VISIT_STATUSES, enumName: 'VisitStatus', description: 'COMPLETED and CANCELLED are final' })
   status!: VisitStatus;

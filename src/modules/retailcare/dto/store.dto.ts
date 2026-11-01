@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PageMetaDto } from '../../core/http/api-docs.js';
+import { STORE_STATUSES, type StoreStatus } from '../entities/store.entity.js';
 
 export class CreateStoreDto {
   @ApiProperty({ maxLength: 50, example: 'MAD-001', description: 'Unique within the tenant' })
@@ -19,6 +20,29 @@ export class CreateStoreDto {
 
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 100, default: 'ES' })
   country?: string | null;
+}
+
+export class UpdateStoreDto {
+  @ApiPropertyOptional({ maxLength: 50 })
+  storeCode?: string;
+
+  @ApiPropertyOptional({ maxLength: 200 })
+  name?: string;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 255 })
+  address?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 100 })
+  city?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 20 })
+  postalCode?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 100 })
+  country?: string | null;
+
+  @ApiPropertyOptional({ enum: STORE_STATUSES })
+  status?: StoreStatus;
 }
 
 export class StoreDto {
@@ -45,6 +69,9 @@ export class StoreDto {
 
   @ApiProperty({ type: String, nullable: true, example: 'ES' })
   country!: string | null;
+
+  @ApiProperty({ enum: STORE_STATUSES })
+  status!: StoreStatus;
 
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: Date;

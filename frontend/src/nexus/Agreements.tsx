@@ -6,6 +6,7 @@ import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { useState } from 'react';
 import { myEmail } from './RoomActivity';
+import { EditAgreementDrawer } from '../EditForms';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
 
 const NEXT: Record<AgreementStatus, { status: AgreementStatus; label: string; confirm?: string }[]> = {
@@ -129,6 +130,7 @@ export function AgreementDossier({ id, external }: { id: string; external: boole
   const agreement = useLoad(() => api.agreement(id), [id]);
   const rooms = useLoad(() => api.rooms(), [id]);
   const action = useAction();
+  const [editing, setEditing] = useState(false);
   const c = crumbs(external);
   const a = agreement.data;
   if (!a) {
@@ -152,6 +154,7 @@ export function AgreementDossier({ id, external }: { id: string; external: boole
       actions={
         <>
           <a className="button-link" href={a.documentUrl} target="_blank" rel="noreferrer">Open document</a>
+          {!external && a.status !== 'expired' && <button className="secondary" onClick={() => setEditing(true)}>Edit</button>}
           {!external &&
             NEXT[a.status].map((n) => (
               <button key={n.status} className={n.status === 'active' ? 'primary' : 'secondary'} disabled={action.busy} onClick={() => setStatus(n.status, n.label, n.confirm)}>
@@ -195,6 +198,9 @@ export function AgreementDossier({ id, external }: { id: string; external: boole
             </li>
           ))}
         </ul>
+      )}
+      {editing && (
+        <EditAgreementDrawer record={a} onClose={() => setEditing(false)} onSaved={() => (setEditing(false), notify('Agreement updated'), agreement.reload())} />
       )}
     </ViewFrame>
   );

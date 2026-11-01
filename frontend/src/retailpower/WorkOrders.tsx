@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { api, type WorkOrderStatus } from '../api';
 import { useUsers, userName } from '../directory';
-import { formatDate, formatDateTime, VISIT_STATUS, WORK_ORDER_STATUS } from '../labels';
+import { EditWorkOrderDrawer } from '../EditForms';
+import { formatDate, formatDateTime, VISIT_STATUS, WORK_ORDER_PRIORITY, WORK_ORDER_STATUS } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
@@ -99,6 +100,7 @@ export function WorkOrderDossier({ id }: { id: string }) {
   const { openNew, notify } = useShell();
   const users = useUsers();
   const [tab, setTab] = useState('details');
+  const [editing, setEditing] = useState(false);
   const order = useLoad(() => api.workOrder(id), [id]);
   const logs = useLoad(() => api.workOrderLogs(id), [id]);
   const visits = useLoad(() => api.visits(), [id]);
@@ -124,10 +126,16 @@ export function WorkOrderDossier({ id }: { id: string }) {
   return (
     <ViewFrame
       title={w.title}
-      subtitle={<StatusBadge status={w.status} label={WORK_ORDER_STATUS[w.status]} />}
+      subtitle={
+        <>
+          <StatusBadge status={w.status} label={WORK_ORDER_STATUS[w.status]} />
+          {w.priority !== 'normal' && <StatusBadge status={`priority_${w.priority}`} label={`${WORK_ORDER_PRIORITY[w.priority]} priority`} />}
+        </>
+      }
       crumbs={[SUITE_CRUMB, LIST_CRUMB, { label: w.title }]}
       actions={
         <>
+          <button className="secondary" onClick={() => setEditing(true)}>Edit</button>
           <label className="inline-field">
             Assigned to
             <select value={w.assignedUserId ?? ''} disabled={final || action.busy} onChange={(e) => assign(e.target.value)}>
@@ -159,6 +167,7 @@ export function WorkOrderDossier({ id }: { id: string }) {
         <DetailList
           items={[
             ['Description', w.description || <span className="muted">No description</span>],
+            ['Priority', WORK_ORDER_PRIORITY[w.priority] ?? w.priority],
             ['Assigned to', userName(users, w.assignedUserId, 'Not assigned')],
             ['Created', formatDateTime(w.createdAt)],
             ['Last change', formatDateTime(w.updatedAt)],
@@ -213,6 +222,9 @@ export function WorkOrderDossier({ id }: { id: string }) {
             </table>
           )}
         </>
+      )}
+      {editing && (
+        <EditWorkOrderDrawer record={w} onClose={() => setEditing(false)} onSaved={() => (setEditing(false), notify('Work order updated'), refresh())} />
       )}
     </ViewFrame>
   );

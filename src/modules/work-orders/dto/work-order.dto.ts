@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { PageMetaDto } from '../../core/http/api-docs.js';
 import { WORK_ORDER_STATUSES, type WorkOrderStatus } from '../entities/work-order-status.js';
+import { WORK_ORDER_PRIORITIES, type WorkOrderPriority } from '../entities/work-order.entity.js';
 
 export const MAX_DESCRIPTION_LENGTH = 10_000;
 
@@ -11,6 +12,9 @@ export class CreateWorkOrderDto {
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: MAX_DESCRIPTION_LENGTH, example: 'Unit 3' })
   description?: string | null;
 
+  @ApiPropertyOptional({ enum: WORK_ORDER_PRIORITIES, default: 'normal' })
+  priority?: WorkOrderPriority;
+
   @ApiPropertyOptional({
     type: String,
     format: 'uuid',
@@ -18,6 +22,17 @@ export class CreateWorkOrderDto {
     description: 'Active user of the caller tenant',
   })
   assignedUserId?: string | null;
+}
+
+export class UpdateWorkOrderDto {
+  @ApiPropertyOptional({ maxLength: 255 })
+  title?: string;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: MAX_DESCRIPTION_LENGTH })
+  description?: string | null;
+
+  @ApiPropertyOptional({ enum: WORK_ORDER_PRIORITIES })
+  priority?: WorkOrderPriority;
 }
 
 export class AssignWorkOrderDto {
@@ -54,6 +69,9 @@ export class WorkOrderDto {
 
   @ApiProperty({ enum: WORK_ORDER_STATUSES, enumName: 'WorkOrderStatus' })
   status!: WorkOrderStatus;
+
+  @ApiProperty({ enum: WORK_ORDER_PRIORITIES })
+  priority!: WorkOrderPriority;
 
   @ApiProperty({ type: String, format: 'uuid', nullable: true })
   assignedUserId!: string | null;

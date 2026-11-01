@@ -1,13 +1,13 @@
-import { Body, Controller, DefaultValuePipe, Get, ParseIntPipe, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {BadRequestException, Body, Controller, DefaultValuePipe, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { AllowApiKey } from '../auth/allow-api-key.decorator.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, ApiPagination, BEARER_AUTH } from '../core/http/api-docs.js';
 import { asObject, assertPagination, optionalString, requiredString } from '../core/http/validation.js';
-import { CreateStoreDto, StoreDto, StorePageDto } from './dto/store.dto.js';
-import type { Store } from './entities/store.entity.js';
-import { type CreateStoreInput, StoresService } from './stores.service.js';
+import { CreateStoreDto, StoreDto, StorePageDto, UpdateStoreDto } from './dto/store.dto.js';
+import { STORE_STATUSES, type Store, type StoreStatus } from './entities/store.entity.js';
+import { type CreateStoreInput, StoresService, type UpdateStoreInput } from './stores.service.js';
 
 function toResponse(store: Store): StoreDto {
   return {
@@ -19,6 +19,7 @@ function toResponse(store: Store): StoreDto {
     city: store.city ?? null,
     postalCode: store.postalCode ?? null,
     country: store.country ?? null,
+    status: store.status,
     createdAt: store.createdAt,
     updatedAt: store.updatedAt,
   };
@@ -36,6 +37,26 @@ function parseCreateStore(body: unknown): CreateStoreInput {
   };
 }
 
+function parseUpdateStore(body: unknown): UpdateStoreInput {
+  const raw = asObject(body);
+  const out: UpdateStoreInput = {};
+  if (raw.storeCode !== undefined) out.storeCode = requiredString('storeCode', raw.storeCode, 50);
+  if (raw.name !== undefined) out.name = requiredString('name', raw.name, 200);
+  for (const [key, max] of [['address', 255], ['city', 100], ['postalCode', 20], ['country', 100]] as const) {
+    if (raw[key] !== undefined) out[key] = optionalString(key, raw[key], max);
+  }
+  if (raw.status !== undefined) {
+    if (!STORE_STATUSES.includes(raw.status as StoreStatus)) {
+      throw new BadRequestException(`status must be one of ${STORE_STATUSES.join(', ')}`);
+    }
+    out.status = raw.status as StoreStatus;
+  }
+  if (Object.keys(out).length === 0) {
+    throw new BadRequestException('Provide at least one field to change');
+  }
+  return out;
+}
+
 @ApiTags('stores')
 @ApiBearerAuth(BEARER_AUTH)
 @ApiErrors(401, 403)
@@ -50,6 +71,16 @@ export class StoresController {
   @ApiErrors(400, 409)
   async create(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<StoreDto> {
     return toResponse(await this.stores.create(parseCreateStore(body), identity));
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Edit a store: name, code, address or status (audit: store.updated)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({ type: UpdateStoreDto })
+  @ApiOkResponse({ type: StoreDto })
+  @ApiErrors(400, 404, 409)
+  async update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<StoreDto> {
+    return toResponse(await this.stores.update(id, parseUpdateStore(body), identity));
   }
 
   @Get()

@@ -21,6 +21,8 @@ export interface CreateVisitInput {
   notes: string | null;
 }
 
+export type UpdateVisitInput = Partial<Pick<CreateVisitInput, 'visitDate' | 'notes'>> & { fieldRepId?: string };
+
 export interface ListVisitsQuery {
   page: number;
   limit: number;
@@ -97,6 +99,31 @@ export class VisitsService {
       take: limit,
     });
     return { items, page, limit, total };
+  }
+
+  async update(id: string, changes: UpdateVisitInput, identity: AuthenticatedUser): Promise<MerchandisingVisit> {
+    const actor = await this.userService.resolveActor(identity);
+    if (changes.fieldRepId !== undefined) {
+      const fieldRep = await this.users.findOneBy({ id: changes.fieldRepId });
+      if (!fieldRep || !fieldRep.isActive) {
+        throw new BadRequestException('fieldRepId is not an active user of the active tenant');
+      }
+    }
+    const visit = await this.dataSource.transaction(async (manager) => {
+      const visits = this.visits.withManager(manager);
+      const current = await visits.findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
+      if (!current) {
+        throw new NotFoundException('Visit not found');
+      }
+      if (ALLOWED_VISIT_TRANSITIONS[current.status].length === 0) {
+        throw new ConflictException(`Cannot edit a ${current.status} visit`);
+      }
+      Object.assign(current, changes);
+      await visits.save(current);
+      return (await visits.findOneBy({ id })) ?? current;
+    });
+    this.audit.logAction(this.context.tenantId, actor.id, 'visit.updated', { visitId: id, changes: Object.keys(changes) });
+    return visit;
   }
 
   async updateStatus(id: string, status: VisitStatus, identity: AuthenticatedUser): Promise<MerchandisingVisit> {

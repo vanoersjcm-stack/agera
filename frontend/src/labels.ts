@@ -75,6 +75,7 @@ export const AUDIT_ACTION: Record<string, string> = {
   'contact.created': 'Added a contact',
   'contact.updated': 'Updated a contact',
   'agreement.created': 'Created an agreement',
+  'agreement.updated': 'Edited an agreement',
   'agreement.status_changed': 'Changed an agreement status',
   'api_key.created': 'Created an integration key',
   'api_key.revoked': 'Revoked an integration key',
@@ -88,16 +89,19 @@ export const AUDIT_ACTION: Record<string, string> = {
   'nexus.command': 'Used quick navigation',
   'nexus.voice_event_queued': 'Recorded a voice command',
   'store.created': 'Added a store',
+  'store.updated': 'Edited a store',
   'tenant.created': 'Created an organisation',
   'user.provisioned': 'Signed in for the first time',
   'user.profile_fetched': 'Signed in',
   'visit.media_deleted': 'Deleted a visit photo',
   'visit.media_uploaded': 'Uploaded a visit photo',
   'visit.planned': 'Planned a store visit',
+  'visit.updated': 'Edited a store visit',
   'visit.report_saved': 'Saved a visit report',
   'visit.status_changed': 'Changed a store visit status',
   'work_order.assigned': 'Assigned a work order',
   'work_order.created': 'Created a work order',
+  'work_order.updated': 'Edited a work order',
   'work_order.status_changed': 'Changed a work order status',
 };
 
@@ -116,3 +120,7 @@ export function formatDateTime(value: string | null | undefined): string {
 }
 
 export const CLIENT_STATUS: Record<string, string> = { active: 'Active', archived: 'Archived' };
+
+export const STORE_STATUS: Record<string, string> = { active: 'Open', closed: 'Closed' };
+
+export const WORK_ORDER_PRIORITY: Record<string, string> = { low: 'Low', normal: 'Normal', high: 'High', urgent: 'Urgent' };

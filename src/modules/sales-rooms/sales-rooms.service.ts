@@ -92,6 +92,25 @@ export class SalesRoomsService {
     return this.tx.run((manager) => this.reload(this.agreements.withManager(manager), id, 'Agreement'));
   }
 
+  async updateAgreement(id: string, changes: { title?: string; documentUrl?: string }, identity: AuthenticatedUser): Promise<Agreement> {
+    const actor = await this.userService.resolveActor(identity);
+    const agreement = await this.tx.run(async (manager) => {
+      const repository = this.agreements.withManager(manager);
+      const current = await repository.findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
+      if (!current) {
+        throw new NotFoundException('Agreement not found');
+      }
+      if (current.status === 'expired') {
+        throw new ConflictException('Cannot edit an expired agreement');
+      }
+      Object.assign(current, changes);
+      await repository.save(current);
+      return this.reload(repository, id, 'Agreement');
+    });
+    this.audit.logAction(this.context.tenantId, actor.id, 'agreement.updated', { agreementId: id, changes: Object.keys(changes) });
+    return agreement;
+  }
+
   async updateAgreementStatus(id: string, status: AgreementStatus, identity: AuthenticatedUser): Promise<Agreement> {
     const actor = await this.userService.resolveActor(identity);
     const { agreement, previous } = await this.tx.run(async (manager) => {

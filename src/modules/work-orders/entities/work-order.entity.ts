@@ -11,6 +11,9 @@ import {
 import { Tenant } from '../../core/entities/index.js';
 import type { WorkOrderStatus } from './work-order-status.js';
 
+export const WORK_ORDER_PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
+export type WorkOrderPriority = (typeof WORK_ORDER_PRIORITIES)[number];
+
 @Entity({ name: 'work_orders' })
 export class WorkOrder {
   @PrimaryGeneratedColumn('uuid')
@@ -31,6 +34,9 @@ export class WorkOrder {
 
   @Column({ type: 'varchar', length: 50, default: 'PENDING' })
   status!: WorkOrderStatus;
+
+  @Column({ type: 'varchar', length: 10, default: 'normal' })
+  priority!: WorkOrderPriority;
 
   @Column({ name: 'assigned_user_id', type: 'uuid', nullable: true })
   assignedUserId!: string | null;

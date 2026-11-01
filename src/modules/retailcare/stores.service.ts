@@ -1,4 +1,4 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
@@ -6,7 +6,7 @@ import { AuditService } from '../core/audit/audit.service.js';
 import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantRepository } from '../core/tenancy/tenant-repository.js';
 import { UserService } from '../user/user.service.js';
-import { Store } from './entities/store.entity.js';
+import { Store, type StoreStatus } from './entities/store.entity.js';
 
 const PG_UNIQUE_VIOLATION = '23505';
 
@@ -18,6 +18,8 @@ export interface CreateStoreInput {
   postalCode: string | null;
   country: string | null;
 }
+
+export type UpdateStoreInput = Partial<CreateStoreInput> & { status?: StoreStatus };
 
 export interface StorePage {
   items: Store[];
@@ -55,6 +57,25 @@ export class StoresService {
       storeCode: store.storeCode,
     });
     return store;
+  }
+
+  async update(id: string, changes: UpdateStoreInput, identity: AuthenticatedUser): Promise<Store> {
+    const actor = await this.userService.resolveActor(identity);
+    const current = await this.stores.findOneBy({ id });
+    if (!current) {
+      throw new NotFoundException('Store not found');
+    }
+    Object.assign(current, changes);
+    try {
+      await this.stores.save(current);
+    } catch (error) {
+      if (error instanceof QueryFailedError && (error.driverError as { code?: string }).code === PG_UNIQUE_VIOLATION) {
+        throw new ConflictException(`A store with code ${changes.storeCode} already exists`);
+      }
+      throw error;
+    }
+    this.audit.logAction(this.context.tenantId, actor.id, 'store.updated', { storeId: id, changes: Object.keys(changes) });
+    return (await this.stores.findOneBy({ id })) ?? current;
   }
 
   async list(page: number, limit: number): Promise<StorePage> {

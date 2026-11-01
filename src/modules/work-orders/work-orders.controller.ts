@@ -36,6 +36,7 @@ import {
   AssignWorkOrderDto,
   CreateWorkOrderDto,
   MAX_DESCRIPTION_LENGTH,
+  UpdateWorkOrderDto,
   UpdateWorkOrderStatusDto,
   WorkOrderDto,
   WorkOrderLogDto,
@@ -43,8 +44,8 @@ import {
 } from './dto/work-order.dto.js';
 import type { WorkOrderLog } from './entities/work-order-log.entity.js';
 import { WORK_ORDER_STATUSES, isWorkOrderStatus } from './entities/work-order-status.js';
-import type { WorkOrder } from './entities/work-order.entity.js';
-import { type CreateWorkOrderInput, WorkOrdersService } from './work-orders.service.js';
+import { WORK_ORDER_PRIORITIES, type WorkOrder, type WorkOrderPriority } from './entities/work-order.entity.js';
+import { type CreateWorkOrderInput, type UpdateWorkOrderInput, WorkOrdersService } from './work-orders.service.js';
 
 export function toWorkOrderResponse(workOrder: WorkOrder): WorkOrderDto {
   return {
@@ -53,6 +54,7 @@ export function toWorkOrderResponse(workOrder: WorkOrder): WorkOrderDto {
     title: workOrder.title,
     description: workOrder.description ?? null,
     status: workOrder.status,
+    priority: workOrder.priority,
     assignedUserId: workOrder.assignedUserId ?? null,
     createdAt: workOrder.createdAt,
     updatedAt: workOrder.updatedAt,
@@ -70,11 +72,31 @@ function toLogResponse(log: WorkOrderLog): WorkOrderLogDto {
   };
 }
 
+function parsePriority(value: unknown): WorkOrderPriority {
+  if (!WORK_ORDER_PRIORITIES.includes(value as WorkOrderPriority)) {
+    throw new BadRequestException(`priority must be one of ${WORK_ORDER_PRIORITIES.join(', ')}`);
+  }
+  return value as WorkOrderPriority;
+}
+
+function parseUpdateWorkOrder(body: unknown): UpdateWorkOrderInput {
+  const raw = asObject(body);
+  const out: UpdateWorkOrderInput = {};
+  if (raw.title !== undefined) out.title = requiredString('title', raw.title, 255);
+  if (raw.description !== undefined) out.description = optionalString('description', raw.description, MAX_DESCRIPTION_LENGTH);
+  if (raw.priority !== undefined) out.priority = parsePriority(raw.priority);
+  if (Object.keys(out).length === 0) {
+    throw new BadRequestException('Provide at least one field to change');
+  }
+  return out;
+}
+
 function parseCreateWorkOrder(body: unknown): CreateWorkOrderInput {
-  const { title, description, assignedUserId } = asObject(body);
+  const { title, description, priority, assignedUserId } = asObject(body);
   return {
     title: requiredString('title', title, 255),
     description: optionalString('description', description, MAX_DESCRIPTION_LENGTH),
+    priority: priority === undefined ? 'normal' : parsePriority(priority),
     assignedUserId: optionalUuid('assignedUserId', assignedUserId),
   };
 }
@@ -130,6 +152,16 @@ export class WorkOrdersController {
   @ApiErrors(400, 404)
   async history(@Param('id', ParseUUIDPipe) id: string): Promise<WorkOrderLogDto[]> {
     return (await this.workOrders.history(id)).map(toLogResponse);
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Edit title, description or priority of a work order (audit: work_order.updated)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({ type: UpdateWorkOrderDto })
+  @ApiOkResponse({ type: WorkOrderDto })
+  @ApiErrors(400, 404)
+  async update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<WorkOrderDto> {
+    return toWorkOrderResponse(await this.workOrders.update(id, parseUpdateWorkOrder(body), identity));
   }
 
   @Patch(':id/assign')

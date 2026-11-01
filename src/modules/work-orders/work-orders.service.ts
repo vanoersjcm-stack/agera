@@ -9,13 +9,16 @@ import { TenantRepository } from '../core/tenancy/tenant-repository.js';
 import { UserService } from '../user/user.service.js';
 import { WorkOrderLog } from './entities/work-order-log.entity.js';
 import { ALLOWED_TRANSITIONS, type WorkOrderStatus } from './entities/work-order-status.js';
-import { WorkOrder } from './entities/work-order.entity.js';
+import { WorkOrder, type WorkOrderPriority } from './entities/work-order.entity.js';
 
 export interface CreateWorkOrderInput {
   title: string;
   description: string | null;
+  priority: WorkOrderPriority;
   assignedUserId: string | null;
 }
+
+export type UpdateWorkOrderInput = Partial<Pick<CreateWorkOrderInput, 'title' | 'description' | 'priority'>>;
 
 export interface ListWorkOrdersQuery {
   page: number;
@@ -97,6 +100,22 @@ export class WorkOrdersService {
   async history(id: string): Promise<WorkOrderLog[]> {
     await this.get(id);
     return this.logs.find({ where: { workOrderId: id }, order: { createdAt: 'ASC', id: 'ASC' } });
+  }
+
+  async update(id: string, changes: UpdateWorkOrderInput, identity: AuthenticatedUser): Promise<WorkOrder> {
+    const actor = await this.userService.resolveActor(identity);
+    const workOrder = await this.dataSource.transaction(async (manager) => {
+      const workOrders = this.workOrders.withManager(manager);
+      const current = await workOrders.findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
+      if (!current) {
+        throw new NotFoundException('Work order not found');
+      }
+      Object.assign(current, changes);
+      await workOrders.save(current);
+      return (await workOrders.findOneBy({ id })) ?? current;
+    });
+    this.audit.logAction(this.context.tenantId, actor.id, 'work_order.updated', { workOrderId: id, changes: Object.keys(changes) });
+    return workOrder;
   }
 
   async assign(id: string, assignedUserId: string | null, identity: AuthenticatedUser): Promise<WorkOrder> {

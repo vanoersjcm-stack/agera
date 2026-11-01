@@ -11,6 +11,7 @@ import {
   ANOMALY_TYPES,
   type AnomalyType,
   CreateAgreementDto,
+  UpdateAgreementDto,
   CreateDsrDto,
   DigitalSalesRoomDto,
   UpdateAgreementStatusDto,
@@ -128,6 +129,23 @@ export class AgreementsController {
   @ApiErrors(400, 404)
   async get(@Param('id', ParseUUIDPipe) id: string): Promise<AgreementDto> {
     return toAgreementResponse(await this.service.getAgreement(id));
+  }
+
+  @Patch(':id')
+  @ApiOperation({ summary: 'Edit title or document link of an agreement (audit: agreement.updated)', description: 'Expired agreements return 409.' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({ type: UpdateAgreementDto })
+  @ApiOkResponse({ type: AgreementDto })
+  @ApiErrors(400, 404, 409)
+  async update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<AgreementDto> {
+    const raw = asObject(body);
+    const changes: { title?: string; documentUrl?: string } = {};
+    if (raw.title !== undefined) changes.title = requiredString('title', raw.title, 200);
+    if (raw.documentUrl !== undefined) changes.documentUrl = parseDocumentUrl(raw.documentUrl);
+    if (Object.keys(changes).length === 0) {
+      throw new BadRequestException('Provide at least one field to change');
+    }
+    return toAgreementResponse(await this.service.updateAgreement(id, changes, identity));
   }
 
   @Patch(':id/status')

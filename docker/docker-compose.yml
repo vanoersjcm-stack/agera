@@ -24,6 +24,7 @@ services:
       - ../migrations/V9__store_compliance_anomalies.sql:/docker-entrypoint-initdb.d/18_V9__store_compliance_anomalies.sql:ro
       - ../migrations/V10__user_realm_roles.sql:/docker-entrypoint-initdb.d/19_V10__user_realm_roles.sql:ro
       - ../migrations/V11__clients_and_contacts.sql:/docker-entrypoint-initdb.d/1a_V11__clients_and_contacts.sql:ro
+      - ../migrations/V12__record_edit_fields.sql:/docker-entrypoint-initdb.d/1b_V12__record_edit_fields.sql:ro
       - ./postgres/dev_seed.sql:/docker-entrypoint-initdb.d/20_dev_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]

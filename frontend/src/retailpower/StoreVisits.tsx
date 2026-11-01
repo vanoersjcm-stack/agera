@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, type VisitMedia, type VisitStatus, type VisitSummary } from '../api';
 import { useUsers, userName } from '../directory';
+import { EditVisitDrawer } from '../EditForms';
 import { COMPLIANCE, formatDate, formatDateTime, VISIT_STATUS } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
@@ -208,6 +209,7 @@ export function VisitDossier({ id }: { id: string }) {
   const { notify } = useShell();
   const users = useUsers();
   const summary = useLoad(() => api.visitSummary(id), [id]);
+  const [editing, setEditing] = useState(false);
   const stores = useLoad(() => api.stores(), []);
   const workOrder = useLoad(() => (summary.data?.visit.workOrderId ? api.workOrder(summary.data.visit.workOrderId) : Promise.resolve(null)), [summary.data?.visit.workOrderId]);
   const action = useAction();
@@ -235,7 +237,10 @@ export function VisitDossier({ id }: { id: string }) {
       crumbs={[SUITE_CRUMB, LIST_CRUMB, { label: title }]}
       actions={
         (v.status === 'PLANNED' || v.status === 'IN_PROGRESS') && (
-          <button className="secondary danger" disabled={action.busy} onClick={cancel}>Cancel visit</button>
+          <>
+            <button className="secondary" onClick={() => setEditing(true)}>Edit</button>
+            <button className="secondary danger" disabled={action.busy} onClick={cancel}>Cancel visit</button>
+          </>
         )
       }
     >
@@ -268,6 +273,9 @@ export function VisitDossier({ id }: { id: string }) {
           <p>{hasReport ? 'The report is saved. Complete the visit when you are done.' : 'Save the report with a compliance result before completing the visit.'}</p>
           <button className="primary" disabled={action.busy || !hasReport} onClick={() => setStatus('COMPLETED', 'Visit completed')}>Complete visit</button>
         </div>
+      )}
+      {editing && (
+        <EditVisitDrawer record={v} onClose={() => setEditing(false)} onSaved={() => (setEditing(false), notify('Store visit updated'), summary.reload())} />
       )}
     </ViewFrame>
   );

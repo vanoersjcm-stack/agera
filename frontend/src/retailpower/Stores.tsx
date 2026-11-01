@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { api, type Alert } from '../api';
+import { EditStoreDrawer } from '../EditForms';
 import { useUsers, userName } from '../directory';
-import { formatDate, VISIT_STATUS } from '../labels';
+import { formatDate, STORE_STATUS, VISIT_STATUS } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
@@ -74,7 +76,8 @@ export function StoresView({ route }: { route: Route }) {
 }
 
 export function StoreDossier({ id }: { id: string }) {
-  const { openNew } = useShell();
+  const { openNew, notify } = useShell();
+  const [editing, setEditing] = useState(false);
   const users = useUsers();
   const stores = useLoad(() => api.stores(), [id]);
   const visits = useLoad(() => api.visits(id), [id]);
@@ -91,14 +94,25 @@ export function StoreDossier({ id }: { id: string }) {
   return (
     <ViewFrame
       title={store.name}
-      subtitle={issue ? <StatusBadge status="not_compliant" label="Not compliant" /> : undefined}
+      subtitle={
+        <>
+          {store.status === 'closed' && <StatusBadge status="closed" label={STORE_STATUS.closed} />}
+          {issue && <StatusBadge status="not_compliant" label="Not compliant" />}
+        </>
+      }
       crumbs={[SUITE_CRUMB, LIST_CRUMB, { label: store.name }]}
-      actions={<button className="primary" onClick={() => openNew('store_visit', { storeId: id })}>+ Plan store visit</button>}
+      actions={
+        <>
+          <button className="secondary" onClick={() => setEditing(true)}>Edit</button>
+          {store.status === 'active' && <button className="primary" onClick={() => openNew('store_visit', { storeId: id })}>+ Plan store visit</button>}
+        </>
+      }
     >
       {issue && <p className="callout bad">Latest visit report: {issue.description}</p>}
       <DetailList
         items={[
           ['Store code', store.storeCode],
+          ['Status', STORE_STATUS[store.status] ?? store.status],
           ['Address', [store.address, [store.postalCode, store.city].filter(Boolean).join(' '), store.country].filter(Boolean).join(', ') || '—'],
           ['Added', formatDate(store.createdAt)],
         ]}
@@ -125,6 +139,13 @@ export function StoreDossier({ id }: { id: string }) {
             ))}
           </tbody>
         </table>
+      )}
+      {editing && (
+        <EditStoreDrawer
+          record={store}
+          onClose={() => setEditing(false)}
+          onSaved={() => (setEditing(false), notify('Store updated'), stores.reload())}
+        />
       )}
     </ViewFrame>
   );
