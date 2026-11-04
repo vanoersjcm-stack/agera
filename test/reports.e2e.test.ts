@@ -30,7 +30,12 @@ describe('/v1/reports', () => {
     assert.match(res.headers.get('content-type') ?? '', /text\/csv/);
     assert.match((await res.text()).split('\r\n')[0], /^Client,City,Sector/);
     assert.equal((await api(alice, 'GET', '/v1/reports/datasets/nope/export')).status, 404);
-    assert.equal((await api<{ licenseTier: string }>(alice, 'GET', '/users/me')).body.licenseTier, 'symphony');
+    const release = await tierLock(tenantId);
+    try {
+      assert.equal((await api<{ licenseTier: string }>(alice, 'GET', '/users/me')).body.licenseTier, 'symphony');
+    } finally {
+      release();
+    }
     assert.equal((await api(carol, 'GET', '/v1/reports/kpis')).status, 403);
   });
 

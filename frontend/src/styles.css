@@ -559,3 +559,4 @@ body { -webkit-font-smoothing: antialiased; color: #1e293b; }
 .tour-card button { font: inherit; font-size: 0.8rem; border-radius: 8px; padding: 0.35rem 0.75rem; cursor: pointer; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; }
 .tour-card button.primary { background: #fbbf24; border-color: #fbbf24; color: #0f172a; font-weight: 600; }
 .tour-card .tour-missing { color: #fca5a5; font-size: 0.78rem; }
+.offline-pill { display: inline-flex; align-items: center; font-size: 0.75rem; font-weight: 600; padding: 0.25rem 0.75rem; border-radius: 6px; background: rgba(245, 158, 11, 0.2); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.45); white-space: nowrap; }

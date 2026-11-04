@@ -1,7 +1,7 @@
 /** Slice 3 (audit §13 G19/G23/G24): invoices, agreement run-rate fields and the financial waterfall. */
 import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
-import { api, getToken } from './helpers.ts';
+import { api, getToken, tierLock } from './helpers.ts';
 
 interface Invoice { id: string; clientId: string; clientName: string; invoiceNumber: string; status: string; totalAmount: string; paidAt: string | null; overdue: boolean }
 interface Waterfall { fiscalYear: number; baseline: string; expansion: string; churn: string; prognosis: string; actuals: string; openPipeline: string }
@@ -80,7 +80,8 @@ describe('agreement run-rate fields', () => {
 });
 
 describe('/v1/financials/waterfall', () => {
-  it('adds signed expansion, subtracts near-term churn and reports paid invoices', async () => {
+  it('adds signed expansion, subtracts near-term churn and reports paid invoices', async (t) => {
+    t.after(await tierLock('waterfall'));
     const before = (await api<Waterfall>(alice, 'GET', `/v1/financials/waterfall?fiscalYear=${year}`)).body;
     const agreement = await api<Agreement & { id: string }>(alice, 'POST', '/v1/agreements', {
       clientId: C1, title: `Waterfall ${stamp}`, documentUrl: 'https://docs.example/w.pdf', annualValue: 10000, churnRisk: 4000, endDate: inDays(45),

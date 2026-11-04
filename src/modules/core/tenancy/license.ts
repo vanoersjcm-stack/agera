@@ -4,7 +4,12 @@ import type { LicenseTier } from '../entities/tenant.entity.js';
 
 const tierChangedAt = new Map<string, number>();
 
-/** Called when an organisation's edition changes: tokens issued before this moment carry a stale tier claim. */
+/** Called when an organisation's edition changes: its tier claims are ignored until Keycloak has the new value. */
+export function distrustTierClaims(tenantId: string): void {
+  tierChangedAt.set(tenantId, Number.POSITIVE_INFINITY);
+}
+
+/** Called once Keycloak carries the new edition: tokens issued from now on have a fresh tier claim. */
 export function markTierChanged(tenantId: string): void {
   tierChangedAt.set(tenantId, Date.now());
 }

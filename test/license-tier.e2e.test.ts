@@ -1,21 +1,25 @@
 /** Licence tiers: Vanguard (mid-market, seat-capped) vs Symphony (enterprise) on one backend. */
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { api, getToken } from './helpers.ts';
+import { api, getToken, tierLock } from './helpers.ts';
 
 interface Me { id: string; licenseTier: string; maxSeats: number | null; activeSeats: number }
 
 let admin: string;
 let alice: string;
 let home: Me;
+let release: () => void;
 
 before(async () => {
   [admin, alice] = await Promise.all([getToken('dev.admin', 'devadmin'), getToken('alice', 'alice')]);
+  const id = (await api<Me>(admin, 'GET', '/tenants/me')).body.id;
+  release = await tierLock(id);
   home = (await api<Me>(admin, 'GET', '/tenants/me')).body;
 });
 
 after(async () => {
   await api(admin, 'PATCH', `/tenants/${home.id}/license`, { licenseTier: 'symphony' });
+  release();
 });
 
 describe('licence tier', () => {

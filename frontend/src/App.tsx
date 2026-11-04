@@ -33,6 +33,7 @@ import { ReportBuilderView, ReportsView } from './symphony/Reports';
 import { IntegrationsView as ExternalSystemsView } from './symphony/Integrations';
 import { GoldenThreadTour, startTour } from './tour';
 import { getLanguage, setLanguage, t, useLanguage, t as tr } from './i18n';
+import { startOfflineSync, useOfflineQueue } from './offlineQueue';
 import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
 import { ActivityLogView, IntegrationsView, OrganisationsView, SymphonyOverview } from './symphony/SymphonyViews';
 
@@ -457,6 +458,20 @@ function StatusPill() {
   );
 }
 
+function OfflinePill() {
+  const count = useOfflineQueue();
+  const [online, setOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const sync = () => setOnline(navigator.onLine);
+    window.addEventListener('online', sync);
+    window.addEventListener('offline', sync);
+    return () => (window.removeEventListener('online', sync), window.removeEventListener('offline', sync));
+  }, []);
+  if (online && count === 0) return null;
+  const label = online ? tr("Syncing queued visit reports…") : `${tr("Offline mode")}: ${count} ${count === 1 ? tr("visit report queued") : tr("visit reports queued")}`;
+  return <span className="offline-pill" role="status">{label}</span>;
+}
+
 function CreditPill({ user }: { user: UserContext }) {
   const [count, setCount] = useState<number | null>(null);
   useEffect(() => {
@@ -510,6 +525,7 @@ export function App() {
   const [tenant, setTenant] = useState<Tenant | null>(null);
   const [creating, setCreating] = useState<{ kind: NewKind; defaults: NewDefaults } | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  useEffect(() => startOfflineSync((n) => setToast(`${n} ${tr("queued visit items synced")}`)), []);
 
   useEffect(() => {
     api.tenant().then((t) => {
@@ -572,6 +588,7 @@ export function App() {
           )}
           <span className="topbar-spacer" />
           {!external && <SearchPalette user={user} tier={tier} />}
+          {!external && <OfflinePill />}
           {!external && <CreditPill user={user} />}
           {!external && <NotificationBell />}
           {!external && <GoldenThreadTour />}

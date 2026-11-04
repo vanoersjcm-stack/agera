@@ -294,8 +294,11 @@ const NL: Record<string, string> = {
   "with a client login can open this room.": "met een klantlogin kan deze room openen.", "· SHA-256": "· SHA-256", "· expected": "· verwacht", "· refreshes every minute": "· ververst elke minuut",
   "· valid": "· geldig", "“Not compliant” or “Needs follow-up” raises a store alert in Nexus › Alerts.": "“Niet compliant” of “Opvolging nodig” geeft een winkelmelding in Nexus › Meldingen.", "” was created. Its users get access when they sign in with an e-mail address at its domain.": "” is aangemaakt. De gebruikers krijgen toegang wanneer ze inloggen met een e-mailadres op het domein.", "‹ Previous week": "‹ Vorige week",
   "← Newer": "← Nieuwer", "− Known churn": "− Bekend verloop", "⭳ CSV": "⭳ CSV", "＋ Add photo": "＋ Foto toevoegen",
+  "Offline: the visit report is queued and sent automatically when the connection is back": "Offline: het bezoekrapport staat in de wachtrij en wordt automatisch verstuurd zodra de verbinding terug is",
+  "Offline: photos are queued and uploaded automatically when the connection is back": "Offline: foto's staan in de wachtrij en worden automatisch geüpload zodra de verbinding terug is",
+  "Syncing queued visit reports…": "Bezoekrapporten in de wachtrij worden verstuurd…", "Offline mode": "Offline modus",
+  "visit report queued": "bezoekrapport in wachtrij", "visit reports queued": "bezoekrapporten in wachtrij", "queued visit items synced": "items uit de wachtrij verstuurd",
 };
-
 export function getLanguage(): Language {
   const stored = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
   return stored === 'nl' ? 'nl' : 'en';

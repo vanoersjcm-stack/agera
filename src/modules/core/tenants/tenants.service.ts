@@ -6,7 +6,7 @@ import type { AuthenticatedUser } from '../../auth/authenticated-user.js';
 import { AuditService } from '../audit/audit.service.js';
 import { Tenant, User } from '../entities/index.js';
 import { type LicenseTier, VANGUARD_DEFAULT_SEATS } from '../entities/tenant.entity.js';
-import { markTierChanged } from '../tenancy/license.js';
+import { distrustTierClaims } from '../tenancy/license.js';
 import { TenantContext } from '../tenancy/tenant-context.service.js';
 import { TenantRepository } from '../tenancy/tenant-repository.js';
 
@@ -59,7 +59,7 @@ export class TenantsService {
     tenant.licenseTier = licenseTier;
     tenant.maxSeats = maxSeats !== undefined ? maxSeats : licenseTier === 'vanguard' ? VANGUARD_DEFAULT_SEATS : null;
     await this.tenants.save(tenant);
-    markTierChanged(id);
+    distrustTierClaims(id);
     this.events.emit(TENANT_LICENSE_CHANGED_EVENT, { tenantId: id, licenseTier: tenant.licenseTier } satisfies TenantLicenseChangedEvent);
     const actorRecord = await this.users.findOneBy({ keycloakId: actor.keycloakId });
     this.audit.logAction(this.context.tenantId, actorRecord?.id ?? null, 'tenant.license_changed', {

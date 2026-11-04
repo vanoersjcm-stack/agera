@@ -3,6 +3,7 @@ import { OnEvent } from '@nestjs/event-emitter';
 import { InjectDataSource } from '@nestjs/typeorm';
 import type { DataSource } from 'typeorm';
 import { TENANT_LICENSE_CHANGED_EVENT, type TenantLicenseChangedEvent } from '../core/tenants/tenants.service.js';
+import { markTierChanged } from '../core/tenancy/license.js';
 import { KeycloakAdminService } from './keycloak-admin.service.js';
 
 export const TIER_ATTRIBUTE = 'tenant_license_tier';
@@ -29,7 +30,7 @@ export class LicenseClaimSyncService implements OnApplicationBootstrap {
   async onLicenseChanged(event: TenantLicenseChangedEvent): Promise<void> {
     if (!this.keycloak.configured) return;
     try {
-      await this.syncTenant(event.tenantId, event.licenseTier);
+      if (await this.syncTenant(event.tenantId, event.licenseTier)) markTierChanged(event.tenantId);
     } catch (error) {
       this.logger.warn(`Edition claim sync for organisation ${event.tenantId} failed: ${String(error)}`);
     }
@@ -40,14 +41,17 @@ export class LicenseClaimSyncService implements OnApplicationBootstrap {
     for (const t of tenants) await this.syncTenant(t.id, t.license_tier);
   }
 
-  private async syncTenant(tenantId: string, tier: string): Promise<void> {
+  private async syncTenant(tenantId: string, tier: string): Promise<boolean> {
+    let ok = true;
     const users: { keycloak_id: string }[] = await this.dataSource.query('SELECT keycloak_id FROM users WHERE tenant_id = $1', [tenantId]);
     for (const u of users) {
       try {
         await this.keycloak.setAttribute(u.keycloak_id, TIER_ATTRIBUTE, tier);
       } catch (error) {
+        ok = false;
         this.logger.warn(`Could not set ${TIER_ATTRIBUTE} for Keycloak user ${u.keycloak_id}: ${String(error)}`);
       }
     }
+    return ok;
   }
 }

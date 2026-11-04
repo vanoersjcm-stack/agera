@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, type VisitMedia, type VisitStatus, type VisitSummary } from '../api';
+import { isOffline, queuePhoto, queueReport } from '../offlineQueue';
 import { useUsers, userName } from '../directory';
 import { EditVisitDrawer } from '../EditForms';
 import { COMPLIANCE, formatDate, formatDateTime, VISIT_STATUS } from '../labels';
@@ -142,26 +143,34 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
   const fileInput = useRef<HTMLInputElement>(null);
   const visitId = summary.visit.id;
 
-  const saveReport = () =>
+  const storeId = summary.visit.storeId;
+  const saveReport = () => {
+    const items = outOfStock.split(/[\n,]/).map((i) => i.trim()).filter(Boolean);
+    const body = { summary: text.trim(), auditData: { ...audit, checklist, complianceStatus: compliance, outOfStockItems: items, ...(planogramChecks.length ? { planogramChecks } : {}) } };
+    const queue = () => queueReport(visitId, storeId, body).then(() => notify(t("Offline: the visit report is queued and sent automatically when the connection is back")));
+    if (isOffline()) return void queue();
     void save
-      .run(() => {
-        const items = outOfStock.split(/[\n,]/).map((i) => i.trim()).filter(Boolean);
-        return api.saveVisitReport(visitId, { summary: text.trim(), auditData: { ...audit, checklist, complianceStatus: compliance, outOfStockItems: items, ...(planogramChecks.length ? { planogramChecks } : {}) } });
-      })
+      .run(() => api.saveVisitReport(visitId, body).catch((e: unknown) => (isOffline(e) ? queue().then(() => null) : Promise.reject(e))))
       .then((r) => {
         if (!r) return;
         setReplenishment(r.replenishmentRoomId ?? null);
         notify(r.replenishmentRoomId ? t("Visit report saved · replenishment client room updated for the client") : t("Visit report saved"));
         onSaved();
       });
+  };
   const [replenishment, setReplenishment] = useState<string | null>(null);
 
   const upload = (files: FileList | null) => {
     if (!files?.length) return;
     void photos
       .run(async () => {
-        for (const file of Array.from(files)) await api.uploadVisitPhoto(visitId, file);
-        return true;
+        let queued = 0;
+        for (const file of Array.from(files)) {
+          if (isOffline()) (await queuePhoto(visitId, storeId, file), queued++);
+          else await api.uploadVisitPhoto(visitId, file).catch((e: unknown) => (isOffline(e) ? queuePhoto(visitId, storeId, file).then(() => void queued++) : Promise.reject(e)));
+        }
+        if (queued) notify(t("Offline: photos are queued and uploaded automatically when the connection is back"));
+        return queued < files.length;
       })
       .then((ok) => {
         if (fileInput.current) fileInput.current.value = '';
