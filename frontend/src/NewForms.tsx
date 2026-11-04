@@ -1,3 +1,4 @@
+import { NewAuditRoundForm, NewFieldOrderForm, NewPlanogramForm, NewProductForm } from './retailpower/Field';
 import { type FormEvent, useEffect, useState } from 'react';
 import { api, type Agreement, type CreatedApiKey, type Store, type WorkOrder } from './api';
 import { activeClients, clientName, invalidateDirectory, useClients, useUsers } from './directory';
@@ -22,6 +23,10 @@ export const NEW_ITEMS: NewItem[] = [
   { kind: 'work_order', label: 'Work order', group: 'RetailPower' },
   { kind: 'store_visit', label: 'Store visit', group: 'RetailPower' },
   { kind: 'store', label: 'Store', group: 'RetailPower' },
+  { kind: 'field_order', label: 'Field order', group: 'RetailPower' },
+  { kind: 'audit_round', label: 'Audit round', group: 'RetailPower' },
+  { kind: 'product', label: 'Product', group: 'RetailPower' },
+  { kind: 'planogram', label: 'Planogram', group: 'RetailPower' },
   { kind: 'invoice', label: 'Invoice', group: 'Symphony' },
   { kind: 'organisation', label: 'Organisation', group: 'Symphony', platformAdminOnly: true },
   { kind: 'integration_key', label: 'Integration key', group: 'Symphony', platformAdminOnly: true },
@@ -649,6 +654,10 @@ function DealForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onSwit
 }
 
 const TITLES: Record<NewKind, string> = {
+  product: 'New product',
+  planogram: 'New planogram',
+  field_order: 'New field order',
+  audit_round: 'New audit round',
   work_order: 'New work order',
   deal: 'New deal',
   invoice: 'New invoice',
@@ -696,6 +705,10 @@ export function NewDrawer({
       {kind === 'financial_plan' && <FinancialPlanForm {...props} />}
       {kind === 'organisation' && <OrganisationForm {...props} />}
       {kind === 'integration_key' && <IntegrationKeyForm {...props} />}
+      {kind === 'product' && <NewProductForm {...props} />}
+      {kind === 'planogram' && <NewPlanogramForm {...props} />}
+      {kind === 'field_order' && <NewFieldOrderForm {...props} />}
+      {kind === 'audit_round' && <NewAuditRoundForm {...props} />}
     </Drawer>
   );
 }

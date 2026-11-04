@@ -60,6 +60,11 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/retailpower/work-orders', label: 'Work orders', description: 'Field tasks, assignment and status' },
         { path: '/retailpower/store-visits', label: 'Store visits', description: 'Plan visits, write reports, add photos' },
         { path: '/retailpower/stores', label: 'Stores', description: 'Store list and compliance' },
+        { path: '/retailpower/calendar', label: 'Field calendar', description: 'Visits per rep per day, with capacity warnings' },
+        { path: '/retailpower/audit-rounds', label: 'Audit rounds', description: 'Plan visits to many stores with one checklist' },
+        { path: '/retailpower/orders', label: 'Field orders', description: 'Orders taken in stores, draft to delivery' },
+        { path: '/retailpower/products', label: 'Products', description: 'Product catalogue and prices' },
+        { path: '/retailpower/planograms', label: 'Planograms', description: 'Expected shelf layouts and facings' },
       ];
   }
 }

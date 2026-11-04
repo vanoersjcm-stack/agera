@@ -104,6 +104,25 @@ export interface Page<T> {
   total: number;
 }
 
+/* ---------- RetailPower field catalogue ---------- */
+
+export interface Product { id: string; sku: string; name: string; brand: string | null; category: string | null; unitPrice: string; active: boolean; createdAt: string; updatedAt: string }
+export interface PlanogramItem { id: string; productId: string; productName: string; sku: string; expectedFacings: number; shelf: string | null }
+export interface PlanogramSummary { id: string; name: string; category: string | null; storeId: string | null; storeName: string | null; active: boolean; itemCount: number; totalFacings: number; updatedAt: string }
+export interface Planogram { id: string; name: string; category: string | null; storeId: string | null; storeName: string | null; active: boolean; updatedAt: string; items: PlanogramItem[] }
+export type FieldOrderStatus = 'draft' | 'submitted' | 'confirmed' | 'delivered' | 'cancelled';
+export interface FieldOrderLine { id: string; productId: string; productName: string; sku: string; quantity: number; unitPrice: string; lineTotal: string }
+export interface FieldOrder {
+  id: string; storeId: string; storeName: string; clientId: string | null; clientName: string | null; visitId: string | null; status: FieldOrderStatus;
+  notes: string | null; createdByName: string | null; submittedAt: string | null; createdAt: string; updatedAt: string; total: string; lineCount?: number; lines?: FieldOrderLine[];
+}
+export interface AuditRoundVisit { id: string; storeId: string; storeName: string; storeCode: string; visitDate: string; status: VisitStatus; fieldRepName: string | null; complianceStatus: string | null; planogramScore: number | null }
+export interface AuditRound {
+  id: string; name: string; checklist: string[]; dueDate: string | null; status: 'open' | 'closed'; createdByName: string | null; createdAt: string;
+  visitCount?: number; completedCount?: number; issueCount?: number; visits?: AuditRoundVisit[];
+}
+export interface VisitContext { auditRound: { id: string; name: string; checklist: string[] } | null; planograms: Planogram[] }
+
 /* ---------- Symphony ---------- */
 
 export type LicenseTier = 'vanguard' | 'symphony';
@@ -656,6 +675,27 @@ export const api = {
   setRoomStatus: (id: string, status: RoomStatus) => request<ClientRoom>('PATCH', `/v1/dsrs/${id}/status`, { status }),
   health: () => request<{ status: string }>('GET', '/health'),
   clients: () => request<Client[]>('GET', '/v1/clients'),
+  products: (includeInactive = false) => request<Product[]>('GET', `/v1/field/products${includeInactive ? '?includeInactive=true' : ''}`),
+  createProduct: (body: { sku: string; name: string; brand?: string | null; category?: string | null; unitPrice: string | number }) => request<Product>('POST', '/v1/field/products', body),
+  updateProduct: (id: string, body: Partial<{ sku: string; name: string; brand: string | null; category: string | null; unitPrice: string | number; active: boolean }>) =>
+    request<Product>('PATCH', `/v1/field/products/${id}`, body),
+  planograms: (storeId?: string) => request<PlanogramSummary[]>('GET', `/v1/field/planograms${storeId ? `?storeId=${storeId}` : ''}`),
+  planogram: (id: string) => request<Planogram>('GET', `/v1/field/planograms/${id}`),
+  createPlanogram: (body: { name: string; category?: string | null; storeId?: string | null; items?: { productId: string; expectedFacings: number; shelf?: string | null }[] }) =>
+    request<Planogram>('POST', '/v1/field/planograms', body),
+  updatePlanogram: (id: string, body: Partial<{ name: string; category: string | null; storeId: string | null; active: boolean; items: { productId: string; expectedFacings: number; shelf?: string | null }[] }>) =>
+    request<Planogram>('PATCH', `/v1/field/planograms/${id}`, body),
+  fieldOrders: (status?: FieldOrderStatus) => request<FieldOrder[]>('GET', `/v1/field/orders${status ? `?status=${status}` : ''}`),
+  fieldOrder: (id: string) => request<FieldOrder>('GET', `/v1/field/orders/${id}`),
+  createFieldOrder: (body: { storeId: string; visitId?: string | null; notes?: string | null; lines: { productId: string; quantity: number }[] }) => request<FieldOrder>('POST', '/v1/field/orders', body),
+  updateFieldOrder: (id: string, body: { notes?: string | null; lines?: { productId: string; quantity: number }[] }) => request<FieldOrder>('PATCH', `/v1/field/orders/${id}`, body),
+  setFieldOrderStatus: (id: string, status: FieldOrderStatus) => request<FieldOrder>('PATCH', `/v1/field/orders/${id}/status`, { status }),
+  auditRounds: () => request<AuditRound[]>('GET', '/v1/field/audit-rounds'),
+  auditRound: (id: string) => request<AuditRound>('GET', `/v1/field/audit-rounds/${id}`),
+  createAuditRound: (body: { name: string; checklist: string[]; dueDate?: string | null; visitDate: string; fieldRepId?: string | null; storeIds: string[] }) =>
+    request<AuditRound>('POST', '/v1/field/audit-rounds', body),
+  setAuditRoundStatus: (id: string, status: 'open' | 'closed') => request<AuditRound>('PATCH', `/v1/field/audit-rounds/${id}/status`, { status }),
+  visitContext: (visitId: string) => request<VisitContext>('GET', `/v1/field/visits/${visitId}/context`),
   roomDocuments: (roomId: string) => request<RoomDocument[]>('GET', `/v1/nexus/client-rooms/${roomId}/documents`),
   documentVersions: (roomId: string, id: string) => request<RoomDocumentVersion[]>('GET', `/v1/nexus/client-rooms/${roomId}/documents/${id}/versions`),
   uploadRoomDocument: (roomId: string, file: File, fields: { title?: string; documentId?: string } = {}) => {

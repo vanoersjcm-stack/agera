@@ -1,6 +1,10 @@
 import { createContext, useContext } from 'react';
 
 export type NewKind =
+  | 'product'
+  | 'planogram'
+  | 'field_order'
+  | 'audit_round'
   | 'work_order'
   | 'deal'
   | 'invoice'

@@ -17,6 +17,7 @@ import { RetailOverview } from './retailpower/RetailOverview';
 import { StoreDossier, StoresView } from './retailpower/Stores';
 import { StoreVisitsView, VisitDossier } from './retailpower/StoreVisits';
 import { WorkOrderDossier, WorkOrdersView } from './retailpower/WorkOrders';
+import { AuditRoundDossier, AuditRoundsView, FieldCalendarView, FieldOrderDossier, FieldOrdersView, PlanogramDossier, PlanogramsView, ProductsView } from './retailpower/Field';
 import { DealDossier, DealsView, PipelineBoard } from './vanguard/Pipeline';
 import { navigate, type Route, useRoute } from './router';
 import { type NewDefaults, type NewKind, ShellContext } from './shell';
@@ -85,6 +86,16 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return id ? <VisitDossier id={id} /> : <StoreVisitsView route={route} />;
     case 'retailpower/stores':
       return id ? <StoreDossier id={id} /> : <StoresView route={route} />;
+    case 'retailpower/products':
+      return <ProductsView route={route} />;
+    case 'retailpower/planograms':
+      return id ? <PlanogramDossier id={id} /> : <PlanogramsView />;
+    case 'retailpower/orders':
+      return id ? <FieldOrderDossier id={id} /> : <FieldOrdersView route={route} />;
+    case 'retailpower/audit-rounds':
+      return id ? <AuditRoundDossier id={id} /> : <AuditRoundsView />;
+    case 'retailpower/calendar':
+      return <FieldCalendarView route={route} />;
     default:
       return <NotAvailable path={route.path} />;
   }

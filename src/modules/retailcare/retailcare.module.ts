@@ -23,5 +23,6 @@ import { VisitsService } from './visits.service.js';
   ],
   controllers: [StoresController, VisitsController, VisitRecordsController],
   providers: [StoresService, VisitsService, VisitRecordsService],
+  exports: [VisitsService],
 })
 export class RetailCareModule {}

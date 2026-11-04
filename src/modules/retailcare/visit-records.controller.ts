@@ -98,6 +98,21 @@ function parseSaveReport(body: unknown): SaveReportInput {
     }
     data.outOfStockItems = [...new Set(raw.map((i: string) => i.trim()))];
   }
+  if (data.planogramChecks !== undefined) {
+    const raw = data.planogramChecks;
+    const ok = (n: unknown, min: number) => typeof n === 'number' && Number.isInteger(n) && n >= min && n <= 999;
+    if (
+      !Array.isArray(raw) ||
+      raw.length > 200 ||
+      raw.some((c) => !c || typeof c !== 'object' || typeof c.productId !== 'string' || !ok(c.expectedFacings, 1) || !ok(c.actualFacings, 0))
+    ) {
+      throw new BadRequestException('auditData.planogramChecks must be a list of {productId, expectedFacings ≥ 1, actualFacings ≥ 0}');
+    }
+    const checks = raw as { expectedFacings: number; actualFacings: number }[];
+    const expected = checks.reduce((s, c) => s + c.expectedFacings, 0);
+    const matched = checks.reduce((s, c) => s + Math.min(c.actualFacings, c.expectedFacings), 0);
+    data.planogramScore = expected > 0 ? Math.round((matched / expected) * 100) : null;
+  }
   return {
     summary: optionalString('summary', summary, MAX_SUMMARY_LENGTH),
     auditData: data,

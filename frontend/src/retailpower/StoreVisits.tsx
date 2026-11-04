@@ -122,6 +122,20 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
   const [checklist, setChecklist] = useState<Record<string, boolean>>(savedChecklist);
   const [compliance, setCompliance] = useState(typeof audit.complianceStatus === 'string' ? audit.complianceStatus : '');
   const [outOfStock, setOutOfStock] = useState(Array.isArray(audit.outOfStockItems) ? (audit.outOfStockItems as string[]).join('\n') : '');
+  const context = useLoad(() => api.visitContext(summary.visit.id), [summary.visit.id]);
+  const products = useLoad(() => api.products(), []);
+  const savedChecks = Array.isArray(audit.planogramChecks) ? (audit.planogramChecks as { productId: string; actualFacings: number }[]) : [];
+  const [facings, setFacings] = useState<Record<string, string>>(Object.fromEntries(savedChecks.map((c) => [c.productId, String(c.actualFacings)])));
+  const [pickProduct, setPickProduct] = useState('');
+  const { openNew } = useShell();
+  const planogramItems = (context.data?.planograms ?? []).flatMap((g) => g.items.map((i) => ({ ...i, planogram: g.name })));
+  const planogramChecks = planogramItems
+    .filter((i) => facings[i.productId] !== undefined && facings[i.productId] !== '')
+    .map((i) => ({ productId: i.productId, expectedFacings: i.expectedFacings, actualFacings: Math.max(0, Math.round(Number(facings[i.productId]) || 0)) }));
+  const liveScore = (() => {
+    const exp = planogramChecks.reduce((s, c) => s + c.expectedFacings, 0);
+    return exp ? Math.round((planogramChecks.reduce((s, c) => s + Math.min(c.actualFacings, c.expectedFacings), 0) / exp) * 100) : null;
+  })();
   const save = useAction();
   const photos = useAction();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -131,7 +145,7 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
     void save
       .run(() => {
         const items = outOfStock.split(/[\n,]/).map((i) => i.trim()).filter(Boolean);
-        return api.saveVisitReport(visitId, { summary: text.trim(), auditData: { ...audit, checklist, complianceStatus: compliance, outOfStockItems: items } });
+        return api.saveVisitReport(visitId, { summary: text.trim(), auditData: { ...audit, checklist, complianceStatus: compliance, outOfStockItems: items, ...(planogramChecks.length ? { planogramChecks } : {}) } });
       })
       .then((r) => {
         if (!r) return;
@@ -173,7 +187,31 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
               {c.label}
             </label>
           ))}
+          {context.data?.auditRound && (
+            <>
+              <span className="field-hint">Audit round “{context.data.auditRound.name}”:</span>
+              {context.data.auditRound.checklist.map((item, i) => (
+                <label key={`round-${i}`} className="check-row">
+                  <input type="checkbox" checked={!!checklist[`round:${item}`]} onChange={(e) => setChecklist({ ...checklist, [`round:${item}`]: e.target.checked })} />
+                  {item}
+                </label>
+              ))}
+            </>
+          )}
         </div>
+        {planogramItems.length > 0 && (
+          <div className="field">
+            <span className="field-label">Planogram check {liveScore != null && <strong className="score-pill">{liveScore}% match</strong>}</span>
+            <span className="field-hint">Count the facings you see for each product; the match score is saved with the report.</span>
+            {planogramItems.map((i) => (
+              <div key={`${i.planogram}-${i.productId}`} className="line-row">
+                <span className="line-name">{i.productName} <span className="muted small">{i.planogram}{i.shelf ? ` · ${i.shelf}` : ''} · expected {i.expectedFacings}</span></span>
+                <input type="number" min={0} max={999} aria-label={`Facings found for ${i.productName}`} value={facings[i.productId] ?? ''} onChange={(e) => setFacings({ ...facings, [i.productId]: e.target.value })} />
+              </div>
+            ))}
+            {typeof audit.planogramScore === 'number' && <span className="field-hint">Saved score: {audit.planogramScore}%</span>}
+          </div>
+        )}
         <div className="field" role="radiogroup" aria-label="Compliance result">
           <span className="field-label">Compliance result</span>
           <div className="radio-row">
@@ -191,6 +229,15 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
         </div>
         <label className="field">
           <span className="field-label">Out-of-stock products</span>
+          {(products.data?.length ?? 0) > 0 && (
+            <div className="line-row">
+              <select value={pickProduct} onChange={(e) => setPickProduct(e.target.value)} aria-label="Pick an out-of-stock product">
+                <option value="">Pick from the catalogue…</option>
+                {products.data!.map((p) => <option key={p.id} value={p.name}>{p.name} ({p.sku})</option>)}
+              </select>
+              <button type="button" className="secondary small" disabled={!pickProduct} onClick={() => (setOutOfStock([...outOfStock.split('\n').filter((l) => l.trim()), pickProduct].join('\n')), setPickProduct(''))}>Add</button>
+            </div>
+          )}
           <textarea rows={3} value={outOfStock} onChange={(e) => setOutOfStock(e.target.value)} placeholder={'One product per line, e.g.\nCola Zero 1.5L'} />
           <span className="field-hint">If this store belongs to a client, saving opens a “Replenishment” client room where the client confirms each product.</span>
         </label>
