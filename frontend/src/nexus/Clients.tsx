@@ -2,6 +2,7 @@ import { type FormEvent, type ReactNode, useState } from 'react';
 import { api, type Client, type ClientRecord, type Invoice, type Contact, type CreditStatus, type RoomActivity } from '../api';
 import { invalidateDirectory, useUsers } from '../directory';
 import { ClientInvoicesPanel } from '../symphony/Invoices';
+import { HealthBadge } from '../symphony/Workflow';
 import { ACTIVITY_TYPE, AGREEMENT_STATUS, CLIENT_STATUS, CREDIT_STATUS, formatDate, formatDateTime, PLAN_STATUS, ROOM_STATUS } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
@@ -312,6 +313,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
           <span><small>ERP ID</small><b className="mono">{client.erpId ?? '—'}</b></span>
           <span><small>Account manager</small><b>{client.accountManagerName ?? 'Not assigned'}</b></span>
           <span><small>Credit status</small><b>{CREDIT_STATUS[client.creditStatus]}</b></span>
+          <span><small>Account health</small><b><HealthBadge clientId={id} /></b></span>
         </div>
         <span className="topbar-spacer" />
         {rooms.length > 0 && <button className="secondary" onClick={() => navigate(`/nexus/client-rooms/${(rooms.find((x) => x.status === 'active') ?? rooms[0]).id}`)}>Open linked client room</button>}

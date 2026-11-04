@@ -494,3 +494,16 @@ body { -webkit-font-smoothing: antialiased; color: #1e293b; }
 .cal-visit { display: block; padding: 0.2rem 0.4rem; border-radius: 6px; background: #faf5ff; border-left: 3px solid #9333ea; color: #1e293b; text-decoration: none; font-size: 0.75rem; }
 .cal-visit.st-completed { background: #ecfdf5; border-left-color: #10b981; }
 .cal-visit.st-in_progress { background: #eff6ff; border-left-color: #3b82f6; }
+.chain { margin: 0.25rem 0 0.5rem; padding-left: 1.25rem; display: grid; gap: 0.3rem; }
+.chain .step-approved { color: #047857; }
+.chain .step-rejected { color: #b91c1c; }
+.bell { position: relative; }
+.bell-button { position: relative; display: grid; place-items: center; width: 34px; height: 34px; border: 0; border-radius: 8px; background: transparent; color: #cbd5e1; cursor: pointer; }
+.bell-button:hover { background: #1e293b; color: #fff; }
+.bell-count { position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; border-radius: 999px; background: #ef4444; color: #fff; font-size: 10px; font-weight: 700; display: grid; place-items: center; padding: 0 3px; }
+.bell-menu { position: absolute; right: 0; top: calc(100% + 8px); width: 340px; max-height: 420px; overflow: auto; z-index: 50; background: #fff; color: #1e293b; padding: 0.5rem; }
+.bell-head { display: flex; justify-content: space-between; align-items: center; padding: 0.25rem 0.5rem 0.5rem; border-bottom: 1px solid #f1f5f9; }
+.bell-menu button[role='menuitem'] { display: flex; flex-direction: column; gap: 0.1rem; width: 100%; text-align: left; border: 0; background: none; padding: 0.5rem; border-radius: 8px; cursor: pointer; font: inherit; }
+.bell-menu button.unread { background: #eef2ff; }
+.bell-menu button span { font-size: 0.8rem; color: #475569; }
+.bell-menu button small { font-size: 0.7rem; color: #94a3b8; }

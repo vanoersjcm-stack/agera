@@ -7,6 +7,7 @@ import { useShell } from '../shell';
 import { useState } from 'react';
 import { myEmail } from './RoomActivity';
 import { SignaturePanel } from './Documents';
+import { ApprovalPanel } from '../symphony/Workflow';
 import { EditAgreementDrawer } from '../EditForms';
 import { money } from './Clients';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
@@ -174,6 +175,7 @@ export function AgreementDossier({ id, external }: { id: string; external: boole
         </ol>
       )}
       <ErrorText error={action.error} />
+      {!external && <ApprovalPanel entityType="agreement" entityId={id} canRequest={a.status === 'pending_approval'} onChanged={agreement.reload} />}
       {external && a.status === 'pending_approval' && rooms.data && (
         <ClientDecision agreementId={id} title={a.title} roomId={rooms.data.find((r) => r.agreementId === id && r.status === 'active')?.id ?? null} />
       )}

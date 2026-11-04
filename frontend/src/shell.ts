@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 
 export type NewKind =
+  | 'exception'
   | 'product'
   | 'planogram'
   | 'field_order'

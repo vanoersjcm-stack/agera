@@ -123,6 +123,27 @@ export interface AuditRound {
 }
 export interface VisitContext { auditRound: { id: string; name: string; checklist: string[] } | null; planograms: Planogram[] }
 
+/* ---------- Workflow ---------- */
+
+export type ApprovalEntity = 'financial_plan' | 'agreement';
+export interface ApprovalStep { id: string; stepOrder: number; approverId: string; approverName: string; decision: 'pending' | 'approved' | 'rejected'; comment: string | null; decidedAt: string | null }
+export interface Approval {
+  id: string; entityType: ApprovalEntity; entityId: string; entityLabel: string; note: string | null; status: 'pending' | 'approved' | 'rejected' | 'cancelled';
+  requestedById: string | null; requestedByName: string | null; createdAt: string; decidedAt: string | null; steps: ApprovalStep[]; currentApproverId: string | null;
+}
+export type ExceptionSeverity = 'low' | 'medium' | 'high';
+export type ExceptionStatus = 'open' | 'in_progress' | 'resolved';
+export interface ExceptionRecord {
+  id: string; title: string; description: string | null; severity: ExceptionSeverity; status: ExceptionStatus; ownerId: string | null; ownerName: string | null;
+  storeId: string | null; storeName: string | null; clientId: string | null; clientName: string | null; source: string | null; resolution: string | null;
+  createdByName: string | null; resolvedAt: string | null; createdAt: string; updatedAt: string;
+}
+export interface AppNotification { id: string; title: string; body: string | null; link: string | null; readAt: string | null; createdAt: string }
+export interface ClientHealth {
+  clientId: string; name: string; creditStatus: string; overdueInvoices: number; atRiskAgreements: number; openExceptions: number; activeRooms: number;
+  engagementScore: number; score: number; band: 'healthy' | 'watch' | 'at_risk'; factors: string[];
+}
+
 /* ---------- Symphony ---------- */
 
 export type LicenseTier = 'vanguard' | 'symphony';
@@ -675,6 +696,21 @@ export const api = {
   setRoomStatus: (id: string, status: RoomStatus) => request<ClientRoom>('PATCH', `/v1/dsrs/${id}/status`, { status }),
   health: () => request<{ status: string }>('GET', '/health'),
   clients: () => request<Client[]>('GET', '/v1/clients'),
+  approvals: (params: { mine?: boolean; entityId?: string; status?: string } = {}) =>
+    request<Approval[]>('GET', `/v1/approvals${query({ mine: params.mine ? 'true' : undefined, entityId: params.entityId, status: params.status })}`),
+  approval: (id: string) => request<Approval>('GET', `/v1/approvals/${id}`),
+  requestApproval: (body: { entityType: ApprovalEntity; entityId: string; approverIds: string[]; note?: string | null }) => request<Approval>('POST', '/v1/approvals', body),
+  decideApproval: (id: string, decision: 'approved' | 'rejected', comment?: string) => request<Approval>('POST', `/v1/approvals/${id}/decision`, { decision, comment: comment || null }),
+  cancelApproval: (id: string) => request<Approval>('POST', `/v1/approvals/${id}/cancel`),
+  exceptions: (status?: string) => request<ExceptionRecord[]>('GET', `/v1/exceptions${status ? `?status=${status}` : ''}`),
+  exception: (id: string) => request<ExceptionRecord>('GET', `/v1/exceptions/${id}`),
+  createException: (body: { title: string; description?: string | null; severity: ExceptionSeverity; ownerId?: string | null; storeId?: string | null; clientId?: string | null; source?: string | null }) =>
+    request<ExceptionRecord>('POST', '/v1/exceptions', body),
+  updateException: (id: string, body: Partial<{ title: string; description: string | null; severity: ExceptionSeverity; status: ExceptionStatus; ownerId: string | null; resolution: string | null }>) =>
+    request<ExceptionRecord>('PATCH', `/v1/exceptions/${id}`, body),
+  notifications: () => request<{ unread: number; items: AppNotification[] }>('GET', '/v1/notifications'),
+  readNotifications: (id?: string) => request<null>('POST', '/v1/notifications/read', id ? { id } : {}),
+  clientsHealth: () => request<ClientHealth[]>('GET', '/v1/clients-health'),
   products: (includeInactive = false) => request<Product[]>('GET', `/v1/field/products${includeInactive ? '?includeInactive=true' : ''}`),
   createProduct: (body: { sku: string; name: string; brand?: string | null; category?: string | null; unitPrice: string | number }) => request<Product>('POST', '/v1/field/products', body),
   updateProduct: (id: string, body: Partial<{ sku: string; name: string; brand: string | null; category: string | null; unitPrice: string | number; active: boolean }>) =>

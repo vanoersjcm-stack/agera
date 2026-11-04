@@ -26,6 +26,7 @@ import { CREDIT_HOLDS_CHANGED, CreditControlView } from './symphony/CreditContro
 import { InvoicesView } from './symphony/Invoices';
 import { PeopleView } from './symphony/People';
 import { PrognosisView } from './symphony/Prognosis';
+import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
 import { ActivityLogView, IntegrationsView, OrganisationsView, SymphonyOverview } from './symphony/SymphonyViews';
 
 function NotAvailable({ path }: { path: string }) {
@@ -44,6 +45,12 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
   switch (key) {
     case 'symphony/':
       return <SymphonyOverview />;
+    case 'symphony/approvals':
+      return id ? <ApprovalDossier id={id} /> : <ApprovalsView route={route} />;
+    case 'symphony/health':
+      return <HealthView />;
+    case 'nexus/exceptions':
+      return id ? <ExceptionDossier id={id} /> : <ExceptionsView route={route} />;
     case 'symphony/credit-control':
       return <CreditControlView route={route} user={user} />;
     case 'symphony/prognosis':
@@ -545,6 +552,7 @@ export function App() {
           <span className="topbar-spacer" />
           {!external && <SearchPalette user={user} tier={tier} />}
           {!external && <CreditPill user={user} />}
+          {!external && <NotificationBell />}
           <UserMenu user={user} tenant={tenant} tier={tier} tipsOn={assistant.enabled} onToggleTips={assistant.toggle} />
         </header>
         <div className="actionbar">

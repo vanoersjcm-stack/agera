@@ -1,3 +1,4 @@
+import { ApprovalPanel } from '../symphony/Workflow';
 import { type FormEvent, useState } from 'react';
 import { api, type Category, type LineItem, type PlanStatus } from '../api';
 import { formatAmount, varianceTone } from '../format';
@@ -234,6 +235,7 @@ export function PlanDossier({ id }: { id: string }) {
         <li className={m.status === 'archived' ? 'current' : undefined}><span className="step-index">3</span>Archived</li>
       </ol>
       <ErrorText error={action.error} />
+      <ApprovalPanel entityType="financial_plan" entityId={id} canRequest={m.status === 'draft'} onChanged={plan.reload} />
       <DetailList items={[['Client', planClient(m.metadata)], ['Fiscal year', String(m.fiscalYear)], ['Created', formatDate(m.createdAt)]]} />
       <p className="muted">Only approved plans count in Profit &amp; loss and Alerts.</p>
       <div className="section-head">

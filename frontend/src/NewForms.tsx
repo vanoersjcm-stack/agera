@@ -1,3 +1,4 @@
+import { NewExceptionForm } from './symphony/Workflow';
 import { NewAuditRoundForm, NewFieldOrderForm, NewPlanogramForm, NewProductForm } from './retailpower/Field';
 import { type FormEvent, useEffect, useState } from 'react';
 import { api, type Agreement, type CreatedApiKey, type Store, type WorkOrder } from './api';
@@ -19,6 +20,7 @@ export const NEW_ITEMS: NewItem[] = [
   { kind: 'contact', label: 'Contact', group: 'Nexus' },
   { kind: 'agreement', label: 'Agreement', group: 'Nexus' },
   { kind: 'client_room', label: 'Client room', group: 'Nexus' },
+  { kind: 'exception', label: 'Exception', group: 'Nexus' },
   { kind: 'financial_plan', label: 'Financial plan', group: 'Nexus' },
   { kind: 'work_order', label: 'Work order', group: 'RetailPower' },
   { kind: 'store_visit', label: 'Store visit', group: 'RetailPower' },
@@ -654,6 +656,7 @@ function DealForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onSwit
 }
 
 const TITLES: Record<NewKind, string> = {
+  exception: 'New exception',
   product: 'New product',
   planogram: 'New planogram',
   field_order: 'New field order',
@@ -706,6 +709,7 @@ export function NewDrawer({
       {kind === 'organisation' && <OrganisationForm {...props} />}
       {kind === 'integration_key' && <IntegrationKeyForm {...props} />}
       {kind === 'product' && <NewProductForm {...props} />}
+      {kind === 'exception' && <NewExceptionForm {...props} />}
       {kind === 'planogram' && <NewPlanogramForm {...props} />}
       {kind === 'field_order' && <NewFieldOrderForm {...props} />}
       {kind === 'audit_round' && <NewAuditRoundForm {...props} />}
