@@ -71,6 +71,41 @@ export class FinancialsService {
     this.lineItems = new TenantRepository(lineItems, context);
   }
 
+  /** Run-rate waterfall from approved plans, active agreements, paid invoices and the open deal pipeline. */
+  waterfall(fiscalYear: number): Promise<{
+    fiscalYear: number;
+    currency: string;
+    baseline: string;
+    expansion: string;
+    churn: string;
+    prognosis: string;
+    actuals: string;
+    openPipeline: string;
+  }> {
+    return this.tx.run(async (manager) => {
+      const [row] = await manager.query(
+        `WITH f AS (
+           SELECT
+             (SELECT COALESCE(sum(li.projected_amount), 0) FROM financial_models m
+                JOIN financial_line_items li ON li.tenant_id = m.tenant_id AND li.model_id = m.id
+               WHERE m.tenant_id = $1 AND m.status = 'approved' AND m.fiscal_year = $2 AND li.category = 'revenue') AS baseline,
+             (SELECT COALESCE(sum(a.annual_value), 0) FROM agreements a WHERE a.tenant_id = $1 AND a.status = 'active') AS expansion,
+             (SELECT COALESCE(sum(a.churn_risk), 0) FROM agreements a
+               WHERE a.tenant_id = $1 AND a.status = 'active' AND a.end_date BETWEEN current_date AND current_date + 90) AS churn,
+             (SELECT COALESCE(sum(i.amount_excl_vat), 0) FROM invoices i
+               WHERE i.tenant_id = $1 AND i.status = 'paid' AND extract(year FROM i.paid_at) = $2) AS actuals,
+             (SELECT COALESCE(sum(d.value), 0) FROM deals d WHERE d.tenant_id = $1 AND d.stage <> 'ops_handoff') AS open_pipeline
+         )
+         SELECT baseline::numeric(14,2)::text AS baseline, expansion::numeric(14,2)::text AS expansion, churn::numeric(14,2)::text AS churn,
+                (baseline + expansion - churn)::numeric(14,2)::text AS prognosis, actuals::numeric(14,2)::text AS actuals,
+                open_pipeline::numeric(14,2)::text AS "openPipeline"
+           FROM f`,
+        [this.context.tenantId, fiscalYear],
+      );
+      return { fiscalYear, currency: 'EUR', ...row };
+    });
+  }
+
   async createModel(input: CreateModelInput, identity: AuthenticatedUser): Promise<FinancialModel> {
     const actor = await this.userService.resolveActor(identity);
     const model = await this.tx.run(async (manager) => {

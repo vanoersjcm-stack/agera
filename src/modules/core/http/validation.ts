@@ -60,3 +60,26 @@ export function optionalUuid(name: string, value: unknown): string | null {
   }
   return value;
 }
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Optional calendar date (YYYY-MM-DD); empty values become null. */
+export function optionalDate(name: string, value: unknown): string | null {
+  if (value === undefined || value === null || value === '') return null;
+  if (typeof value !== 'string' || !ISO_DATE.test(value) || Number.isNaN(Date.parse(value))) {
+    throw new BadRequestException(`${name} must be a date (YYYY-MM-DD)`);
+  }
+  return value;
+}
+
+/** Non-negative money amount (number or numeric string), normalised to two decimals. */
+export function amount(name: string, value: unknown): string {
+  const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
+  if (!Number.isFinite(n) || n < 0 || n >= 1e12) throw new BadRequestException(`${name} must be a non-negative amount`);
+  return n.toFixed(2);
+}
+
+export function oneOf<T extends string>(name: string, value: unknown, allowed: readonly T[]): T {
+  if (!allowed.includes(value as T)) throw new BadRequestException(`${name} must be one of ${allowed.join(', ')}`);
+  return value as T;
+}

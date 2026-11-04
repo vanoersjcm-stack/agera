@@ -4,7 +4,7 @@ import { AllowExternal } from '../auth/allow-external.decorator.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
-import { asObject, isUuid, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
+import { amount, asObject, isUuid, oneOf, optionalDate, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
 import { type DealInput, type DealRecord, DealsService, type DealUpdate, type DealView, type MilestoneInput, MilestonesService, type MilestoneUpdate, type MilestoneView } from './deals.service.js';
 import { DEAL_PRIORITIES, DEAL_STAGES, type DealPriority, type DealStage } from './entities/deal.entity.js';
 import { MILESTONE_OWNER_SIDES, type MilestoneOwnerSide } from './entities/room-milestone.entity.js';
@@ -67,27 +67,6 @@ export class MilestoneDto {
   @ApiProperty({ type: String, nullable: true, format: 'date-time' }) completedAt!: Date | null;
   @ApiProperty({ type: String, nullable: true }) completedByName!: string | null;
   @ApiProperty({ format: 'date-time' }) createdAt!: Date;
-}
-
-const DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-function optionalDate(name: string, value: unknown): string | null {
-  if (value === undefined || value === null || value === '') return null;
-  if (typeof value !== 'string' || !DATE.test(value) || Number.isNaN(Date.parse(value))) {
-    throw new BadRequestException(`${name} must be a date (YYYY-MM-DD)`);
-  }
-  return value;
-}
-
-function amount(name: string, value: unknown): string {
-  const n = typeof value === 'number' ? value : typeof value === 'string' && value.trim() !== '' ? Number(value) : Number.NaN;
-  if (!Number.isFinite(n) || n < 0 || n >= 1e12) throw new BadRequestException(`${name} must be a non-negative amount`);
-  return n.toFixed(2);
-}
-
-function oneOf<T extends string>(name: string, value: unknown, allowed: readonly T[]): T {
-  if (!allowed.includes(value as T)) throw new BadRequestException(`${name} must be one of ${allowed.join(', ')}`);
-  return value as T;
 }
 
 function dealFields(raw: Record<string, unknown>, partial: boolean): DealInput | DealUpdate {

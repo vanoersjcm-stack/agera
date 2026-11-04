@@ -6,6 +6,7 @@ import { AuthModule } from './modules/auth/auth.module.js';
 import { ClientsModule } from './modules/clients/clients.module.js';
 import { CoreModule } from './modules/core/core.module.js';
 import { DealsModule } from './modules/deals/deals.module.js';
+import { InvoicesModule } from './modules/invoices/invoices.module.js';
 import { FinancialsModule } from './modules/financials/financials.module.js';
 import { NexusModule } from './modules/nexus/nexus.module.js';
 import { SalesRoomsModule } from './modules/sales-rooms/sales-rooms.module.js';
@@ -31,6 +32,7 @@ import { WorkOrdersModule } from './modules/work-orders/work-orders.module.js';
     SearchModule,
     ClientsModule,
     DealsModule,
+    InvoicesModule,
   ],
 })
 export class AppModule {}

@@ -368,8 +368,52 @@ export interface Agreement {
   title: string;
   status: AgreementStatus;
   documentUrl: string;
+  annualValue: string;
+  churnRisk: string | null;
+  endDate: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type InvoiceStatus = 'draft' | 'issued' | 'paid' | 'cancelled';
+
+export interface Invoice {
+  id: string;
+  clientId: string;
+  clientName: string;
+  invoiceNumber: string;
+  description: string | null;
+  issueDate: string;
+  dueDate: string | null;
+  amountExclVat: string;
+  vatAmount: string;
+  totalAmount: string;
+  status: InvoiceStatus;
+  overdue: boolean;
+  paidAt: string | null;
+  createdAt: string;
+}
+
+export interface InvoiceInput {
+  clientId: string;
+  invoiceNumber: string;
+  description?: string | null;
+  issueDate: string;
+  dueDate?: string | null;
+  amountExclVat: string;
+  vatAmount?: string;
+  status?: 'draft' | 'issued';
+}
+
+export interface Waterfall {
+  fiscalYear: number;
+  currency: string;
+  baseline: string;
+  expansion: string;
+  churn: string;
+  prognosis: string;
+  actuals: string;
+  openPipeline: string;
 }
 
 export type RoomStatus = 'active' | 'archived';
@@ -465,7 +509,7 @@ export const api = {
     request<Store>('PATCH', `/stores/${id}`, body),
   updateVisit: (id: string, body: { visitDate?: string; notes?: string | null; fieldRepId?: string }) =>
     request<Visit>('PATCH', `/visits/${id}`, body),
-  updateAgreement: (id: string, body: { title?: string; documentUrl?: string }) =>
+  updateAgreement: (id: string, body: { title?: string; documentUrl?: string; annualValue?: string; churnRisk?: string; endDate?: string | null }) =>
     request<Agreement>('PATCH', `/v1/agreements/${id}`, body),
   createWorkOrder: (body: { title: string; description?: string; priority?: WorkOrderPriority; assignedUserId?: string | null }) =>
     request<WorkOrder>('POST', '/work-orders', body),
@@ -529,6 +573,14 @@ export const api = {
   updateMilestone: (roomId: string, id: string, body: Partial<{ title: string; ownerSide: MilestoneOwnerSide; dueDate: string | null; completed: boolean }>) =>
     request<Milestone>('PATCH', `/v1/nexus/client-rooms/${roomId}/milestones/${id}`, body),
   deleteMilestone: (roomId: string, id: string) => request<void>('DELETE', `/v1/nexus/client-rooms/${roomId}/milestones/${id}`).then(() => true),
+  invoices: (params: { clientId?: string; status?: InvoiceStatus } = {}) => {
+    const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString();
+    return request<Invoice[]>('GET', `/v1/invoices${q ? `?${q}` : ''}`);
+  },
+  clientInvoices: (clientId: string) => request<Invoice[]>('GET', `/v1/clients/${clientId}/invoices`),
+  createInvoice: (body: InvoiceInput) => request<Invoice>('POST', '/v1/invoices', body),
+  setInvoiceStatus: (id: string, status: InvoiceStatus) => request<Invoice>('PATCH', `/v1/invoices/${id}/status`, { status }),
+  waterfall: (fiscalYear: number) => request<Waterfall>('GET', `/v1/financials/waterfall?fiscalYear=${fiscalYear}`),
   rooms: () => request<ClientRoom[]>('GET', '/v1/dsrs'),
   room: (id: string) => request<ClientRoom>('GET', `/v1/dsrs/${id}`),
   createRoom: (body: { clientId: string; roomName: string; agreementId?: string | null }) => request<ClientRoom>('POST', '/v1/dsrs', body),
@@ -542,6 +594,6 @@ export const api = {
     request<Contact>('PATCH', `/v1/clients/${clientId}/contacts/${contactId}`, body),
   agreements: () => request<Agreement[]>('GET', '/v1/agreements'),
   agreement: (id: string) => request<Agreement>('GET', `/v1/agreements/${id}`),
-  createAgreement: (body: { clientId: string; title: string; documentUrl: string }) => request<Agreement>('POST', '/v1/agreements', body),
+  createAgreement: (body: { clientId: string; title: string; documentUrl: string; annualValue?: string; churnRisk?: string; endDate?: string | null }) => request<Agreement>('POST', '/v1/agreements', body),
   setAgreementStatus: (id: string, status: AgreementStatus) => request<Agreement>('PATCH', `/v1/agreements/${id}/status`, { status }),
 };

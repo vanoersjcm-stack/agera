@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react';
 export type NewKind =
   | 'work_order'
   | 'deal'
+  | 'invoice'
   | 'store_visit'
   | 'store'
   | 'agreement'

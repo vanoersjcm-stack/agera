@@ -22,6 +22,7 @@ export const NEW_ITEMS: NewItem[] = [
   { kind: 'work_order', label: 'Work order', group: 'RetailPower' },
   { kind: 'store_visit', label: 'Store visit', group: 'RetailPower' },
   { kind: 'store', label: 'Store', group: 'RetailPower' },
+  { kind: 'invoice', label: 'Invoice', group: 'Symphony' },
   { kind: 'organisation', label: 'Organisation', group: 'Symphony', platformAdminOnly: true },
   { kind: 'integration_key', label: 'Integration key', group: 'Symphony', platformAdminOnly: true },
 ];
@@ -224,13 +225,21 @@ function AgreementForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { o
   const [clientId, setClientId] = useState(defaults.clientId ?? '');
   const [title, setTitle] = useState('');
   const [documentUrl, setDocumentUrl] = useState('');
+  const [runRate, setRunRate] = useState({ annualValue: '', churnRisk: '', endDate: '' });
   const { busy, error, submit } = useSubmit(onDone);
   if (activeClients(clients).length === 0) return <NoClients onCancel={onCancel} onNewClient={() => onSwitch('client')} />;
   return (
     <form
       onSubmit={(e) =>
         submit(e, async () => {
-          const a = await api.createAgreement({ clientId, title: title.trim(), documentUrl: documentUrl.trim() });
+          const a = await api.createAgreement({
+            clientId,
+            title: title.trim(),
+            documentUrl: documentUrl.trim(),
+            annualValue: runRate.annualValue || '0',
+            churnRisk: runRate.churnRisk || '0',
+            endDate: runRate.endDate || null,
+          });
           return { route: `/nexus/agreements/${a.id}`, message: `Agreement “${a.title}” created, awaiting approval` };
         })
       }
@@ -249,6 +258,11 @@ function AgreementForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { o
       <Field label="Document link" hint="Web address (https://…) of the agreement document">
         <input required type="url" maxLength={500} value={documentUrl} onChange={(e) => setDocumentUrl(e.target.value)} placeholder="https://" />
       </Field>
+      <div className="field-row">
+        <Field label="Annual value (EUR)"><input type="number" min={0} step="0.01" value={runRate.annualValue} onChange={(e) => setRunRate({ ...runRate, annualValue: e.target.value })} /></Field>
+        <Field label="Churn risk (EUR)" hint="Part that may not renew"><input type="number" min={0} step="0.01" value={runRate.churnRisk} onChange={(e) => setRunRate({ ...runRate, churnRisk: e.target.value })} /></Field>
+      </div>
+      <Field label="End date"><input type="date" value={runRate.endDate} onChange={(e) => setRunRate({ ...runRate, endDate: e.target.value })} /></Field>
       <p className="muted">New agreements start as “Awaiting approval”.</p>
       <ErrorText error={error} />
       <FormActions busy={busy} submitLabel="Create agreement" onCancel={onCancel} />
@@ -519,6 +533,66 @@ function IntegrationKeyForm({ onDone, onCancel }: FormProps) {
   );
 }
 
+function InvoiceForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onSwitch: (kind: NewKind) => void }) {
+  const clients = useClients();
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState({ clientId: defaults?.clientId ?? '', invoiceNumber: '', description: '', issueDate: today, dueDate: '', amountExclVat: '', vatRate: '21', status: 'issued' });
+  const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
+  const { busy, error, submit } = useSubmit(onDone);
+  if (activeClients(clients).length === 0) return <NoClients onCancel={onCancel} onNewClient={() => onSwitch('client')} />;
+  const vat = form.amountExclVat ? ((Number(form.amountExclVat) * Number(form.vatRate)) / 100).toFixed(2) : '0.00';
+  return (
+    <form
+      onSubmit={(e) =>
+        submit(e, async () => {
+          const i = await api.createInvoice({
+            clientId: form.clientId,
+            invoiceNumber: form.invoiceNumber.trim(),
+            description: form.description.trim() || null,
+            issueDate: form.issueDate,
+            dueDate: form.dueDate || null,
+            amountExclVat: form.amountExclVat,
+            vatAmount: vat,
+            status: form.status as 'draft' | 'issued',
+          });
+          return { route: `/symphony/clients/${i.clientId}?tab=invoices`, message: `Invoice ${i.invoiceNumber} recorded` };
+        })
+      }
+    >
+      <Field label="Client">
+        <select required value={form.clientId} onChange={set('clientId')} autoFocus>
+          <option value="">Choose a client…</option>
+          {activeClients(clients).map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
+        </select>
+      </Field>
+      <Field label="Invoice number" hint="Must be unique, e.g. INV-2026-0042"><input required maxLength={50} value={form.invoiceNumber} onChange={set('invoiceNumber')} /></Field>
+      <Field label="Description"><input maxLength={255} value={form.description} onChange={set('description')} /></Field>
+      <div className="field-row">
+        <Field label="Invoice date"><input required type="date" value={form.issueDate} onChange={set('issueDate')} /></Field>
+        <Field label="Due date"><input type="date" min={form.issueDate} value={form.dueDate} onChange={set('dueDate')} /></Field>
+      </div>
+      <div className="field-row">
+        <Field label="Amount excl. VAT (EUR)"><input required type="number" min={0} step="0.01" value={form.amountExclVat} onChange={set('amountExclVat')} /></Field>
+        <Field label="VAT rate" hint={`VAT: € ${vat}`}>
+          <select value={form.vatRate} onChange={set('vatRate')}>
+            <option value="21">21%</option>
+            <option value="9">9%</option>
+            <option value="0">0% / reverse charge</option>
+          </select>
+        </Field>
+      </div>
+      <Field label="Status">
+        <select value={form.status} onChange={set('status')}>
+          <option value="issued">Sent to the client</option>
+          <option value="draft">Draft</option>
+        </select>
+      </Field>
+      <ErrorText error={error} />
+      <FormActions busy={busy} submitLabel="Record invoice" onCancel={onCancel} />
+    </form>
+  );
+}
+
 function DealForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onSwitch: (kind: NewKind) => void }) {
   const clients = useClients();
   const users = useUsers();
@@ -577,6 +651,7 @@ function DealForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onSwit
 const TITLES: Record<NewKind, string> = {
   work_order: 'New work order',
   deal: 'New deal',
+  invoice: 'New invoice',
   store_visit: 'New store visit',
   store: 'New store',
   agreement: 'New agreement',
@@ -610,6 +685,7 @@ export function NewDrawer({
   return (
     <Drawer title={TITLES[kind]} onClose={onClose}>
       {kind === 'deal' && <DealForm {...props} onSwitch={onSwitch} />}
+      {kind === 'invoice' && <InvoiceForm {...props} onSwitch={onSwitch} />}
       {kind === 'work_order' && <WorkOrderForm {...props} />}
       {kind === 'store_visit' && <StoreVisitForm {...props} />}
       {kind === 'store' && <StoreForm {...props} />}

@@ -7,6 +7,7 @@ import { useShell } from '../shell';
 import { useState } from 'react';
 import { myEmail } from './RoomActivity';
 import { EditAgreementDrawer } from '../EditForms';
+import { money } from './Clients';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
 
 const NEXT: Record<AgreementStatus, { status: AgreementStatus; label: string; confirm?: string }[]> = {
@@ -179,6 +180,9 @@ export function AgreementDossier({ id, external }: { id: string; external: boole
         items={[
           ...(external ? [] : ([['Client', clientName(clients, a.clientId)]] as [string, string][])),
           ['Status', AGREEMENT_STATUS[a.status]],
+          ['Annual value', money(a.annualValue)],
+          ...(a.churnRisk !== null ? ([['Churn risk', money(a.churnRisk)]] as [string, string][]) : []),
+          ['End date', a.endDate ? formatDate(a.endDate) : '—'],
           ['Created', formatDate(a.createdAt)],
           ['Last change', formatDate(a.updatedAt)],
         ]}

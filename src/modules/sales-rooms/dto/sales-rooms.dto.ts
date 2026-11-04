@@ -17,6 +17,15 @@ export class CreateAgreementDto {
 
   @ApiPropertyOptional({ enum: AGREEMENT_STATUSES, default: 'pending_approval' })
   status?: AgreementStatus;
+
+  @ApiPropertyOptional({ description: 'Signed annual contract value (EUR)', example: '120000.00' })
+  annualValue?: string;
+
+  @ApiPropertyOptional({ description: 'Part of the annual value at risk of not renewing (EUR); internal only', example: '20000.00' })
+  churnRisk?: string;
+
+  @ApiPropertyOptional({ type: String, nullable: true, format: 'date', description: 'Contract end date' })
+  endDate?: string | null;
 }
 
 export class UpdateAgreementStatusDto {
@@ -30,6 +39,15 @@ export class UpdateAgreementDto {
 
   @ApiPropertyOptional({ maxLength: 500, description: 'Absolute http(s) URL' })
   documentUrl?: string;
+
+  @ApiPropertyOptional({ example: '120000.00' })
+  annualValue?: string;
+
+  @ApiPropertyOptional({ example: '20000.00' })
+  churnRisk?: string;
+
+  @ApiPropertyOptional({ type: String, nullable: true, format: 'date' })
+  endDate?: string | null;
 }
 
 export class AgreementDto {
@@ -39,6 +57,9 @@ export class AgreementDto {
   @ApiProperty() title!: string;
   @ApiProperty({ enum: AGREEMENT_STATUSES }) status!: AgreementStatus;
   @ApiProperty() documentUrl!: string;
+  @ApiProperty({ example: '120000.00' }) annualValue!: string;
+  @ApiProperty({ type: String, nullable: true, description: 'Hidden (null) for client contacts', example: '20000.00' }) churnRisk!: string | null;
+  @ApiProperty({ type: String, nullable: true, format: 'date' }) endDate!: string | null;
   @ApiProperty({ format: 'date-time' }) createdAt!: Date;
   @ApiProperty({ format: 'date-time' }) updatedAt!: Date;
 }

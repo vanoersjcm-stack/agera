@@ -25,7 +25,12 @@ export interface CreateAgreementInput {
   title: string;
   documentUrl: string;
   status: AgreementStatus;
+  annualValue: string;
+  churnRisk: string;
+  endDate: string | null;
 }
+
+export type AgreementChanges = Partial<Pick<CreateAgreementInput, 'title' | 'documentUrl' | 'annualValue' | 'churnRisk' | 'endDate'>>;
 
 export interface CreateDsrInput {
   clientId: string;
@@ -92,7 +97,7 @@ export class SalesRoomsService {
     return this.tx.run((manager) => this.reload(this.agreements.withManager(manager), id, 'Agreement'));
   }
 
-  async updateAgreement(id: string, changes: { title?: string; documentUrl?: string }, identity: AuthenticatedUser): Promise<Agreement> {
+  async updateAgreement(id: string, changes: AgreementChanges, identity: AuthenticatedUser): Promise<Agreement> {
     const actor = await this.userService.resolveActor(identity);
     const agreement = await this.tx.run(async (manager) => {
       const repository = this.agreements.withManager(manager);
@@ -104,6 +109,9 @@ export class SalesRoomsService {
         throw new ConflictException('Cannot edit an expired agreement');
       }
       Object.assign(current, changes);
+      if (Number(current.churnRisk) > Number(current.annualValue)) {
+        throw new BadRequestException('churnRisk cannot be more than annualValue');
+      }
       await repository.save(current);
       return this.reload(repository, id, 'Agreement');
     });

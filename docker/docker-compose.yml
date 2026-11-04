@@ -27,6 +27,7 @@ services:
       - ../migrations/V12__record_edit_fields.sql:/docker-entrypoint-initdb.d/1b_V12__record_edit_fields.sql:ro
       - ../migrations/V13__client_store_user_enrichment.sql:/docker-entrypoint-initdb.d/1c_V13__client_store_user_enrichment.sql:ro
       - ../migrations/V14__deals_and_milestones.sql:/docker-entrypoint-initdb.d/1d_V14__deals_and_milestones.sql:ro
+      - ../migrations/V15__invoices_and_run_rate.sql:/docker-entrypoint-initdb.d/1e_V15__invoices_and_run_rate.sql:ro
       - ./postgres/dev_seed.sql:/docker-entrypoint-initdb.d/20_dev_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]

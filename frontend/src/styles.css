@@ -362,3 +362,22 @@ button.secondary, .button-link, select, input, textarea, .chip { border-color: #
 .plan-side.client { background: #ecfdf5; color: #047857; }
 .plan-progress { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin: 0.5rem 0 1rem; }
 .plan-progress div { height: 100%; background: var(--accent); }
+
+/* Prognosis waterfall */
+.waterfall { display: flex; flex-direction: column; gap: 0.6rem; }
+.wf-row { display: grid; grid-template-columns: 220px 1fr 130px; align-items: center; gap: 1rem; }
+.wf-label { display: flex; flex-direction: column; font-size: 0.85rem; }
+.wf-label a, .wf-label strong { font-weight: 600; color: #0f172a; text-decoration: none; }
+.wf-track { background: #f1f5f9; border-radius: 6px; height: 28px; position: relative; overflow: hidden; }
+.wf-bar { height: 100%; border-radius: 6px; transition: margin-left 0.25s, width 0.25s; }
+.wf-total { background: #4f46e5; }
+.wf-up { background: #10b981; }
+.wf-down { background: #ef4444; }
+.wf-actual { background: #0f172a; }
+.wf-value { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+.what-if-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.25rem; margin-bottom: 1rem; }
+.what-if { display: flex; flex-direction: column; gap: 0.35rem; font-size: 0.875rem; }
+.what-if input[type='range'] { accent-color: var(--accent); }
+.row-actions { white-space: nowrap; display: flex; gap: 0.6rem; }
+strong.bad { color: #b91c1c; }
+@media (max-width: 700px) { .wf-row { grid-template-columns: 1fr; gap: 0.25rem; } .wf-value { text-align: left; } }

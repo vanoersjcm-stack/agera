@@ -133,10 +133,19 @@ export function EditVisitDrawer({ record, onClose, onSaved }: EditProps<Visit>) 
 export function EditAgreementDrawer({ record, onClose, onSaved }: EditProps<Agreement>) {
   const [title, setTitle] = useState(record.title);
   const [documentUrl, setDocumentUrl] = useState(record.documentUrl);
+  const [runRate, setRunRate] = useState({ annualValue: record.annualValue, churnRisk: record.churnRisk ?? '0', endDate: record.endDate ?? '' });
   const { busy, error, run } = useAction();
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    void run(() => api.updateAgreement(record.id, { title: title.trim(), documentUrl: documentUrl.trim() })).then((r) => r && onSaved(r));
+    void run(() =>
+      api.updateAgreement(record.id, {
+        title: title.trim(),
+        documentUrl: documentUrl.trim(),
+        annualValue: runRate.annualValue || '0',
+        churnRisk: runRate.churnRisk || '0',
+        endDate: runRate.endDate || null,
+      }),
+    ).then((r) => r && onSaved(r));
   };
   return (
     <Drawer title="Edit agreement" onClose={onClose}>
@@ -145,6 +154,11 @@ export function EditAgreementDrawer({ record, onClose, onSaved }: EditProps<Agre
         <Field label="Link to the agreement document" hint="A web address starting with https://">
           <input type="url" required maxLength={500} value={documentUrl} onChange={(e) => setDocumentUrl(e.target.value)} />
         </Field>
+        <div className="field-row">
+          <Field label="Annual value (EUR)"><input type="number" min={0} step="0.01" value={runRate.annualValue} onChange={(e) => setRunRate({ ...runRate, annualValue: e.target.value })} /></Field>
+          <Field label="Churn risk (EUR)" hint="Part that may not renew"><input type="number" min={0} step="0.01" value={runRate.churnRisk} onChange={(e) => setRunRate({ ...runRate, churnRisk: e.target.value })} /></Field>
+        </div>
+        <Field label="End date"><input type="date" value={runRate.endDate} onChange={(e) => setRunRate({ ...runRate, endDate: e.target.value })} /></Field>
         <ErrorText error={error} />
         <FormActions busy={busy} submitLabel="Save changes" onCancel={onClose} />
       </form>

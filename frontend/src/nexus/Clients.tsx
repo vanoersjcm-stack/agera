@@ -1,6 +1,7 @@
 import { type FormEvent, useState } from 'react';
 import { api, type Client, type ClientRecord, type Contact, type CreditStatus, type RoomActivity } from '../api';
 import { invalidateDirectory, useUsers } from '../directory';
+import { ClientInvoicesPanel } from '../symphony/Invoices';
 import { ACTIVITY_TYPE, AGREEMENT_STATUS, CLIENT_STATUS, CREDIT_STATUS, formatDate, formatDateTime, PLAN_STATUS, ROOM_STATUS } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
@@ -280,6 +281,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
           { id: 'rooms', label: `Client rooms (${rooms.length})` },
           { id: 'financials', label: `Financial plans (${plans.length})` },
           { id: 'stores', label: `Stores (${stores.length})` },
+          { id: 'invoices', label: 'Invoices' },
           { id: 'activity', label: 'Activity' },
         ]}
         active={tab}
@@ -405,6 +407,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
           )}
         </div>
       )}
+      {tab === 'invoices' && <ClientInvoicesPanel clientId={id} />}
       {tab === 'stores' && (
         <div className="card-panel">
           <div className="panel-head">

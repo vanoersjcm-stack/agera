@@ -28,6 +28,15 @@ export class Agreement {
   @Column({ name: 'document_url', type: 'varchar', length: 500 })
   documentUrl!: string;
 
+  @Column({ name: 'annual_value', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  annualValue!: string;
+
+  @Column({ name: 'churn_risk', type: 'numeric', precision: 14, scale: 2, default: 0 })
+  churnRisk!: string;
+
+  @Column({ name: 'end_date', type: 'date', nullable: true })
+  endDate!: string | null;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz', precision: 3 })
   createdAt!: Date;
 

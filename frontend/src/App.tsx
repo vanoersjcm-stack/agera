@@ -21,7 +21,9 @@ import { DealDossier, DealsView, PipelineBoard } from './vanguard/Pipeline';
 import { navigate, type Route, useRoute } from './router';
 import { type NewDefaults, type NewKind, ShellContext } from './shell';
 import { LEGACY_ROUTES, lastSuite, type NavItem, navFor, PORTAL_NAV, rememberSuite, SUITES, type Suite, type SuiteId } from './suites';
+import { InvoicesView } from './symphony/Invoices';
 import { PeopleView } from './symphony/People';
+import { PrognosisView } from './symphony/Prognosis';
 import { ActivityLogView, IntegrationsView, OrganisationsView, SymphonyOverview } from './symphony/SymphonyViews';
 
 function NotAvailable({ path }: { path: string }) {
@@ -40,6 +42,10 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
   switch (key) {
     case 'symphony/':
       return <SymphonyOverview />;
+    case 'symphony/prognosis':
+      return <PrognosisView route={route} />;
+    case 'symphony/invoices':
+      return <InvoicesView route={route} />;
     case 'symphony/clients':
       return id ? <ClientDossier id={id} route={route} /> : <ClientsView route={route} />;
     case 'symphony/activity':

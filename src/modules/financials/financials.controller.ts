@@ -8,6 +8,7 @@ import {
   ApiParam,
   ApiQuery,
   ApiTags,
+  ApiProperty,
 } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
@@ -123,12 +124,32 @@ function parseUpdateLineItem(body: unknown): UpdateLineItemInput {
   return input;
 }
 
+export class WaterfallDto {
+  @ApiProperty({ example: 2026 }) fiscalYear!: number;
+  @ApiProperty({ example: 'EUR' }) currency!: string;
+  @ApiProperty({ description: 'Planned revenue of approved financial plans for the fiscal year', example: '500000.00' }) baseline!: string;
+  @ApiProperty({ description: 'Annual value of active agreements', example: '120000.00' }) expansion!: string;
+  @ApiProperty({ description: 'Churn risk of active agreements ending within 90 days', example: '30000.00' }) churn!: string;
+  @ApiProperty({ description: 'baseline + expansion - churn', example: '590000.00' }) prognosis!: string;
+  @ApiProperty({ description: 'Paid invoices (excl. VAT) in the fiscal year', example: '210000.00' }) actuals!: string;
+  @ApiProperty({ description: 'Value of open Vanguard deals (not yet handed to operations), for what-if analysis', example: '80000.00' }) openPipeline!: string;
+}
+
 @ApiTags('financials')
 @ApiBearerAuth(BEARER_AUTH)
 @ApiErrors(401, 403)
 @Controller({ path: 'financials', version: '1' })
 export class FinancialsController {
   constructor(private readonly financials: FinancialsService) {}
+
+  @Get('waterfall')
+  @ApiOperation({ summary: 'Run-rate waterfall: baseline → signed expansion → known churn → live prognosis, with invoiced actuals' })
+  @ApiQuery({ name: 'fiscalYear', required: false, type: Number, example: 2026, description: 'Defaults to the current year' })
+  @ApiOkResponse({ type: WaterfallDto })
+  @ApiErrors(400)
+  waterfall(@Query('fiscalYear') fiscalYear?: string): Promise<WaterfallDto> {
+    return this.financials.waterfall(fiscalYear === undefined || fiscalYear === '' ? new Date().getFullYear() : parseFiscalYear(fiscalYear));
+  }
 
   @Get('pnl')
   @ApiOperation({

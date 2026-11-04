@@ -23,6 +23,7 @@ let devAdmin: string;
 let clientId: string;
 let managerId: string;
 const stamp = Date.now();
+const kvk = String(stamp).slice(-8);
 
 before(async () => {
   [alice, devAdmin] = await Promise.all([getToken('alice', 'alice'), getToken('dev.admin', 'devadmin')]);
@@ -43,7 +44,7 @@ describe('client master data', () => {
 
   it('persists KvK, sector, address, ERP ID, credit and account manager', async () => {
     const patch = await api<ClientSummary>(alice, 'PATCH', `/v1/clients/${clientId}`, {
-      kvkNumber: '12345678',
+      kvkNumber: kvk,
       sector: 'Consumer electronics',
       address: 'Stationsplein 1',
       erpId: `ERP-${stamp}`,
@@ -59,7 +60,7 @@ describe('client master data', () => {
     const list = await api<ClientSummary[]>(alice, 'GET', '/v1/clients');
     const row = list.body.find((c) => c.id === clientId);
     assert.equal(row?.erpId, `ERP-${stamp}`);
-    assert.equal(row?.kvkNumber, '12345678');
+    assert.equal(row?.kvkNumber, kvk);
     assert.equal(row?.creditStatus, 'review_required');
   });
 
@@ -74,7 +75,7 @@ describe('client master data', () => {
   it('finds clients by ERP ID and KvK number', async () => {
     const byErp = await api<{ id: string }[]>(alice, 'GET', `/search?q=ERP-${stamp}`);
     assert.ok(byErp.body.some((h) => h.id === clientId));
-    const byKvk = await api<{ id: string }[]>(alice, 'GET', '/search?q=12345678');
+    const byKvk = await api<{ id: string }[]>(alice, 'GET', `/search?q=${kvk}`);
     assert.ok(byKvk.body.some((h) => h.id === clientId));
   });
 });

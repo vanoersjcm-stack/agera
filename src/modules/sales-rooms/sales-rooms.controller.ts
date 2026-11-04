@@ -4,7 +4,8 @@ import { AllowExternal } from '../auth/allow-external.decorator.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
-import { asObject, optionalUuid, requiredString } from '../core/http/validation.js';
+import { amount, asObject, optionalDate, optionalUuid, requiredString } from '../core/http/validation.js';
+import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import {
   AgreementDto,
   AnomaliesDto,
@@ -19,9 +20,9 @@ import {
 } from './dto/sales-rooms.dto.js';
 import { type Agreement, AGREEMENT_STATUSES, type AgreementStatus, isAgreementStatus } from './entities/agreement.entity.js';
 import { type DigitalSalesRoom, DSR_STATUSES, type DsrStatusValue, isDsrStatus } from './entities/digital-sales-room.entity.js';
-import { SalesRoomsService } from './sales-rooms.service.js';
+import { type AgreementChanges, SalesRoomsService } from './sales-rooms.service.js';
 
-function toAgreementResponse(a: Agreement): AgreementDto {
+function toAgreementResponse(a: Agreement, external = false): AgreementDto {
   return {
     id: a.id,
     tenantId: a.tenantId,
@@ -29,6 +30,9 @@ function toAgreementResponse(a: Agreement): AgreementDto {
     title: a.title,
     status: a.status,
     documentUrl: a.documentUrl,
+    annualValue: a.annualValue,
+    churnRisk: external ? null : a.churnRisk,
+    endDate: a.endDate ?? null,
     createdAt: a.createdAt,
     updatedAt: a.updatedAt,
   };
@@ -85,7 +89,14 @@ function optionalStatus<S extends string>(value: unknown, allowed: readonly S[],
 @ApiErrors(401, 403)
 @Controller({ path: 'agreements', version: '1' })
 export class AgreementsController {
-  constructor(private readonly service: SalesRoomsService) {}
+  constructor(
+    private readonly service: SalesRoomsService,
+    private readonly context: TenantContext,
+  ) {}
+
+  private respond(a: Agreement): AgreementDto {
+    return toAgreementResponse(a, this.context.tenant.access.scope === 'external');
+  }
 
   @Post()
   @ApiOperation({ summary: 'Create an agreement for an external client (internal users; audit: agreement.created)' })
@@ -93,9 +104,15 @@ export class AgreementsController {
   @ApiCreatedResponse({ type: AgreementDto })
   @ApiErrors(400)
   async create(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<AgreementDto> {
-    const { clientId, title, documentUrl, status } = asObject(body);
+    const { clientId, title, documentUrl, status, annualValue, churnRisk, endDate } = asObject(body);
+    const value = annualValue === undefined ? '0.00' : amount('annualValue', annualValue);
+    const risk = churnRisk === undefined ? '0.00' : amount('churnRisk', churnRisk);
+    if (Number(risk) > Number(value)) throw new BadRequestException('churnRisk cannot be more than annualValue');
     const agreement = await this.service.createAgreement(
       {
+        annualValue: value,
+        churnRisk: risk,
+        endDate: optionalDate('endDate', endDate),
         clientId: requiredUuid('clientId', clientId),
         title: requiredString('title', title, 200),
         documentUrl: parseDocumentUrl(documentUrl),
@@ -103,7 +120,7 @@ export class AgreementsController {
       },
       identity,
     );
-    return toAgreementResponse(agreement);
+    return this.respond(agreement);
   }
 
   @Get()
@@ -118,7 +135,7 @@ export class AgreementsController {
       clientId: optionalUuid('clientId', clientId),
       status: optionalStatus<AgreementStatus>(status, AGREEMENT_STATUSES, isAgreementStatus),
     });
-    return rows.map(toAgreementResponse);
+    return rows.map((r) => this.respond(r));
   }
 
   @Get(':id')
@@ -128,24 +145,27 @@ export class AgreementsController {
   @ApiOkResponse({ type: AgreementDto })
   @ApiErrors(400, 404)
   async get(@Param('id', ParseUUIDPipe) id: string): Promise<AgreementDto> {
-    return toAgreementResponse(await this.service.getAgreement(id));
+    return this.respond(await this.service.getAgreement(id));
   }
 
   @Patch(':id')
-  @ApiOperation({ summary: 'Edit title or document link of an agreement (audit: agreement.updated)', description: 'Expired agreements return 409.' })
+  @ApiOperation({ summary: 'Edit title, document link, annual value, churn risk or end date (audit: agreement.updated)', description: 'Expired agreements return 409.' })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiBody({ type: UpdateAgreementDto })
   @ApiOkResponse({ type: AgreementDto })
   @ApiErrors(400, 404, 409)
   async update(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<AgreementDto> {
     const raw = asObject(body);
-    const changes: { title?: string; documentUrl?: string } = {};
+    const changes: AgreementChanges = {};
     if (raw.title !== undefined) changes.title = requiredString('title', raw.title, 200);
     if (raw.documentUrl !== undefined) changes.documentUrl = parseDocumentUrl(raw.documentUrl);
+    if (raw.annualValue !== undefined) changes.annualValue = amount('annualValue', raw.annualValue);
+    if (raw.churnRisk !== undefined) changes.churnRisk = amount('churnRisk', raw.churnRisk);
+    if (raw.endDate !== undefined) changes.endDate = optionalDate('endDate', raw.endDate);
     if (Object.keys(changes).length === 0) {
       throw new BadRequestException('Provide at least one field to change');
     }
-    return toAgreementResponse(await this.service.updateAgreement(id, changes, identity));
+    return this.respond(await this.service.updateAgreement(id, changes, identity));
   }
 
   @Patch(':id/status')
@@ -163,7 +183,7 @@ export class AgreementsController {
     @CurrentUser() identity: AuthenticatedUser,
   ): Promise<AgreementDto> {
     const status = parseStatus(asObject(body).status, AGREEMENT_STATUSES, isAgreementStatus);
-    return toAgreementResponse(await this.service.updateAgreementStatus(id, status, identity));
+    return this.respond(await this.service.updateAgreementStatus(id, status, identity));
   }
 }
 
