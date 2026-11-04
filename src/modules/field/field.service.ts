@@ -62,7 +62,7 @@ export class FieldService {
       );
       return (await m.query(`${PRODUCT_SQL} WHERE p.id = $1`, [r.id]))[0];
     });
-    await this.log(identity, 'product.created', { productId: row.id });
+    await this.log(identity, 'product.created', { productId: row.id, sku: input.sku, name: input.name });
     return row;
   }
 

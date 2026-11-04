@@ -34,6 +34,7 @@ services:
       - ../migrations/V19__field_catalogue_orders_rounds.sql:/docker-entrypoint-initdb.d/1i_V19__field_catalogue_orders_rounds.sql:ro
       - ../migrations/V20__approvals_exceptions_notifications.sql:/docker-entrypoint-initdb.d/1j_V20__approvals_exceptions_notifications.sql:ro
       - ../migrations/V21__price_lists_and_templates.sql:/docker-entrypoint-initdb.d/1k_V21__price_lists_and_templates.sql:ro
+      - ../migrations/V22__automations_and_reports.sql:/docker-entrypoint-initdb.d/1l_V22__automations_and_reports.sql:ro
       - ./postgres/dev_seed.sql:/docker-entrypoint-initdb.d/20_dev_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]

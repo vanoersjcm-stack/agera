@@ -10,6 +10,8 @@ import { DocumentsModule } from './modules/documents/documents.module.js';
 import { FieldModule } from './modules/field/field.module.js';
 import { WorkflowModule } from './modules/workflow/workflow.module.js';
 import { CommercialModule } from './modules/commercial/commercial.module.js';
+import { AutomationModule } from './modules/automation/automation.module.js';
+import { ReportsModule } from './modules/reports/reports.module.js';
 import { GovernanceModule } from './modules/governance/governance.module.js';
 import { InvoicesModule } from './modules/invoices/invoices.module.js';
 import { FinancialsModule } from './modules/financials/financials.module.js';
@@ -39,6 +41,8 @@ import { WorkOrdersModule } from './modules/work-orders/work-orders.module.js';
     FieldModule,
     WorkflowModule,
     CommercialModule,
+    AutomationModule,
+    ReportsModule,
     ClientsModule,
     DealsModule,
     InvoicesModule,

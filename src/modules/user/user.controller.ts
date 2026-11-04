@@ -11,6 +11,9 @@ import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
 import { UserService } from './user.service.js';
 
 export class UserProfileDto {
+  @ApiProperty({ enum: ['vanguard', 'symphony'], description: 'Edition of the active organisation (Agera Vanguard or Agera Symphony)' })
+  licenseTier!: 'vanguard' | 'symphony';
+
   @ApiProperty({ format: 'uuid' })
   id!: string;
 
@@ -294,6 +297,7 @@ export class UserController {
       isActive: user.isActive,
       roles: identity.roles,
       createdAt: user.createdAt,
+      licenseTier: await this.userService.licenseTier(),
     };
   }
 }

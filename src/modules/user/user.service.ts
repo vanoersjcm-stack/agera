@@ -21,11 +21,17 @@ export class UserService {
   private readonly users: TenantRepository<User>;
 
   constructor(
-    @InjectRepository(User) repository: Repository<User>,
-    context: TenantContext,
+    @InjectRepository(User) private readonly repository: Repository<User>,
+    private readonly context: TenantContext,
     private readonly audit: AuditService,
   ) {
     this.users = new TenantRepository(repository, context);
+  }
+
+  /** Edition of the active organisation, echoed in the session response (/users/me). */
+  async licenseTier(): Promise<'vanguard' | 'symphony'> {
+    const [row] = await this.repository.manager.query('SELECT license_tier FROM tenants WHERE id = $1', [this.context.tenantId]);
+    return row?.license_tier ?? 'symphony';
   }
 
   async getOrProvision(identity: AuthenticatedUser): Promise<User> {
