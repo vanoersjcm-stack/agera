@@ -1,6 +1,7 @@
+import type { LicenseTier } from './api';
 import type { UserContext } from './context';
 
-export type SuiteId = 'symphony' | 'vanguard' | 'nexus' | 'retailpower';
+export type SuiteId = 'symphony' | 'nexus' | 'retailpower';
 
 export interface Suite {
   id: SuiteId;
@@ -11,7 +12,6 @@ export interface Suite {
 
 export const SUITES: Suite[] = [
   { id: 'symphony', name: 'Symphony', tagline: 'HQ & Governance', home: '/symphony' },
-  { id: 'vanguard', name: 'Vanguard', tagline: 'Pipeline & Operations', home: '/vanguard' },
   { id: 'nexus', name: 'Nexus', tagline: 'Commercial & Client Portal', home: '/nexus' },
   { id: 'retailpower', name: 'RetailPower', tagline: 'Field & Shelf Execution', home: '/retailpower' },
 ];
@@ -42,15 +42,12 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
             ]
           : []),
       ];
-    case 'vanguard':
-      return [
-        { path: '/vanguard', label: 'Pipeline', description: 'Deals per stage; move them forward with one click' },
-        { path: '/vanguard/deals', label: 'All deals', description: 'Deal list with filters, owners and due dates' },
-      ];
     case 'nexus':
       return [
         { path: '/nexus', label: 'Overview', description: 'Contract value, client rooms and alerts' },
         { path: '/nexus/clients', label: 'Clients', description: 'Client companies, contacts and their deals' },
+        { path: '/nexus/pipeline', label: 'Deal pipeline', description: 'Deals per stage; move them forward with one click' },
+        { path: '/nexus/deals', label: 'Deals', description: 'Deal list with filters, owners and due dates' },
         { path: '/nexus/agreements', label: 'Agreements', description: 'Client agreements and approvals' },
         { path: '/nexus/client-rooms', label: 'Client rooms', description: 'Online rooms per client deal, with engagement' },
         { path: '/nexus/financial-plans', label: 'Financial plans', description: 'Plans, plan lines and approval' },
@@ -84,9 +81,47 @@ export function lastSuite(): Suite {
   return SUITES.find((s) => s.id === id) ?? SUITES[0];
 }
 
+/**
+ * Vanguard is the mid-market edition (25–50 seats) of Symphony, not a separate suite: for a Vanguard
+ * organisation the HQ suite is branded "Vanguard" and Symphony branding is suppressed.
+ */
+export function suiteName(suite: Suite, tier: LicenseTier): string {
+  return suite.id === 'symphony' && tier === 'vanguard' ? 'Vanguard' : suite.name;
+}
+
+export function editionName(tier: LicenseTier): string {
+  return tier === 'vanguard' ? 'Agera Vanguard (mid-market edition)' : 'Agera Symphony (Enterprise edition)';
+}
+
+const PREVIEW_KEY = 'agera.previewTier';
+let activeTier: LicenseTier = 'symphony';
+
+/** Platform admins can preview the interface of the other edition ("View as Vanguard / Enterprise"). */
+export function previewTier(): LicenseTier | null {
+  const v = sessionStorage.getItem(PREVIEW_KEY);
+  return v === 'vanguard' || v === 'symphony' ? v : null;
+}
+
+export function setPreviewTier(tier: LicenseTier | null): void {
+  if (tier) sessionStorage.setItem(PREVIEW_KEY, tier);
+  else sessionStorage.removeItem(PREVIEW_KEY);
+  window.location.reload();
+}
+
+export function setActiveTier(tier: LicenseTier): void {
+  activeTier = tier;
+}
+
+/** Brand-aware label for breadcrumbs that name the HQ suite. */
+export function brandLabel(label: string): string {
+  return label === 'Symphony' && activeTier === 'vanguard' ? 'Vanguard' : label;
+}
+
 /** Old bookmarks from the first web app version. */
 export const LEGACY_ROUTES: Record<string, { internal: string; external: string }> = {
   '/dashboard': { internal: '/nexus', external: '/portal' },
+  '/vanguard': { internal: '/nexus/pipeline', external: '/portal' },
+  '/vanguard/deals': { internal: '/nexus/deals', external: '/portal' },
   '/financials': { internal: '/nexus/profit-loss', external: '/portal' },
   '/dsr': { internal: '/nexus/client-rooms', external: '/portal/rooms' },
   '/rooms': { internal: '/nexus/client-rooms', external: '/portal/rooms' },

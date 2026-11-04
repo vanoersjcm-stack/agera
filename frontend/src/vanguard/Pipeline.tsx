@@ -16,7 +16,7 @@ export const DEAL_STAGE: Record<DealStage, string> = {
   ops_handoff: 'Handed to operations',
 };
 const PRIORITY: Record<DealPriority, string> = { low: 'Low', medium: 'Medium', high: 'High' };
-const SUITE = { label: 'Vanguard', href: '#/vanguard' };
+const SUITE = { label: 'Nexus', href: '#/nexus' };
 
 function Priority({ value }: { value: DealPriority }) {
   return <span className={`prio prio-${value}`}>{PRIORITY[value]}</span>;
@@ -71,7 +71,7 @@ export function PipelineBoard() {
                 </div>
                 {column.map((d) => (
                   <article key={d.id} className="deal-card" draggable onDragStart={(e) => e.dataTransfer.setData('text/deal', d.id)}>
-                    <a href={`#/vanguard/deals/${d.id}`}>{d.title}</a>
+                    <a href={`#/nexus/deals/${d.id}`}>{d.title}</a>
                     <span className="deal-meta">{d.clientName}{d.ownerName ? ` · ${d.ownerName}` : ''}{d.dueDate ? ` · due ${formatDate(d.dueDate)}` : ''}</span>
                     <div className="deal-foot">
                       <span className="deal-value">{money(d.value)}</span>
@@ -116,8 +116,8 @@ export function DealsView({ route }: { route: Route }) {
           <thead><tr><th>Deal</th><th>Client</th><th>Stage</th><th>Owner</th><th>Priority</th><th>Expected close</th><th className="num">Value</th></tr></thead>
           <tbody>
             {filtered.map((d) => (
-              <tr key={d.id} onClick={() => navigate(`/vanguard/deals/${d.id}`)}>
-                <td><a href={`#/vanguard/deals/${d.id}`}>{d.title}</a></td>
+              <tr key={d.id} onClick={() => navigate(`/nexus/deals/${d.id}`)}>
+                <td><a href={`#/nexus/deals/${d.id}`}>{d.title}</a></td>
                 <td>{d.clientName}</td>
                 <td>{DEAL_STAGE[d.stage]}</td>
                 <td>{d.ownerName ?? <span className="muted">Not assigned</span>}</td>
@@ -201,7 +201,7 @@ export function DealDossier({ id }: { id: string }) {
   const action = useAction();
   if (!data) {
     return (
-      <ViewFrame title="Deal" crumbs={[SUITE, { label: 'All deals', href: '#/vanguard/deals' }, { label: 'Loading…' }]}>
+      <ViewFrame title="Deal" crumbs={[SUITE, { label: 'All deals', href: '#/nexus/deals' }, { label: 'Loading…' }]}>
         <Loading error={error} />
       </ViewFrame>
     );
@@ -209,13 +209,13 @@ export function DealDossier({ id }: { id: string }) {
   const d = data;
   const remove = () => {
     if (!window.confirm(`Delete the deal “${d.title}”? This cannot be undone.`)) return;
-    void action.run(() => api.deleteDeal(id)).then((r) => r !== undefined && (notify('Deal deleted'), navigate('/vanguard')));
+    void action.run(() => api.deleteDeal(id)).then((r) => r !== undefined && (notify('Deal deleted'), navigate('/nexus/pipeline')));
   };
   return (
     <ViewFrame
       title={d.title}
       subtitle={`${d.clientName} · ${DEAL_STAGE[d.stage]}`}
-      crumbs={[SUITE, { label: 'All deals', href: '#/vanguard/deals' }, { label: d.title }]}
+      crumbs={[SUITE, { label: 'All deals', href: '#/nexus/deals' }, { label: d.title }]}
       actions={
         <>
           <label className="inline-select">

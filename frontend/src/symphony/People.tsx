@@ -112,6 +112,8 @@ export function PeopleView({ route, user }: { route: Route; user: UserContext })
   const page = Number(route.params.get('page') ?? '1') || 1;
   const { data, error, reload } = useLoad(() => api.userAccounts({ q, role, status: status === 'all' ? undefined : status, page, limit: 25 }), [q, role, status, page]);
   const me = useLoad(() => api.me(), []);
+  const org = useLoad(() => api.tenant(), []);
+  const seatsFull = org.data?.maxSeats != null && (org.data.activeSeats ?? 0) >= org.data.maxSeats;
   const [inviting, setInviting] = useState(false);
   const [invited, setInvited] = useState<{ email: string; password: string } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -124,6 +126,12 @@ export function PeopleView({ route, user }: { route: Route; user: UserContext })
       crumbs={[{ label: 'Symphony', href: '#/symphony' }, { label: 'People & access' }]}
       actions={<button className="primary" disabled={!available} onClick={() => setInviting(true)}>+ Invite person</button>}
     >
+      {org.data?.maxSeats != null && (
+        <p className={`callout${seatsFull ? ' bad' : ''}`}>
+          {org.data.activeSeats ?? 0} of {org.data.maxSeats} seats in use on your Agera Vanguard licence.
+          {seatsFull && ' All seats are taken: deactivate a colleague or upgrade to Agera Symphony (Enterprise) to invite more people. Client users do not use a seat.'}
+        </p>
+      )}
       {!available && <p className="callout bad">User management is not connected to the sign-in service yet. Ask your system administrator to run the latest update.</p>}
       {invited && (
         <div className="callout">

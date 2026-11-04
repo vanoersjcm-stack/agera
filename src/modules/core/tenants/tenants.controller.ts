@@ -1,10 +1,11 @@
-import { BadRequestException, Body, Controller, Get, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiBody,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiProperty,
   ApiTags,
 } from '@nestjs/swagger';
@@ -14,6 +15,7 @@ import type { AuthenticatedUser } from '../../auth/authenticated-user.js';
 import { CurrentUser } from '../../auth/current-user.decorator.js';
 import { PLATFORM_ADMIN_ROLE, Roles } from '../../auth/roles.decorator.js';
 import type { Tenant } from '../entities/index.js';
+import { LICENSE_TIERS, type LicenseTier, VANGUARD_DEFAULT_SEATS } from '../entities/tenant.entity.js';
 import { ApiErrors, BEARER_AUTH } from '../http/api-docs.js';
 import { asObject } from '../http/validation.js';
 import { TenantContext, type TenantSource } from '../tenancy/tenant-context.service.js';
@@ -27,6 +29,17 @@ export class CreateTenantDto {
 
   @ApiProperty({ maxLength: 150, example: 'nordic.eu', description: 'Email domain mapped to this tenant (lower-cased)' })
   domain!: string;
+
+  @ApiProperty({ required: false, enum: LICENSE_TIERS, default: 'symphony' })
+  licenseTier?: LicenseTier;
+
+  @ApiProperty({ required: false, nullable: true, type: Number, description: `Seat cap; defaults to ${VANGUARD_DEFAULT_SEATS} for Vanguard, unlimited for Symphony` })
+  maxSeats?: number | null;
+}
+
+export class LicenseDto {
+  @ApiProperty({ enum: LICENSE_TIERS }) licenseTier!: LicenseTier;
+  @ApiProperty({ required: false, nullable: true, type: Number }) maxSeats?: number | null;
 }
 
 export class TenantDto {
@@ -38,6 +51,12 @@ export class TenantDto {
 
   @ApiProperty({ example: 'acme.test' })
   domain!: string;
+
+  @ApiProperty({ enum: LICENSE_TIERS, description: 'vanguard = mid-market edition, symphony = enterprise edition' })
+  licenseTier!: LicenseTier;
+
+  @ApiProperty({ type: Number, nullable: true, description: 'Seat cap (null = unlimited)' })
+  maxSeats!: number | null;
 
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: Date;
@@ -52,6 +71,9 @@ export class ActiveTenantDto extends TenantDto {
 
   @ApiProperty({ enum: ['claim', 'domain', 'apiKey', 'switch'], description: 'How the tenant was resolved for this request' })
   resolvedBy!: TenantSource;
+
+  @ApiProperty({ description: 'Active internal users (seats in use)' })
+  activeSeats!: number;
 }
 
 function toResponse(tenant: Tenant): TenantDto {
@@ -59,13 +81,16 @@ function toResponse(tenant: Tenant): TenantDto {
     id: tenant.id,
     name: tenant.name,
     domain: tenant.domain,
+    licenseTier: tenant.licenseTier,
+    maxSeats: tenant.maxSeats,
     createdAt: tenant.createdAt,
     updatedAt: tenant.updatedAt,
   };
 }
 
 function parseCreateTenant(body: unknown): CreateTenantInput {
-  const { name, domain } = asObject(body);
+  const { name, domain, licenseTier, maxSeats } = asObject(body);
+  const tier = parseTier(licenseTier ?? 'symphony');
   if (typeof name !== 'string' || name.trim().length === 0 || name.trim().length > 100) {
     throw new BadRequestException('name must be a non-empty string of at most 100 characters');
   }
@@ -73,7 +98,18 @@ function parseCreateTenant(body: unknown): CreateTenantInput {
   if (normalizedDomain.length > 150 || !DOMAIN_PATTERN.test(normalizedDomain)) {
     throw new BadRequestException('domain must be a valid hostname of at most 150 characters');
   }
-  return { name: name.trim(), domain: normalizedDomain };
+  return { name: name.trim(), domain: normalizedDomain, licenseTier: tier, maxSeats: maxSeats === undefined ? (tier === 'vanguard' ? VANGUARD_DEFAULT_SEATS : null) : parseSeats(maxSeats) };
+}
+
+function parseTier(value: unknown): LicenseTier {
+  if (!LICENSE_TIERS.includes(value as LicenseTier)) throw new BadRequestException(`licenseTier must be one of ${LICENSE_TIERS.join(', ')}`);
+  return value as LicenseTier;
+}
+
+function parseSeats(value: unknown): number | null {
+  if (value === null) return null;
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 1 || value > 100000) throw new BadRequestException('maxSeats must be a positive whole number or null');
+  return value;
 }
 
 @ApiTags('tenants')
@@ -93,7 +129,12 @@ export class TenantsController {
   @ApiOkResponse({ type: ActiveTenantDto })
   async me(): Promise<ActiveTenantDto> {
     const tenant = await this.tenants.getActive();
-    return { ...toResponse(tenant), resolvedBy: this.context.tenant.source, readOnly: this.context.tenant.readOnly === true };
+    return {
+      ...toResponse(tenant),
+      resolvedBy: this.context.tenant.source,
+      readOnly: this.context.tenant.readOnly === true,
+      activeSeats: await this.tenants.activeSeats(tenant.id),
+    };
   }
 
   @Get()
@@ -102,6 +143,18 @@ export class TenantsController {
   @ApiOkResponse({ type: [TenantDto] })
   async list(): Promise<TenantDto[]> {
     return (await this.tenants.list()).map(toResponse);
+  }
+
+  @Patch(':id/license')
+  @Roles(PLATFORM_ADMIN_ROLE)
+  @ApiOperation({ summary: 'Change the licence tier (Vanguard ⇄ Symphony) and seat cap of an organisation (audit: tenant.license_changed)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody({ type: LicenseDto })
+  @ApiOkResponse({ type: TenantDto })
+  @ApiErrors(400, 404)
+  async setLicense(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() actor: AuthenticatedUser): Promise<TenantDto> {
+    const raw = asObject(body);
+    return toResponse(await this.tenants.setLicense(id, parseTier(raw.licenseTier), raw.maxSeats === undefined ? undefined : parseSeats(raw.maxSeats), actor));
   }
 
   @Post()

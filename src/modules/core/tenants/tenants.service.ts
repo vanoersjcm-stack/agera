@@ -4,6 +4,7 @@ import { QueryFailedError, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../../auth/authenticated-user.js';
 import { AuditService } from '../audit/audit.service.js';
 import { Tenant, User } from '../entities/index.js';
+import { type LicenseTier, VANGUARD_DEFAULT_SEATS } from '../entities/tenant.entity.js';
 import { TenantContext } from '../tenancy/tenant-context.service.js';
 import { TenantRepository } from '../tenancy/tenant-repository.js';
 
@@ -12,6 +13,8 @@ const PG_UNIQUE_VIOLATION = '23505';
 export interface CreateTenantInput {
   name: string;
   domain: string;
+  licenseTier: LicenseTier;
+  maxSeats: number | null;
 }
 
 @Injectable()
@@ -30,6 +33,30 @@ export class TenantsService {
   /** All organisations; for the platform-admin organisation switcher. */
   list(): Promise<Tenant[]> {
     return this.tenants.find({ order: { name: 'ASC' } });
+  }
+
+  /** Active internal users of the active tenant (seats in use). */
+  activeSeats(tenantId: string): Promise<number> {
+    return this.tenants.manager
+      .query(`SELECT count(*)::int AS n FROM users WHERE tenant_id = $1 AND is_active AND NOT ('External_Client' = ANY (realm_roles))`, [tenantId])
+      .then((r: { n: number }[]) => r[0]?.n ?? 0);
+  }
+
+  /** Upgrade/downgrade path: changing the tier switches branding and limits in place, without data migration. */
+  async setLicense(id: string, licenseTier: LicenseTier, maxSeats: number | null | undefined, actor: AuthenticatedUser): Promise<Tenant> {
+    const tenant = await this.tenants.findOneBy({ id });
+    if (!tenant) throw new NotFoundException('Organisation not found');
+    const previous = { licenseTier: tenant.licenseTier, maxSeats: tenant.maxSeats };
+    tenant.licenseTier = licenseTier;
+    tenant.maxSeats = maxSeats !== undefined ? maxSeats : licenseTier === 'vanguard' ? VANGUARD_DEFAULT_SEATS : null;
+    await this.tenants.save(tenant);
+    const actorRecord = await this.users.findOneBy({ keycloakId: actor.keycloakId });
+    this.audit.logAction(this.context.tenantId, actorRecord?.id ?? null, 'tenant.license_changed', {
+      tenantId: id,
+      from: previous,
+      to: { licenseTier: tenant.licenseTier, maxSeats: tenant.maxSeats },
+    });
+    return tenant;
   }
 
   async getActive(): Promise<Tenant> {

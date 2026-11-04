@@ -1,8 +1,9 @@
-import { api, type ApiKey } from '../api';
+import { api, type ApiKey, type LicenseTier, type Tenant } from '../api';
 import { useUsers, userName } from '../directory';
 import { auditActionLabel, formatDate, formatDateTime } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
+import { editionName } from '../suites';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, Loading, useAction, useLoad } from '../ui';
 
@@ -99,14 +100,63 @@ export function ActivityLogView({ route }: { route: Route }) {
 export function OrganisationsView({ route }: { route: Route }) {
   const { openNew } = useShell();
   const { data, error } = useLoad(() => api.tenant());
+  const all = useLoad(() => api.tenants(), []);
   const created = route.params.get('created');
   return (
     <ViewFrame title="Organisations" crumbs={[SUITE_CRUMB, { label: 'Organisations' }]} actions={<button className="primary" onClick={() => openNew('organisation')}>+ New organisation</button>}>
       {created && <p className="callout good">Organisation “{created}” was created. Its users get access when they sign in with an e-mail address at its domain.</p>}
       <h2 className="section-title">Your organisation</h2>
       {!data && <Loading error={error} />}
-      {data && <DetailList items={[['Name', data.name], ['E-mail domain', data.domain], ['Created', formatDate(data.createdAt)]]} />}
+      {data && (
+        <DetailList
+          items={[
+            ['Name', data.name],
+            ['E-mail domain', data.domain],
+            ['Edition', editionName(data.licenseTier)],
+            ['Seats', data.maxSeats ? `${data.activeSeats ?? '?'} of ${data.maxSeats} in use` : `${data.activeSeats ?? '?'} in use (unlimited)`],
+            ['Created', formatDate(data.createdAt)],
+          ]}
+        />
+      )}
+      <h2 className="section-title">Editions</h2>
+      <p className="muted">Vanguard is the mid-market edition (up to 50 seats); Symphony is the Enterprise edition. Changing the edition re-brands the interface and applies its limits immediately, without moving any data.</p>
+      {all.data && <EditionTable tenants={all.data} currentId={data?.id} onChanged={all.reload} />}
     </ViewFrame>
+  );
+}
+
+function EditionTable({ tenants, currentId, onChanged }: { tenants: Tenant[]; currentId?: string; onChanged: () => void }) {
+  const { notify } = useShell();
+  const { busy, error, run } = useAction();
+  const change = (t: Tenant, licenseTier: LicenseTier) => {
+    if (!window.confirm(`Switch ${t.name} to ${editionName(licenseTier)}?`)) return;
+    void run(() => api.setLicense(t.id, { licenseTier })).then((r) => {
+      if (!r) return;
+      if (t.id === currentId) window.location.reload();
+      else (notify(`${t.name} is now on ${editionName(licenseTier)}`), onChanged());
+    });
+  };
+  return (
+    <>
+      <ErrorText error={error} />
+      <table className="grid">
+        <thead><tr><th>Organisation</th><th>Edition</th><th>Seat limit</th><th /></tr></thead>
+        <tbody>
+          {tenants.map((t) => (
+            <tr key={t.id}>
+              <td>{t.name}<div className="muted small">{t.domain}</div></td>
+              <td>{t.licenseTier === 'vanguard' ? 'Vanguard' : 'Symphony (Enterprise)'}</td>
+              <td>{t.maxSeats ?? 'Unlimited'}</td>
+              <td>
+                <button className="secondary small" disabled={busy} onClick={() => change(t, t.licenseTier === 'vanguard' ? 'symphony' : 'vanguard')}>
+                  {t.licenseTier === 'vanguard' ? 'Upgrade to Symphony' : 'Switch to Vanguard'}
+                </button>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </>
   );
 }
 

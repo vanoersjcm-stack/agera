@@ -8,12 +8,12 @@ import { Drawer, ErrorText, Field, FormActions, useAction } from './ui';
 export interface NewItem {
   kind: NewKind;
   label: string;
-  group: 'Vanguard' | 'Nexus' | 'RetailPower' | 'Symphony';
+  group: 'Nexus' | 'RetailPower' | 'Symphony';
   platformAdminOnly?: boolean;
 }
 
 export const NEW_ITEMS: NewItem[] = [
-  { kind: 'deal', label: 'Deal', group: 'Vanguard' },
+  { kind: 'deal', label: 'Deal', group: 'Nexus' },
   { kind: 'client', label: 'Client', group: 'Nexus' },
   { kind: 'contact', label: 'Contact', group: 'Nexus' },
   { kind: 'agreement', label: 'Agreement', group: 'Nexus' },
@@ -613,7 +613,7 @@ function DealForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onSwit
             dueDate: form.dueDate || null,
             notes: form.notes.trim() || null,
           });
-          return { route: `/vanguard/deals/${d.id}`, message: `Deal “${d.title}” added to the pipeline` };
+          return { route: `/nexus/deals/${d.id}`, message: `Deal “${d.title}” added to the pipeline` };
         })
       }
     >

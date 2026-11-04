@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, type SearchHit, type Tenant, switchOrganisation, viewingOrganisation, type UserProfile } from './api';
+import { api, type SearchHit, type Tenant, switchOrganisation, viewingOrganisation, type UserProfile, type LicenseTier } from './api';
 import { AssistantTip, useAssistant } from './Assistant';
 import { keycloak } from './auth';
 import { displayName, type UserContext, userContext } from './context';
@@ -20,7 +20,7 @@ import { WorkOrderDossier, WorkOrdersView } from './retailpower/WorkOrders';
 import { DealDossier, DealsView, PipelineBoard } from './vanguard/Pipeline';
 import { navigate, type Route, useRoute } from './router';
 import { type NewDefaults, type NewKind, ShellContext } from './shell';
-import { LEGACY_ROUTES, lastSuite, type NavItem, navFor, PORTAL_NAV, rememberSuite, SUITES, type Suite, type SuiteId } from './suites';
+import { editionName, LEGACY_ROUTES, lastSuite, type NavItem, navFor, PORTAL_NAV, previewTier, rememberSuite, setActiveTier, setPreviewTier, SUITES, type Suite, type SuiteId, suiteName } from './suites';
 import { CREDIT_HOLDS_CHANGED, CreditControlView } from './symphony/CreditControl';
 import { InvoicesView } from './symphony/Invoices';
 import { PeopleView } from './symphony/People';
@@ -59,9 +59,9 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return user.isPlatformAdmin ? <OrganisationsView route={route} /> : <NotAvailable path={route.path} />;
     case 'symphony/integrations':
       return user.isPlatformAdmin ? <IntegrationsView route={route} /> : <NotAvailable path={route.path} />;
-    case 'vanguard/':
+    case 'nexus/pipeline':
       return <PipelineBoard />;
-    case 'vanguard/deals':
+    case 'nexus/deals':
       return id ? <DealDossier id={id} /> : <DealsView route={route} />;
     case 'nexus/':
       return <NexusOverview />;
@@ -122,7 +122,7 @@ function useDropdown() {
   return { open, setOpen, ref };
 }
 
-function WaffleMenu({ active }: { active: Suite }) {
+function WaffleMenu({ active, tier }: { active: Suite; tier: LicenseTier }) {
   const { open, setOpen, ref } = useDropdown();
   return (
     <div className="dropdown" ref={ref}>
@@ -138,7 +138,7 @@ function WaffleMenu({ active }: { active: Suite }) {
           <div className="waffle-grid">
             {SUITES.map((s) => (
               <a key={s.id} role="menuitem" href={`#${s.home}`} className={`waffle-card ${s.id}${s.id === active.id ? ' current' : ''}`} onClick={() => setOpen(false)}>
-                <strong>Agera {s.name}</strong>
+                <strong>Agera {suiteName(s, tier)}</strong>
                 {s.tagline}
               </a>
             ))}
@@ -155,17 +155,17 @@ interface PageHit {
   subtitle: string;
 }
 
-function pageHits(user: UserContext, q: string): PageHit[] {
+function pageHits(user: UserContext, tier: LicenseTier, q: string): PageHit[] {
   const n = q.trim().toLowerCase();
   if (n.length < 2) return [];
   return SUITES.flatMap((s) =>
     navFor(s.id, user)
-      .filter((i) => `${s.name} ${i.label} ${i.description}`.toLowerCase().includes(n))
-      .map((i) => ({ route: i.path, title: `${s.name} › ${i.label}`, subtitle: i.description })),
+      .filter((i) => `${suiteName(s, tier)} ${i.label} ${i.description}`.toLowerCase().includes(n))
+      .map((i) => ({ route: i.path, title: `${suiteName(s, tier)} › ${i.label}`, subtitle: i.description })),
   ).slice(0, 4);
 }
 
-function SearchPalette({ user }: { user: UserContext }) {
+function SearchPalette({ user, tier }: { user: UserContext; tier: LicenseTier }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<SearchHit[]>([]);
@@ -201,7 +201,7 @@ function SearchPalette({ user }: { user: UserContext }) {
   }, [q]);
 
   const close = () => (setOpen(false), setQ(''));
-  const pages = pageHits(user, q);
+  const pages = pageHits(user, tier, q);
   const results = [
     ...pages.map((p) => ({ ...p, type: 'Page' })),
     ...hits.map((h) => ({ route: h.route, title: h.title, subtitle: h.subtitle, type: SEARCH_TYPE[h.entityType] ?? '' })),
@@ -258,11 +258,11 @@ const SEARCH_TYPE: Record<string, string> = {
   digital_sales_room: 'Client room',
 };
 
-function NewMenu({ suite, user, onPick }: { suite: SuiteId; user: UserContext; onPick: (kind: NewKind) => void }) {
+function NewMenu({ suite, user, tier, onPick }: { suite: SuiteId; user: UserContext; tier: LicenseTier; onPick: (kind: NewKind) => void }) {
   const { open, setOpen, ref } = useDropdown();
   const items = NEW_ITEMS.filter((i) => !i.platformAdminOnly || user.isPlatformAdmin);
   const current = SUITES.find((s) => s.id === suite)!.name;
-  const groups = [current, ...['Vanguard', 'Nexus', 'RetailPower', 'Symphony'].filter((g) => g !== current)];
+  const groups = [current, ...['Nexus', 'RetailPower', 'Symphony'].filter((g) => g !== current)];
   return (
     <div className="dropdown" ref={ref}>
       <button className="new-button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
@@ -275,7 +275,7 @@ function NewMenu({ suite, user, onPick }: { suite: SuiteId; user: UserContext; o
             if (groupItems.length === 0) return null;
             return (
               <div key={g} className="menu-group">
-                <span className="menu-heading">{g}{g === current ? ' (current)' : ''}</span>
+                <span className="menu-heading">{g === 'Symphony' && tier === 'vanguard' ? 'Vanguard' : g}{g === current ? ' (current)' : ''}</span>
                 {groupItems.map((i) => (
                   <button key={i.kind} role="menuitem" onClick={() => (setOpen(false), onPick(i.kind))}>
                     {i.label}
@@ -290,7 +290,7 @@ function NewMenu({ suite, user, onPick }: { suite: SuiteId; user: UserContext; o
   );
 }
 
-function UserMenu({ user, tenant, tipsOn, onToggleTips }: { user: UserContext; tenant: Tenant | null; tipsOn: boolean; onToggleTips: () => void }) {
+function UserMenu({ user, tenant, tier, tipsOn, onToggleTips }: { user: UserContext; tenant: Tenant | null; tier: LicenseTier; tipsOn: boolean; onToggleTips: () => void }) {
   const { open, setOpen, ref } = useDropdown();
   const name = displayName();
   const email = keycloak.tokenParsed?.email as string | undefined;
@@ -315,7 +315,14 @@ function UserMenu({ user, tenant, tipsOn, onToggleTips }: { user: UserContext; t
             {email && <span>{email}</span>}
             {subtitle && <span>{subtitle}</span>}
             <span>{user.roleLabel} · {tenant?.name ?? '…'}</span>
+            <span>{editionName(tier)}</span>
           </div>
+          {user.isPlatformAdmin && (
+            <button role="menuitem" onClick={() => setPreviewTier(tier === 'vanguard' ? 'symphony' : 'vanguard')}>
+              {tier === 'vanguard' ? 'View as Enterprise (Symphony)' : 'View as Vanguard'}
+            </button>
+          )}
+          {user.isPlatformAdmin && previewTier() && <button role="menuitem" onClick={() => setPreviewTier(null)}>Stop edition preview</button>}
           <button role="menuitem" onClick={onToggleTips}>{tipsOn ? 'Hide page tips' : 'Show page tips'}</button>
           <button role="menuitem" onClick={() => void keycloak.logout({ redirectUri: window.location.origin + '/' })}>Log out</button>
         </div>
@@ -425,6 +432,10 @@ export function App() {
   }, [redirect]);
 
   const suite = SUITES.find((s) => s.id === route.segments[0]) ?? lastSuite();
+  const preview = user.isPlatformAdmin ? previewTier() : null;
+  const tier: LicenseTier = preview ?? tenant?.licenseTier ?? 'symphony';
+  setActiveTier(tier);
+  const brand = suiteName(suite, tier);
   useEffect(() => {
     if (!external && SUITES.some((s) => s.id === route.segments[0])) rememberSuite(route.segments[0] as SuiteId);
   }, [external, route.segments]);
@@ -444,50 +455,56 @@ export function App() {
 
   return (
     <ShellContext.Provider value={shell}>
-      <div className={`shell suite-${external ? 'portal' : suite.id}`}>
+      <div className={`shell suite-${external ? 'portal' : suite.id} tier-${tier}`}>
         <header className="topbar">
           {external ? (
             <span className="brand">Agera · Client portal</span>
           ) : (
             <>
-              <WaffleMenu active={suite} />
+              <WaffleMenu active={suite} tier={tier} />
               <div className="suite-indicator">
-                <span className="suite-title">Agera {suite.name}</span>
+                <span className="suite-title">Agera {brand}</span>
                 <span className="suite-tag">{suite.tagline}</span>
               </div>
               <nav className="suite-nav" aria-label="Suites">
                 {SUITES.map((s) => (
                   <a key={s.id} href={`#${s.home}`} className={s.id === suite.id ? 'active' : undefined}>
                     <span className={`suite-dot dot-${s.id}`} aria-hidden />
-                    {s.name}
+                    {suiteName(s, tier)}
                   </a>
                 ))}
               </nav>
             </>
           )}
           <span className="topbar-spacer" />
-          {!external && <SearchPalette user={user} />}
-          <UserMenu user={user} tenant={tenant} tipsOn={assistant.enabled} onToggleTips={assistant.toggle} />
+          {!external && <SearchPalette user={user} tier={tier} />}
+          <UserMenu user={user} tenant={tenant} tier={tier} tipsOn={assistant.enabled} onToggleTips={assistant.toggle} />
         </header>
         <div className="actionbar">
           <div className="actionbar-crumbs">
             <strong>Agera</strong>
             <span className="sep" aria-hidden>›</span>
-            <span id="actionbar-crumbs" className="crumbs-slot" data-fallback={external ? 'Client portal' : suite.name} />
+            <span id="actionbar-crumbs" className="crumbs-slot" data-fallback={external ? 'Client portal' : brand} />
           </div>
           <div className="actionbar-actions">
             {!external && <CreditPill user={user} />}
             <OrgBadge user={user} tenant={tenant} />
-            {!external && !tenant?.readOnly && <NewMenu suite={suite.id} user={user} onPick={(kind) => openNew(kind)} />}
+            {!external && !tenant?.readOnly && <NewMenu suite={suite.id} user={user} tier={tier} onPick={(kind) => openNew(kind)} />}
           </div>
         </div>
         <div className="workspace">
           {external ? (
             <SideNav items={PORTAL_NAV} path={route.path} heading="Client portal" />
           ) : (
-            <SideNav items={navFor(suite.id, user)} path={route.path} heading={`${suite.name} · ${suite.tagline}`} />
+            <SideNav items={navFor(suite.id, user)} path={route.path} heading={`${brand} · ${suite.tagline}`} />
           )}
           <main>
+            {preview && preview !== tenant?.licenseTier && (
+              <p className="callout readonly-banner">
+                Previewing the interface of <strong>{editionName(preview)}</strong>. Server-side limits still follow this organisation’s real edition.{' '}
+                <button className="link-button" onClick={() => setPreviewTier(null)}>Stop preview</button>
+              </p>
+            )}
             {tenant?.readOnly && (
               <p className="callout readonly-banner">
                 You are viewing <strong>{tenant.name}</strong> read-only. Changes are only possible in your own organisation.{' '}

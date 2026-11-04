@@ -48,7 +48,7 @@ export function PrognosisView({ route }: { route: Route }) {
   const bars: Bar[] = [
     { label: 'Baseline', hint: 'Approved financial plans', value: baseline, start: 0, kind: 'total', href: '#/nexus/financial-plans' },
     { label: '+ Signed expansion', hint: 'Annual value of active agreements', value: expansion, start: baseline, kind: 'up', href: '#/nexus/agreements?status=active' },
-    ...(pipelinePct > 0 ? [{ label: '+ Pipeline won', hint: `${pipelinePct}% of open Vanguard deals`, value: pipeline, start: baseline + expansion, kind: 'up' as const, href: '#/vanguard' }] : []),
+    ...(pipelinePct > 0 ? [{ label: '+ Pipeline won', hint: `${pipelinePct}% of open deals`, value: pipeline, start: baseline + expansion, kind: 'up' as const, href: '#/nexus/pipeline' }] : []),
     { label: '− Known churn', hint: 'Agreements ending within 90 days', value: churn, start: prognosis, kind: 'down', href: '#/nexus/agreements?status=active' },
     { label: adjusted ? 'Prognosis (what-if)' : 'Live prognosis', hint: 'Baseline + expansion − churn', value: prognosis, start: 0, kind: 'total' },
     { label: 'Invoiced actuals', hint: `Paid invoices in ${year}, excl. VAT`, value: actuals, start: 0, kind: 'actual', href: '#/symphony/invoices?status=paid' },
@@ -73,7 +73,7 @@ export function PrognosisView({ route }: { route: Route }) {
         <div className="tile"><strong>{money(prognosis)}</strong><span>{adjusted ? 'Prognosis (what-if)' : 'Live prognosis'}</span></div>
         <div className="tile"><strong>{money(actuals)}</strong><span>Invoiced and paid</span></div>
         <div className="tile"><strong>{prognosis > 0 ? `${Math.round((actuals / prognosis) * 100)}%` : '—'}</strong><span>Of prognosis invoiced</span></div>
-        <div className="tile"><strong>{money(data.openPipeline)}</strong><span>Open Vanguard pipeline</span></div>
+        <div className="tile"><strong>{money(data.openPipeline)}</strong><span>Open deal pipeline</span></div>
       </div>
       <div className="card-panel">
         <h2>Waterfall</h2>
@@ -98,7 +98,7 @@ export function PrognosisView({ route }: { route: Route }) {
         <div className="what-if-grid">
           <Slider label="Signed expansion realised" hint="Share of the annual value of active agreements that is realised" value={expansionPct} max={150} onChange={setExpansionPct} />
           <Slider label="Churn exposure" hint="How much of the known churn risk materialises" value={churnPct} max={200} onChange={setChurnPct} />
-          <Slider label="Open pipeline won" hint="Share of open Vanguard deals expected to close" value={pipelinePct} max={100} onChange={setPipelinePct} />
+          <Slider label="Open pipeline won" hint="Share of open deals expected to close" value={pipelinePct} max={100} onChange={setPipelinePct} />
         </div>
         {adjusted && <button className="secondary" onClick={() => (setExpansionPct(100), setChurnPct(100), setPipelinePct(0))}>Reset to live figures</button>}
       </div>

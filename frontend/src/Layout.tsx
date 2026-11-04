@@ -1,3 +1,4 @@
+import { brandLabel } from './suites';
 import { createPortal } from 'react-dom';
 import { type ReactNode, useEffect, useState } from 'react';
 
@@ -28,7 +29,7 @@ export function ViewFrame({
           {crumbs.map((c, i) => (
             <span key={`${c.label}-${i}`}>
               {i > 0 && <span className="sep">›</span>}
-              {c.href && i < crumbs.length - 1 ? <a href={c.href}>{c.label}</a> : <span aria-current={i === crumbs.length - 1 ? 'page' : undefined}>{c.label}</span>}
+              {c.href && i < crumbs.length - 1 ? <a href={c.href}>{brandLabel(c.label)}</a> : <span aria-current={i === crumbs.length - 1 ? 'page' : undefined}>{brandLabel(c.label)}</span>}
             </span>
           ))}
         </nav>,
@@ -38,7 +39,7 @@ export function ViewFrame({
           {crumbs.map((c, i) => (
             <span key={`${c.label}-${i}`}>
               {i > 0 && <span className="sep">›</span>}
-              {c.href && i < crumbs.length - 1 ? <a href={c.href}>{c.label}</a> : <span aria-current={i === crumbs.length - 1 ? 'page' : undefined}>{c.label}</span>}
+              {c.href && i < crumbs.length - 1 ? <a href={c.href}>{brandLabel(c.label)}</a> : <span aria-current={i === crumbs.length - 1 ? 'page' : undefined}>{brandLabel(c.label)}</span>}
             </span>
           ))}
         </nav>

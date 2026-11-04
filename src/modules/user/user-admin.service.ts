@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
-import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, HttpException, HttpStatus, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { EXTERNAL_CLIENT_ROLE, PLATFORM_ADMIN_ROLE } from '../auth/roles.decorator.js';
 import { Client } from '../clients/entities/client.entity.js';
@@ -55,6 +55,7 @@ export class UserAdminService {
     private readonly keycloak: KeycloakAdminService,
     private readonly userService: UserService,
     private readonly audit: AuditService,
+    private readonly dataSource: DataSource,
   ) {
     this.users = new TenantRepository(users, context);
     this.clients = new TenantRepository(clients, context);
@@ -80,6 +81,7 @@ export class UserAdminService {
     const actor = await this.userService.resolveActor(identity);
     this.assertMayGrant(identity, input.role);
     const external = input.role === EXTERNAL_CLIENT_ROLE;
+    if (!external) await this.assertSeatAvailable();
     if (external && (!input.clientId || !(await this.clients.findOneBy({ id: input.clientId })))) {
       throw new BadRequestException('clientId must be a client of the active tenant for client users');
     }
@@ -131,7 +133,31 @@ export class UserAdminService {
     return saved;
   }
 
+  /** Vanguard organisations have a seat cap on active internal users (client contacts do not count). 402 when full. */
+  private async assertSeatAvailable(): Promise<void> {
+    const [row] = await this.dataSource.query(
+      `SELECT t.license_tier AS tier, t.max_seats AS "maxSeats",
+              (SELECT count(*)::int FROM users u WHERE u.tenant_id = t.id AND u.is_active AND NOT ('External_Client' = ANY (u.realm_roles))) AS used
+         FROM tenants t WHERE t.id = $1`,
+      [this.context.tenantId],
+    );
+    if (row?.maxSeats != null && row.used >= row.maxSeats) {
+      throw new HttpException(
+        {
+          statusCode: HttpStatus.PAYMENT_REQUIRED,
+          error: 'Seat limit reached',
+          message: `All ${row.maxSeats} seats of your ${row.tier === 'vanguard' ? 'Agera Vanguard' : 'Agera'} licence are in use. Deactivate a colleague or upgrade to Agera Symphony (Enterprise) to add more people.`,
+        },
+        HttpStatus.PAYMENT_REQUIRED,
+      );
+    }
+  }
+
   async setActive(id: string, active: boolean, identity: AuthenticatedUser): Promise<User> {
+    if (active) {
+      const target = await this.users.findOneBy({ id });
+      if (target && !target.isActive && !target.realmRoles.includes(EXTERNAL_CLIENT_ROLE)) await this.assertSeatAvailable();
+    }
     const actor = await this.userService.resolveActor(identity);
     const user = await this.target(id, actor);
     this.assertMayGrant(identity, accountRole(user.realmRoles));

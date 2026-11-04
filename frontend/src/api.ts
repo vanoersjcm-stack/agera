@@ -59,8 +59,13 @@ export interface Page<T> {
 
 /* ---------- Symphony ---------- */
 
+export type LicenseTier = 'vanguard' | 'symphony';
+
 export interface Tenant {
   readOnly?: boolean;
+  licenseTier: LicenseTier;
+  maxSeats: number | null;
+  activeSeats?: number;
   id: string;
   name: string;
   domain: string;
@@ -497,6 +502,7 @@ export const api = {
   tenant: () => request<Tenant>('GET', '/tenants/me'),
   tenants: () => request<Tenant[]>('GET', '/tenants'),
   createTenant: (body: { name: string; domain: string }) => request<Tenant>('POST', '/tenants', body),
+  setLicense: (id: string, body: { licenseTier: LicenseTier; maxSeats?: number | null }) => request<Tenant>('PATCH', `/tenants/${id}/license`, body),
   me: () => request<UserProfile>('GET', '/users/me'),
   users: () => request<UserSummary[]>('GET', '/users'),
   auditLogs: (page: number, limit = 50) => request<Page<AuditLog>>('GET', `/audit-logs${query({ page, limit })}`),
