@@ -6,6 +6,7 @@ import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { useState } from 'react';
 import { myEmail } from './RoomActivity';
+import { SignaturePanel } from './Documents';
 import { EditAgreementDrawer } from '../EditForms';
 import { money } from './Clients';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
@@ -176,6 +177,7 @@ export function AgreementDossier({ id, external }: { id: string; external: boole
       {external && a.status === 'pending_approval' && rooms.data && (
         <ClientDecision agreementId={id} title={a.title} roomId={rooms.data.find((r) => r.agreementId === id && r.status === 'active')?.id ?? null} />
       )}
+      <SignaturePanel agreementId={id} status={a.status} external={external} />
       <DetailList
         items={[
           ...(external ? [] : ([['Client', clientName(clients, a.clientId)]] as [string, string][])),

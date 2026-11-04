@@ -6,6 +6,7 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { RoomActivityPanel, useRecordOpened } from './RoomActivity';
+import { RoomDocumentsPanel } from './Documents';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
 
 function crumbs(external: boolean) {
@@ -237,6 +238,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
       <Tabs
         tabs={[
           { id: 'details', label: 'Details' },
+          { id: 'documents', label: 'Documents' },
           { id: 'plan', label: 'Action plan' },
           { id: 'engagement', label: `Engagement${stats ? ` (${stats.stakeholderCount})` : ''}` },
           { id: 'activity', label: 'Comments & activity' },
@@ -267,16 +269,16 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
         <div className="room-grid">
           <div className="room-col">
             <h3>Document vault</h3>
-            {agreement.data ? (
+            {agreement.data && (
               <ul>
                 <li>
                   <a href={agreement.data.documentUrl} target="_blank" rel="noreferrer">{agreement.data.title}</a>
                   <div className="muted small">Agreement document · {AGREEMENT_STATUS[agreement.data.status]}</div>
                 </li>
               </ul>
-            ) : (
-              <p className="muted">No documents shared in this room yet.</p>
             )}
+            <RoomDocumentsPanel roomId={id} external={external} active={r.status === 'active'} compact />
+            <button className="link-button" onClick={() => navigate(withParams(route, { tab: 'documents' }))}>{external ? 'All documents' : 'Manage documents'}</button>
           </div>
           <div className="room-col">
             <h3>Mutual action plan</h3>
@@ -289,7 +291,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
                 <p><strong>{agreement.data.title}</strong></p>
                 <p className="muted">{AGREEMENT_STATUS[agreement.data.status]}</p>
                 <button className="primary" onClick={() => navigate(`${agreementBase}/${agreement.data!.id}`)}>
-                  {external ? 'Review and accept terms' : 'Open agreement'}
+                  {external ? (agreement.data.status === 'pending_approval' ? 'Review and sign' : 'View agreement') : 'Open agreement'}
                 </button>
               </>
             ) : (
@@ -298,6 +300,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
           </div>
         </div>
       )}
+      {tab === 'documents' && <RoomDocumentsPanel roomId={id} external={external} active={r.status === 'active'} />}
       {tab === 'plan' && <ActionPlanPanel roomId={id} external={external} active={r.status === 'active'} />}
       {tab === 'activity' && <RoomActivityPanel roomId={id} canComment={r.status === 'active'} />}
       {tab === 'engagement' && (

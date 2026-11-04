@@ -156,6 +156,12 @@ describe('OpenAPI document', () => {
       '/v1/deals/{id}': ['delete', 'get', 'patch'],
       '/v1/deals/{id}/stage': ['patch'],
       '/v1/nexus/client-rooms/{roomId}/milestones': ['get', 'post'],
+      '/v1/nexus/client-rooms/{roomId}/documents': ['get', 'post'],
+      '/v1/nexus/client-rooms/{roomId}/documents/{id}': ['delete', 'patch'],
+      '/v1/nexus/client-rooms/{roomId}/documents/{id}/versions': ['get'],
+      '/v1/nexus/client-rooms/{roomId}/documents/{id}/download': ['get'],
+      '/v1/agreements/{id}/signatures': ['get', 'post'],
+      '/v1/agreements/{id}/signatures/{signatureId}/image': ['get'],
       '/v1/nexus/client-rooms/{roomId}/milestones/{id}': ['delete', 'patch'],
     };
     assert.match(document.openapi, /^3\./);

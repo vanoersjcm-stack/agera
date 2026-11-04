@@ -21,6 +21,53 @@ async function send<T>(method: string, path: string, body?: BodyInit, contentTyp
   return data as T;
 }
 
+export interface RoomDocument {
+  id: string;
+  clientRoomId: string;
+  title: string;
+  currentVersion: number;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  uploadedByName: string | null;
+  downloads: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RoomDocumentVersion {
+  id: string;
+  version: number;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  sha256: string;
+  uploadedByName: string | null;
+  createdAt: string;
+}
+
+export interface AgreementSignature {
+  id: string;
+  agreementId: string;
+  clientRoomId: string | null;
+  signerName: string;
+  signerEmail: string;
+  contentSha256: string;
+  signedAt: string;
+}
+
+/** Fetches an authenticated file and hands it to the browser as a download. */
+export async function downloadFile(path: string, fileName: string): Promise<void> {
+  const response = await fetch(`/api${path}`, { headers: { Authorization: `Bearer ${await accessToken()}`, ...organisationHeader() } });
+  if (!response.ok) throw new ApiError(response.status, response.statusText);
+  const url = URL.createObjectURL(await response.blob());
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
 const VIEW_KEY = 'agera.viewOrganisation';
 
 /** Organisation a platform admin is viewing read-only, or null for their own organisation. */
@@ -609,6 +656,23 @@ export const api = {
   setRoomStatus: (id: string, status: RoomStatus) => request<ClientRoom>('PATCH', `/v1/dsrs/${id}/status`, { status }),
   health: () => request<{ status: string }>('GET', '/health'),
   clients: () => request<Client[]>('GET', '/v1/clients'),
+  roomDocuments: (roomId: string) => request<RoomDocument[]>('GET', `/v1/nexus/client-rooms/${roomId}/documents`),
+  documentVersions: (roomId: string, id: string) => request<RoomDocumentVersion[]>('GET', `/v1/nexus/client-rooms/${roomId}/documents/${id}/versions`),
+  uploadRoomDocument: (roomId: string, file: File, fields: { title?: string; documentId?: string } = {}) => {
+    const form = new FormData();
+    form.append('file', file);
+    if (fields.title) form.append('title', fields.title);
+    if (fields.documentId) form.append('documentId', fields.documentId);
+    return send<RoomDocument>('POST', `/v1/nexus/client-rooms/${roomId}/documents`, form);
+  },
+  renameRoomDocument: (roomId: string, id: string, title: string) => request<RoomDocument>('PATCH', `/v1/nexus/client-rooms/${roomId}/documents/${id}`, { title }),
+  deleteRoomDocument: (roomId: string, id: string) => request<null>('DELETE', `/v1/nexus/client-rooms/${roomId}/documents/${id}`),
+  downloadRoomDocument: (roomId: string, id: string, fileName: string, version?: number) =>
+    downloadFile(`/v1/nexus/client-rooms/${roomId}/documents/${id}/download${version ? `?version=${version}` : ''}`, fileName),
+  signatures: (agreementId: string) => request<AgreementSignature[]>('GET', `/v1/agreements/${agreementId}/signatures`),
+  signAgreement: (agreementId: string, body: { signerName: string; signatureImage: string }) =>
+    request<AgreementSignature>('POST', `/v1/agreements/${agreementId}/signatures`, body),
+  signatureImageUrl: (agreementId: string, signatureId: string) => `/api/v1/agreements/${agreementId}/signatures/${signatureId}/image`,
   client: (id: string) => request<ClientRecord>('GET', `/v1/clients/${id}`),
   createClient: (body: ClientInput) => request<Client>('POST', '/v1/clients', body),
   updateClient: (id: string, body: Partial<ClientInput> & { status?: ClientStatus }) => request<Client>('PATCH', `/v1/clients/${id}`, body),

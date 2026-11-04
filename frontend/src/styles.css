@@ -463,3 +463,15 @@ body { -webkit-font-smoothing: antialiased; color: #1e293b; }
 @media (max-width: 1180px) { .search-label, .user-meta, .status-pill { display: none; } }
 @media (max-width: 900px) { .wf-columns, .room-grid { grid-template-columns: 1fr; } }
 .room-col .card-panel h2 { display: none; }
+.doc-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.6rem; }
+.doc-list > li { border-bottom: 1px solid #f1f5f9; padding-bottom: 0.6rem; }
+.doc-main { display: flex; flex-direction: column; gap: 0.1rem; }
+.doc-title { font-weight: 600; text-align: left; }
+.doc-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.4rem; }
+.version-list { list-style: none; padding: 0.5rem 0 0 1rem; margin: 0; display: grid; gap: 0.3rem; font-size: 0.82rem; }
+.signature-pad { display: flex; flex-direction: column; align-items: flex-start; gap: 0.25rem; margin: 0.5rem 0; }
+.signature-pad canvas { width: 100%; max-width: 560px; height: 160px; background: #fff; border: 2px dashed #94a3b8; border-radius: 12px; touch-action: none; cursor: crosshair; }
+.signature-record { display: flex; gap: 1rem; align-items: center; padding: 0.75rem; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; margin-bottom: 0.75rem; flex-wrap: wrap; }
+.signature-record code { word-break: break-all; }
+.signature-img { height: 64px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; }
+.signoff-panel .checkbox { display: flex; gap: 0.5rem; align-items: center; margin: 0.5rem 0; }
