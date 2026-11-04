@@ -221,7 +221,9 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
   return (
     <ViewFrame
       title={r.roomName}
-      subtitle={<StatusBadge status={r.status} label={ROOM_STATUS[r.status]} />}
+      subtitle={<>
+        <StatusBadge status={r.status} label={ROOM_STATUS[r.status]} /> {!external && <span className="external-pill">External buyer facing</span>}
+      </>}
       crumbs={[c.suite, c.list, { label: r.roomName }]}
       actions={
         !external && (
@@ -260,6 +262,41 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
             ['Last client activity', stats ? formatDateTime(stats.lastActivityAt) : 'None yet'],
           ]}
         />
+      )}
+      {tab === 'details' && (
+        <div className="room-grid">
+          <div className="room-col">
+            <h3>Document vault</h3>
+            {agreement.data ? (
+              <ul>
+                <li>
+                  <a href={agreement.data.documentUrl} target="_blank" rel="noreferrer">{agreement.data.title}</a>
+                  <div className="muted small">Agreement document · {AGREEMENT_STATUS[agreement.data.status]}</div>
+                </li>
+              </ul>
+            ) : (
+              <p className="muted">No documents shared in this room yet.</p>
+            )}
+          </div>
+          <div className="room-col">
+            <h3>Mutual action plan</h3>
+            <ActionPlanPanel roomId={id} external={external} active={r.status === 'active'} />
+          </div>
+          <div className="room-col signoff-card">
+            <h3>Contract sign-off</h3>
+            {agreement.data ? (
+              <>
+                <p><strong>{agreement.data.title}</strong></p>
+                <p className="muted">{AGREEMENT_STATUS[agreement.data.status]}</p>
+                <button className="primary" onClick={() => navigate(`${agreementBase}/${agreement.data!.id}`)}>
+                  {external ? 'Review and accept terms' : 'Open agreement'}
+                </button>
+              </>
+            ) : (
+              <p className="muted">No agreement is linked to this room.</p>
+            )}
+          </div>
+        </div>
       )}
       {tab === 'plan' && <ActionPlanPanel roomId={id} external={external} active={r.status === 'active'} />}
       {tab === 'activity' && <RoomActivityPanel roomId={id} canComment={r.status === 'active'} />}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { api, type SearchHit, type Tenant, switchOrganisation, viewingOrganisation, type UserProfile, type LicenseTier } from './api';
+import { api, type Client, type SearchHit, type Tenant, switchOrganisation, viewingOrganisation, type UserProfile, type LicenseTier } from './api';
 import { AssistantTip, useAssistant } from './Assistant';
 import { keycloak } from './auth';
 import { displayName, type UserContext, userContext } from './context';
@@ -362,6 +362,61 @@ function redirectFor(route: Route, external: boolean): string | null {
 }
 
 /** Red pill in the action bar while any credit lock is active; admins get a one-click way to set one. */
+function suiteBadge(id: SuiteId, tier: LicenseTier): string {
+  if (id === 'nexus') return 'CLIENT PORTAL';
+  if (id === 'retailpower') return 'FIELDCARE AUDITS';
+  return tier === 'vanguard' ? 'MID-MARKET EDITION' : 'HQ CORE';
+}
+
+function shortCode(name: string): string {
+  const words = name.replace(/[^\p{L}\p{N} ]/gu, '').split(/\s+/).filter(Boolean);
+  return (words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? '?').slice(0, 2)).toUpperCase();
+}
+
+/** Quick switch between client dossiers; shows the client of the open dossier. */
+function ClientPill() {
+  const [clients, setClients] = useState<Client[] | null>(null);
+  const [open, setOpen] = useState(false);
+  const route = useRoute();
+  useEffect(() => void api.clients().then(setClients, () => setClients([])), []);
+  if (!clients || clients.length === 0) return null;
+  const m = route.path.match(/^\/nexus\/clients\/([0-9a-f-]{36})/);
+  const current = m ? clients.find((c) => c.id === m[1]) : undefined;
+  return (
+    <div className="client-pill">
+      <button aria-haspopup="menu" aria-expanded={open} title="Switch client" onClick={() => setOpen(!open)} onBlur={() => setTimeout(() => setOpen(false), 150)}>
+        [{current ? shortCode(current.name) : 'Client'} ▾]
+      </button>
+      {open && (
+        <div className="menu" role="menu">
+          {clients.filter((c) => c.status === 'active').map((c) => (
+            <a key={c.id} role="menuitem" href={`#/nexus/clients/${c.id}`} className={c.id === current?.id ? 'selected' : undefined}>
+              <code>{shortCode(c.name)}</code> {c.name}
+            </a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Live connection status of the Agera backend and database (no external ERP is connected). */
+function StatusPill() {
+  const [ok, setOk] = useState<boolean | null>(null);
+  useEffect(() => {
+    const check = () => void api.health().then((h) => setOk(h.status === 'ok'), () => setOk(false));
+    check();
+    const t = window.setInterval(check, 60000);
+    return () => window.clearInterval(t);
+  }, []);
+  if (ok === null) return null;
+  return (
+    <span className={`status-pill${ok ? '' : ' down'}`} title="Status of the Agera database. No ERP system is connected.">
+      <span className="dot" aria-hidden /> {ok ? 'Database connected' : 'Database unreachable'}
+    </span>
+  );
+}
+
 function CreditPill({ user }: { user: UserContext }) {
   const [count, setCount] = useState<number | null>(null);
   useEffect(() => {
@@ -464,7 +519,7 @@ export function App() {
               <WaffleMenu active={suite} tier={tier} />
               <div className="suite-indicator">
                 <span className="suite-title">Agera {brand}</span>
-                <span className="suite-tag">{suite.tagline}</span>
+                <span className="suite-tag">{suiteBadge(suite.id, tier)}</span>
               </div>
               <nav className="suite-nav" aria-label="Suites">
                 {SUITES.map((s) => (
@@ -478,16 +533,18 @@ export function App() {
           )}
           <span className="topbar-spacer" />
           {!external && <SearchPalette user={user} tier={tier} />}
+          {!external && <CreditPill user={user} />}
           <UserMenu user={user} tenant={tenant} tier={tier} tipsOn={assistant.enabled} onToggleTips={assistant.toggle} />
         </header>
         <div className="actionbar">
           <div className="actionbar-crumbs">
-            <strong>Agera</strong>
+            <strong>Agera Platform</strong>
             <span className="sep" aria-hidden>›</span>
             <span id="actionbar-crumbs" className="crumbs-slot" data-fallback={external ? 'Client portal' : brand} />
           </div>
           <div className="actionbar-actions">
-            {!external && <CreditPill user={user} />}
+            {!external && <ClientPill />}
+            <StatusPill />
             <OrgBadge user={user} tenant={tenant} />
             {!external && !tenant?.readOnly && <NewMenu suite={suite.id} user={user} tier={tier} onPick={(kind) => openNew(kind)} />}
           </div>

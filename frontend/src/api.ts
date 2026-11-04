@@ -607,6 +607,7 @@ export const api = {
   room: (id: string) => request<ClientRoom>('GET', `/v1/dsrs/${id}`),
   createRoom: (body: { clientId: string; roomName: string; agreementId?: string | null }) => request<ClientRoom>('POST', '/v1/dsrs', body),
   setRoomStatus: (id: string, status: RoomStatus) => request<ClientRoom>('PATCH', `/v1/dsrs/${id}/status`, { status }),
+  health: () => request<{ status: string }>('GET', '/health'),
   clients: () => request<Client[]>('GET', '/v1/clients'),
   client: (id: string) => request<ClientRecord>('GET', `/v1/clients/${id}`),
   createClient: (body: ClientInput) => request<Client>('POST', '/v1/clients', body),

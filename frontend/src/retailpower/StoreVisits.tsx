@@ -264,6 +264,12 @@ export function VisitDossier({ id }: { id: string }) {
         )
       }
     >
+      <div className="field-card">
+      <div className="field-card-head">
+        <h2>{store?.name ?? 'Store visit'}</h2>
+        <p>{formatDateTime(v.visitDate)} · {VISIT_STATUS[v.status]}</p>
+      </div>
+      <div className="field-card-body">
       {v.status === 'CANCELLED' ? (
         <p className="callout">This visit was cancelled.</p>
       ) : (
@@ -294,6 +300,8 @@ export function VisitDossier({ id }: { id: string }) {
           <button className="primary" disabled={action.busy || !hasReport} onClick={() => setStatus('COMPLETED', 'Visit completed')}>Complete visit</button>
         </div>
       )}
+      </div>
+      </div>
       {editing && (
         <EditVisitDrawer record={v} onClose={() => setEditing(false)} onSaved={() => (setEditing(false), notify('Store visit updated'), summary.reload())} />
       )}

@@ -1,5 +1,5 @@
-import { type FormEvent, useState } from 'react';
-import { api, type Client, type ClientRecord, type Contact, type CreditStatus, type RoomActivity } from '../api';
+import { type FormEvent, type ReactNode, useState } from 'react';
+import { api, type Client, type ClientRecord, type Invoice, type Contact, type CreditStatus, type RoomActivity } from '../api';
 import { invalidateDirectory, useUsers } from '../directory';
 import { ClientInvoicesPanel } from '../symphony/Invoices';
 import { ACTIVITY_TYPE, AGREEMENT_STATUS, CLIENT_STATUS, CREDIT_STATUS, formatDate, formatDateTime, PLAN_STATUS, ROOM_STATUS } from '../labels';
@@ -230,12 +230,45 @@ function ClientActivity({ record }: { record: ClientRecord }) {
   );
 }
 
+function InfoCard({ title, items }: { title: string; items: [string, ReactNode][] }) {
+  return (
+    <div className="info-card">
+      <h3>{title}</h3>
+      <dl>
+        {items.map(([k, v], i) => (
+          <div key={`${k}-${i}`}>
+            <dt>{k}</dt>
+            <dd>{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </div>
+  );
+}
+
+function RunRateKpis({ contractValue, invoices }: { contractValue: number; invoices: Invoice[] }) {
+  const year = new Date().getFullYear();
+  const thisYear = invoices.filter((i) => i.status !== 'draft' && i.status !== 'cancelled' && new Date(i.issueDate).getFullYear() === year);
+  const invoiced = thisYear.reduce((sum, i) => sum + Number(i.amountExclVat), 0);
+  const open = invoices.filter((i) => i.status === 'issued').reduce((sum, i) => sum + Number(i.amountExclVat), 0);
+  const expected = contractValue * ((new Date().getMonth() + 1) / 12);
+  return (
+    <div className="kpi-grid">
+      <div className="kpi kpi-indigo"><span>Contract value (annual)</span><strong>{money(contractValue)}</strong></div>
+      <div className="kpi kpi-emerald"><span>Invoiced in {year} (excl. VAT)</span><strong>{money(invoiced)}</strong></div>
+      <div className="kpi kpi-blue"><span>Open invoices</span><strong>{money(open)}</strong></div>
+      <div className="kpi kpi-purple"><span>Variance vs. run-rate to date</span><strong>{invoiced - expected >= 0 ? '+' : '−'}{money(Math.abs(invoiced - expected))}</strong></div>
+    </div>
+  );
+}
+
 export function ClientDossier({ id, route }: { id: string; route: Route }) {
   const { openNew, notify } = useShell();
   const { data, error, reload } = useLoad(() => api.client(id), [id]);
   const [editing, setEditing] = useState(false);
   const [editContact, setEditContact] = useState<Contact | null>(null);
   const action = useAction();
+  const invoices = useLoad(() => api.clientInvoices(id), [id]);
   const tab = route.params.get('tab') ?? 'overview';
   if (!data) {
     return (
@@ -272,6 +305,18 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
         </>
       }
     >
+      <div className="dossier-banner">
+        <div className="dossier-avatar" aria-hidden>{client.name.slice(0, 1).toUpperCase()}</div>
+        <div className="dossier-facts">
+          <span><small>KvK</small><b className="mono">{client.kvkNumber ?? '—'}</b></span>
+          <span><small>ERP ID</small><b className="mono">{client.erpId ?? '—'}</b></span>
+          <span><small>Account manager</small><b>{client.accountManagerName ?? 'Not assigned'}</b></span>
+          <span><small>Credit status</small><b>{CREDIT_STATUS[client.creditStatus]}</b></span>
+        </div>
+        <span className="topbar-spacer" />
+        {rooms.length > 0 && <button className="secondary" onClick={() => navigate(`/nexus/client-rooms/${(rooms.find((x) => x.status === 'active') ?? rooms[0]).id}`)}>Open linked client room</button>}
+        <button className="secondary" onClick={() => navigate('/nexus/clients')}>Back to list</button>
+      </div>
       <ErrorText error={action.error} />
       <Tabs
         tabs={[
@@ -281,37 +326,51 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
           { id: 'rooms', label: `Client rooms (${rooms.length})` },
           { id: 'financials', label: `Financial plans (${plans.length})` },
           { id: 'stores', label: `Stores (${stores.length})` },
-          { id: 'invoices', label: 'Invoices' },
+          { id: 'invoices', label: 'Financials & run-rate' },
           { id: 'activity', label: 'Activity' },
         ]}
         active={tab}
         onChange={(t) => navigate(withParams(route, { tab: t === 'overview' ? null : t }))}
       />
       {tab === 'overview' && (
-        <>
-          <div className="tiles">
-            <div className="tile"><strong>{client.activeAgreements}</strong><span>Active agreements</span></div>
-            <div className="tile"><strong>{client.activeRooms}</strong><span>Active client rooms</span></div>
-            <div className="tile"><strong>{money(client.contractValue)}</strong><span>Contract value</span></div>
-          </div>
-          <DetailList
+        <div className="info-grid">
+          <InfoCard
+            title="Company details"
             items={[
               ['Company name', client.name],
               ['Legal name', client.legalName ?? '—'],
-              ['ERP customer number', client.erpId ?? '—'],
-              ['VAT number', client.vatNumber ?? '—'],
-              ['Chamber of Commerce (KvK)', client.kvkNumber ?? '—'],
+              ['Chamber of Commerce (KvK)', <span className="mono">{client.kvkNumber ?? '—'}</span>],
+              ['VAT number', <span className="mono">{client.vatNumber ?? '—'}</span>],
               ['Sector', client.sector ?? '—'],
               ['Address', [client.address, client.city, client.country].filter(Boolean).join(', ') || '—'],
-              ['Account manager', client.accountManagerName ?? 'Not assigned'],
-              ['Payment terms', client.paymentTerms],
-              ['Credit limit', money(client.creditLimit)],
-              ['Credit status', CREDIT_STATUS[client.creditStatus]],
-              ['Primary contact', primary ? `${contactName(primary)}${primary.roleTitle ? ` (${primary.roleTitle})` : ''}${primary.email ? ` · ${primary.email}` : ''}${primary.phone ? ` · ${primary.phone}` : ''}` : '—'],
               ['Client since', formatDate(client.createdAt)],
             ]}
           />
-        </>
+          <InfoCard
+            title="Credit & payment terms"
+            items={[
+              ['Payment terms', client.paymentTerms],
+              ['Credit limit', <span className="mono">{money(client.creditLimit)}</span>],
+              ['Credit status', CREDIT_STATUS[client.creditStatus]],
+              ['ERP customer number', <span className="mono">{client.erpId ?? '—'}</span>],
+              ['Account manager', client.accountManagerName ?? 'Not assigned'],
+            ]}
+          />
+          <InfoCard
+            title="Contacts"
+            items={
+              contacts.length === 0
+                ? [['Contacts', 'No contacts yet']]
+                : [...contacts]
+                    .sort((x, y) => (x.id === primary?.id ? -1 : y.id === primary?.id ? 1 : 0))
+                    .slice(0, 6)
+                    .map((k): [string, ReactNode] => [
+                      k.id === primary?.id ? 'Primary contact' : k.roleTitle || 'Contact',
+                      <>{contactName(k)}{k.email && <div className="muted small">{k.email}</div>}</>,
+                    ])
+            }
+          />
+        </div>
       )}
       {tab === 'contacts' && (
         <div className="card-panel">
@@ -407,7 +466,12 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
           )}
         </div>
       )}
-      {tab === 'invoices' && <ClientInvoicesPanel clientId={id} />}
+      {tab === 'invoices' && (
+        <>
+          <RunRateKpis contractValue={Number(client.contractValue) || 0} invoices={invoices.data ?? []} />
+          <ClientInvoicesPanel clientId={id} />
+        </>
+      )}
       {tab === 'stores' && (
         <div className="card-panel">
           <div className="panel-head">

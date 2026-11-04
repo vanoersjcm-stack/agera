@@ -69,11 +69,12 @@ export function PrognosisView({ route }: { route: Route }) {
         </label>
       }
     >
-      <div className="tiles">
-        <div className="tile"><strong>{money(prognosis)}</strong><span>{adjusted ? 'Prognosis (what-if)' : 'Live prognosis'}</span></div>
-        <div className="tile"><strong>{money(actuals)}</strong><span>Invoiced and paid</span></div>
-        <div className="tile"><strong>{prognosis > 0 ? `${Math.round((actuals / prognosis) * 100)}%` : '—'}</strong><span>Of prognosis invoiced</span></div>
-        <div className="tile"><strong>{money(data.openPipeline)}</strong><span>Open deal pipeline</span></div>
+      <div className="wf-columns">
+        <a className="wf-card" href="#/nexus/financial-plans"><small>Baseline target</small><strong>{money(baseline)}</strong><span>Approved financial plans</span></a>
+        <a className="wf-card up" href="#/nexus/agreements?status=active"><small>(+) Signed expansion</small><strong>{money(expansion)}</strong><span>{pipelinePct > 0 ? `+ ${money(pipeline)} pipeline won` : `Open deal pipeline ${money(data.openPipeline)}`}</span></a>
+        <a className="wf-card down" href="#/nexus/agreements?status=active"><small>(−) Known churn</small><strong>{money(churn)}</strong><span>Agreements ending within 90 days</span></a>
+        <div className="wf-card live"><small>{adjusted ? 'Prognosis (what-if)' : 'Live prognosis run-rate'}</small><strong>{money(prognosis)}</strong><span>Baseline + expansion − churn</span></div>
+        <a className="wf-card" href="#/symphony/invoices?status=paid"><small>Invoiced actuals</small><strong>{money(actuals)}</strong><span>{prognosis > 0 ? `${Math.round((actuals / prognosis) * 100)}% of prognosis` : 'Paid invoices'}</span></a>
       </div>
       <div className="card-panel">
         <h2>Waterfall</h2>
@@ -95,7 +96,7 @@ export function PrognosisView({ route }: { route: Route }) {
       <div className="card-panel">
         <h2>What-if</h2>
         <p className="muted">Adjust the assumptions; the waterfall recalculates instantly. Nothing is saved.</p>
-        <div className="what-if-grid">
+        <div className="what-if-box what-if-grid">
           <Slider label="Signed expansion realised" hint="Share of the annual value of active agreements that is realised" value={expansionPct} max={150} onChange={setExpansionPct} />
           <Slider label="Churn exposure" hint="How much of the known churn risk materialises" value={churnPct} max={200} onChange={setChurnPct} />
           <Slider label="Open pipeline won" hint="Share of open deals expected to close" value={pipelinePct} max={100} onChange={setPipelinePct} />
