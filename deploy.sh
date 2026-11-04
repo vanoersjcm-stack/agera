@@ -209,7 +209,17 @@ kc add-roles -r agera --uusername service-account-agera-backend --cclientid real
   --rolename manage-users --rolename view-users --rolename query-users
 KCADM
   info "Adding the edition claim (tenant_license_tier) to Keycloak tokens"
-  compose exec -T keycloak bash -s < docker/keycloak/license-tier-claim.sh || info "warning: could not add the edition claim; the backend falls back to the database"
+  local claim_out
+  if claim_out=$(compose exec -T keycloak bash -s < docker/keycloak/license-tier-claim.sh); then
+    echo "$claim_out"
+    # Keycloak drops unmanaged user attributes until the profile allows them, so re-run the backend's start-up sync once it does.
+    if grep -qE 'added|now kept' <<<"$claim_out"; then
+      info "Restarting the backend so it copies each organisation's edition into Keycloak"
+      compose restart backend >/dev/null
+    fi
+  else
+    info "warning: could not add the edition claim; the backend falls back to the database"
+  fi
   compose logs --no-color --since "$started" migrate | sed -n 's/^.*migrate: /    migrate: /p'
   local url=${ENV[PUBLIC_URL]}
   info "Agera Symphony is running"
