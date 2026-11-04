@@ -176,6 +176,7 @@ export interface VisitReport {
   summary: string | null;
   auditData: Record<string, unknown>;
   updatedAt: string;
+  replenishmentRoomId?: string | null;
 }
 
 export interface VisitMedia {
@@ -405,6 +406,18 @@ export interface InvoiceInput {
   status?: 'draft' | 'issued';
 }
 
+export interface CreditHold {
+  id: string;
+  clientId: string | null;
+  clientName: string | null;
+  reason: string;
+  setByName: string | null;
+  createdAt: string;
+  releasedAt: string | null;
+  releasedByName: string | null;
+  active: boolean;
+}
+
 export interface Waterfall {
   fiscalYear: number;
   currency: string;
@@ -580,6 +593,9 @@ export const api = {
   clientInvoices: (clientId: string) => request<Invoice[]>('GET', `/v1/clients/${clientId}/invoices`),
   createInvoice: (body: InvoiceInput) => request<Invoice>('POST', '/v1/invoices', body),
   setInvoiceStatus: (id: string, status: InvoiceStatus) => request<Invoice>('PATCH', `/v1/invoices/${id}/status`, { status }),
+  creditHolds: (includeReleased = false) => request<CreditHold[]>('GET', `/v1/governance/credit-holds${includeReleased ? '?includeReleased=true' : ''}`),
+  createCreditHold: (body: { clientId: string | null; reason: string }) => request<CreditHold>('POST', '/v1/governance/credit-holds', body),
+  releaseCreditHold: (id: string) => request<CreditHold>('DELETE', `/v1/governance/credit-holds/${id}`),
   waterfall: (fiscalYear: number) => request<Waterfall>('GET', `/v1/financials/waterfall?fiscalYear=${fiscalYear}`),
   rooms: () => request<ClientRoom[]>('GET', '/v1/dsrs'),
   room: (id: string) => request<ClientRoom>('GET', `/v1/dsrs/${id}`),

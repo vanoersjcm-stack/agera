@@ -30,8 +30,11 @@ export class VisitReportDto {
   @ApiProperty({ type: String, nullable: true })
   summary!: string | null;
 
-  @ApiProperty({ type: 'object', additionalProperties: true })
+  @ApiProperty({ type: 'object', additionalProperties: true, description: 'Free-form audit data; outOfStockItems (string[]) opens a replenishment client room when the store has a client' })
   auditData!: Record<string, unknown>;
+
+  @ApiPropertyOptional({ type: String, nullable: true, format: 'uuid', description: 'Replenishment client room opened or updated from outOfStockItems' })
+  replenishmentRoomId?: string | null;
 
   @ApiProperty({ type: String, format: 'date-time' })
   createdAt!: Date;

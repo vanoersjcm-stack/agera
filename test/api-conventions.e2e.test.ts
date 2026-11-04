@@ -125,6 +125,8 @@ describe('OpenAPI document', () => {
       '/v1/financials/pnl': ['get'],
       '/v1/financials/waterfall': ['get'],
       '/v1/invoices': ['get', 'post'],
+      '/v1/governance/credit-holds': ['get', 'post'],
+      '/v1/governance/credit-holds/{id}': ['delete'],
       '/v1/invoices/{id}': ['get', 'patch'],
       '/v1/invoices/{id}/status': ['patch'],
       '/v1/clients/{id}/invoices': ['get'],

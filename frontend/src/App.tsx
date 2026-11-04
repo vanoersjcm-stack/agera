@@ -21,6 +21,7 @@ import { DealDossier, DealsView, PipelineBoard } from './vanguard/Pipeline';
 import { navigate, type Route, useRoute } from './router';
 import { type NewDefaults, type NewKind, ShellContext } from './shell';
 import { LEGACY_ROUTES, lastSuite, type NavItem, navFor, PORTAL_NAV, rememberSuite, SUITES, type Suite, type SuiteId } from './suites';
+import { CREDIT_HOLDS_CHANGED, CreditControlView } from './symphony/CreditControl';
 import { InvoicesView } from './symphony/Invoices';
 import { PeopleView } from './symphony/People';
 import { PrognosisView } from './symphony/Prognosis';
@@ -42,6 +43,8 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
   switch (key) {
     case 'symphony/':
       return <SymphonyOverview />;
+    case 'symphony/credit-control':
+      return <CreditControlView route={route} user={user} />;
     case 'symphony/prognosis':
       return <PrognosisView route={route} />;
     case 'symphony/invoices':
@@ -351,6 +354,32 @@ function redirectFor(route: Route, external: boolean): string | null {
   return null;
 }
 
+/** Red pill in the action bar while any credit lock is active; admins get a one-click way to set one. */
+function CreditPill({ user }: { user: UserContext }) {
+  const [count, setCount] = useState<number | null>(null);
+  useEffect(() => {
+    const load = () => void api.creditHolds().then((h) => setCount(h.length), () => setCount(null));
+    load();
+    window.addEventListener(CREDIT_HOLDS_CHANGED, load);
+    window.addEventListener('hashchange', load);
+    return () => (window.removeEventListener(CREDIT_HOLDS_CHANGED, load), window.removeEventListener('hashchange', load));
+  }, []);
+  if (count === null) return null;
+  if (count > 0) {
+    return (
+      <a className="credit-pill locked" href="#/symphony/credit-control" title="Agreements cannot be activated for locked clients">
+        <span className="pulse" aria-hidden /> Credit lock active{count > 1 ? ` (${count})` : ''}
+      </a>
+    );
+  }
+  if (!(user.role === 'admin' || user.isPlatformAdmin)) return null;
+  return (
+    <a className="credit-pill" href="#/symphony/credit-control?lock=" title="Emergency credit lock">
+      Credit lock
+    </a>
+  );
+}
+
 function OrgBadge({ user, tenant }: { user: UserContext; tenant: Tenant | null }) {
   const [tenants, setTenants] = useState<Tenant[] | null>(null);
   useEffect(() => {
@@ -447,6 +476,7 @@ export function App() {
             <span id="actionbar-crumbs" className="crumbs-slot" data-fallback={external ? 'Client portal' : suite.name} />
           </div>
           <div className="actionbar-actions">
+            {!external && <CreditPill user={user} />}
             <OrgBadge user={user} tenant={tenant} />
             {!external && !tenant?.readOnly && <NewMenu suite={suite.id} user={user} onPick={(kind) => openNew(kind)} />}
           </div>

@@ -6,6 +6,7 @@ import { AuditService } from '../core/audit/audit.service.js';
 import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantRepository } from '../core/tenancy/tenant-repository.js';
 import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
+import { activeHoldFor } from '../governance/credit-holds.service.js';
 import { UserService } from '../user/user.service.js';
 import type { AnomalyType } from './dto/sales-rooms.dto.js';
 import { Agreement, type AgreementStatus } from './entities/agreement.entity.js';
@@ -132,6 +133,14 @@ export class SalesRoomsService {
       }
       if (!AGREEMENT_TRANSITIONS[current.status].includes(status)) {
         throw new ConflictException(`Cannot change agreement status from ${current.status} to ${status}`);
+      }
+      if (status === 'active') {
+        const hold = await activeHoldFor(manager, this.context.tenantId, current.clientId);
+        if (hold) {
+          throw new ConflictException(
+            hold.client_id ? 'Credit lock active for this client: agreements cannot be activated until it is released' : 'Organisation-wide credit lock active: agreements cannot be activated until it is released',
+          );
+        }
       }
       const before = current.status;
       current.status = status;

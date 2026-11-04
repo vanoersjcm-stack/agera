@@ -381,3 +381,12 @@ button.secondary, .button-link, select, input, textarea, .chip { border-color: #
 .row-actions { white-space: nowrap; display: flex; gap: 0.6rem; }
 strong.bad { color: #b91c1c; }
 @media (max-width: 700px) { .wf-row { grid-template-columns: 1fr; gap: 0.25rem; } .wf-value { text-align: left; } }
+
+/* Credit lock pill */
+.credit-pill { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; font-weight: 700; padding: 0.25rem 0.7rem; border-radius: 999px; border: 1px solid #fecaca; color: #b91c1c; background: #fff; text-decoration: none; }
+.credit-pill:hover { background: #fef2f2; }
+.credit-pill.locked { background: #dc2626; color: #fff; border-color: #b91c1c; }
+.credit-pill .pulse { width: 8px; height: 8px; border-radius: 50%; background: #fff; animation: pulse 1.4s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+button.danger-fill { background: #dc2626; border-color: #b91c1c; }
+button.danger-fill:hover { background: #b91c1c; }

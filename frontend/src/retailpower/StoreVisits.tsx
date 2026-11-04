@@ -121,6 +121,7 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
   const [text, setText] = useState(report?.summary ?? '');
   const [checklist, setChecklist] = useState<Record<string, boolean>>(savedChecklist);
   const [compliance, setCompliance] = useState(typeof audit.complianceStatus === 'string' ? audit.complianceStatus : '');
+  const [outOfStock, setOutOfStock] = useState(Array.isArray(audit.outOfStockItems) ? (audit.outOfStockItems as string[]).join('\n') : '');
   const save = useAction();
   const photos = useAction();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -128,8 +129,17 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
 
   const saveReport = () =>
     void save
-      .run(() => api.saveVisitReport(visitId, { summary: text.trim(), auditData: { ...audit, checklist, complianceStatus: compliance } }))
-      .then((r) => r && (notify('Visit report saved'), onSaved()));
+      .run(() => {
+        const items = outOfStock.split(/[\n,]/).map((i) => i.trim()).filter(Boolean);
+        return api.saveVisitReport(visitId, { summary: text.trim(), auditData: { ...audit, checklist, complianceStatus: compliance, outOfStockItems: items } });
+      })
+      .then((r) => {
+        if (!r) return;
+        setReplenishment(r.replenishmentRoomId ?? null);
+        notify(r.replenishmentRoomId ? 'Visit report saved · replenishment client room updated for the client' : 'Visit report saved');
+        onSaved();
+      });
+  const [replenishment, setReplenishment] = useState<string | null>(null);
 
   const upload = (files: FileList | null) => {
     if (!files?.length) return;
@@ -179,6 +189,16 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
           )}
           <span className="field-hint">“Not compliant” or “Needs follow-up” raises a store alert in Nexus › Alerts.</span>
         </div>
+        <label className="field">
+          <span className="field-label">Out-of-stock products</span>
+          <textarea rows={3} value={outOfStock} onChange={(e) => setOutOfStock(e.target.value)} placeholder={'One product per line, e.g.\nCola Zero 1.5L'} />
+          <span className="field-hint">If this store belongs to a client, saving opens a “Replenishment” client room where the client confirms each product.</span>
+        </label>
+        {replenishment && (
+          <p className="callout">
+            Replenishment client room ready: <a href={`#/nexus/client-rooms/${replenishment}?tab=plan`}>open the action plan</a>
+          </p>
+        )}
         {editable && (
           <div className="form-actions start">
             <button className="primary" onClick={saveReport} disabled={!compliance}>{save.busy ? 'Saving…' : report ? 'Update report' : 'Save report'}</button>

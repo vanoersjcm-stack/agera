@@ -8,6 +8,7 @@ import { AuditService } from '../core/audit/audit.service.js';
 import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantRepository } from '../core/tenancy/tenant-repository.js';
 import { StorageService } from '../core/storage/storage.service.js';
+import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
 import { UserService } from '../user/user.service.js';
 import { MerchandisingVisit } from './entities/merchandising-visit.entity.js';
 import { VisitMedia } from './entities/visit-media.entity.js';
@@ -47,6 +48,7 @@ export class VisitRecordsService {
     private readonly storage: StorageService,
     private readonly userService: UserService,
     private readonly audit: AuditService,
+    private readonly tx: TenantTransaction,
   ) {
     this.visits = new TenantRepository(visits, context);
     this.reports = new TenantRepository(reports, context);
@@ -57,7 +59,7 @@ export class VisitRecordsService {
     visitId: string,
     input: SaveReportInput,
     identity: AuthenticatedUser,
-  ): Promise<{ report: VisitReport; created: boolean }> {
+  ): Promise<{ report: VisitReport; created: boolean; replenishmentRoomId: string | null }> {
     const actor = await this.userService.resolveActor(identity);
 
     const result = await this.dataSource.transaction(async (manager) => {
@@ -81,7 +83,55 @@ export class VisitRecordsService {
       reportId: result.report.id,
       created: result.created,
     });
-    return result;
+    const items = Array.isArray(input.auditData.outOfStockItems) ? (input.auditData.outOfStockItems as string[]) : [];
+    const replenishmentRoomId = await this.replenish(visitId, items, actor.id);
+    return { ...result, replenishmentRoomId };
+  }
+
+  /**
+   * Golden Thread: out-of-stock items on a visit to a store that belongs to a client open (or update) a
+   * "Replenishment" client room for that client, with one client-side action-plan step per product.
+   */
+  private async replenish(visitId: string, items: string[], actorId: string): Promise<string | null> {
+    if (items.length === 0 || this.context.tenant.access.scope !== 'internal') return null;
+    const tenantId = this.context.tenantId;
+    const outcome = await this.tx.run(async (manager) => {
+      const [visit] = await manager.query(
+        `SELECT s.name AS "storeName", s.client_id AS "clientId", v.visit_date AS "visitDate"
+           FROM merchandising_visits v JOIN stores s ON s.tenant_id = v.tenant_id AND s.id = v.store_id
+          WHERE v.tenant_id = $1 AND v.id = $2`,
+        [tenantId, visitId],
+      );
+      if (!visit?.clientId) return null;
+      const [existing] = await manager.query('SELECT id FROM digital_sales_rooms WHERE tenant_id = $1 AND source_visit_id = $2', [tenantId, visitId]);
+      let roomId: string = existing?.id;
+      const created = !roomId;
+      if (created) {
+        const day = new Date(visit.visitDate).toISOString().slice(0, 10);
+        const [room] = await manager.query(
+          `INSERT INTO digital_sales_rooms (tenant_id, client_id, room_name, source_visit_id) VALUES ($1, $2, $3, $4) RETURNING id`,
+          [tenantId, visit.clientId, `Replenishment: ${visit.storeName} - ${day}`.slice(0, 150), visitId],
+        );
+        roomId = room.id;
+      }
+      for (const item of items) {
+        await manager.query(
+          `INSERT INTO client_room_milestones (tenant_id, client_room_id, title, owner_side)
+           SELECT $1::uuid, $2::uuid, $3::varchar, 'client'
+            WHERE NOT EXISTS (SELECT 1 FROM client_room_milestones WHERE tenant_id = $1::uuid AND client_room_id = $2::uuid AND title = $3::varchar)`,
+          [tenantId, roomId, `Confirm replenishment order: ${item}`.slice(0, 200)],
+        );
+      }
+      return { roomId, created, clientId: visit.clientId as string };
+    });
+    if (!outcome) return null;
+    this.audit.logAction(tenantId, actorId, outcome.created ? 'visit.replenishment_room_opened' : 'visit.replenishment_room_updated', {
+      visitId,
+      roomId: outcome.roomId,
+      clientId: outcome.clientId,
+      items,
+    });
+    return outcome.roomId;
   }
 
   async addMedia(

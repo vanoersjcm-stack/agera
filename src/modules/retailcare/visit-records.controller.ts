@@ -90,9 +90,17 @@ function parseSaveReport(body: unknown): SaveReportInput {
   if (auditData !== undefined && (auditData === null || typeof auditData !== 'object' || Array.isArray(auditData))) {
     throw new BadRequestException('auditData must be a JSON object');
   }
+  const data = { ...((auditData as Record<string, unknown> | undefined) ?? {}) };
+  if (data.outOfStockItems !== undefined) {
+    const raw = data.outOfStockItems;
+    if (!Array.isArray(raw) || raw.length > 50 || raw.some((i) => typeof i !== 'string' || i.trim() === '' || i.length > 150)) {
+      throw new BadRequestException('auditData.outOfStockItems must be a list of up to 50 product names (max 150 characters each)');
+    }
+    data.outOfStockItems = [...new Set(raw.map((i: string) => i.trim()))];
+  }
   return {
     summary: optionalString('summary', summary, MAX_SUMMARY_LENGTH),
-    auditData: (auditData as Record<string, unknown> | undefined) ?? {},
+    auditData: data,
   };
 }
 
@@ -126,9 +134,9 @@ export class VisitRecordsController {
     @CurrentUser() identity: AuthenticatedUser,
     @Res({ passthrough: true }) response: { status(code: number): unknown },
   ): Promise<VisitReportDto> {
-    const { report, created } = await this.records.saveReport(visitId, parseSaveReport(body), identity);
+    const { report, created, replenishmentRoomId } = await this.records.saveReport(visitId, parseSaveReport(body), identity);
     response.status(created ? 201 : 200);
-    return toReportResponse(report);
+    return replenishmentRoomId ? { ...toReportResponse(report), replenishmentRoomId } : toReportResponse(report);
   }
 
   @Post('media')
