@@ -11,5 +11,6 @@ import { FinancialsService } from './financials.service.js';
   imports: [TypeOrmModule.forFeature([FinancialModel, FinancialLineItem]), CoreModule, UserModule],
   controllers: [FinancialsController],
   providers: [FinancialsService],
+  exports: [FinancialsService],
 })
 export class FinancialsModule {}

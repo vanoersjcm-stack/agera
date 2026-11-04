@@ -11,5 +11,6 @@ import { SalesRoomsService } from './sales-rooms.service.js';
   imports: [TypeOrmModule.forFeature([Agreement, DigitalSalesRoom]), CoreModule, UserModule],
   controllers: [AgreementsController, SalesRoomsController, AnomaliesController],
   providers: [SalesRoomsService],
+  exports: [SalesRoomsService],
 })
 export class SalesRoomsModule {}
