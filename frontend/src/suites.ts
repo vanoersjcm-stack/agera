@@ -1,6 +1,6 @@
 import type { UserContext } from './context';
 
-export type SuiteId = 'symphony' | 'nexus' | 'retailpower';
+export type SuiteId = 'symphony' | 'vanguard' | 'nexus' | 'retailpower';
 
 export interface Suite {
   id: SuiteId;
@@ -11,6 +11,7 @@ export interface Suite {
 
 export const SUITES: Suite[] = [
   { id: 'symphony', name: 'Symphony', tagline: 'HQ & Governance', home: '/symphony' },
+  { id: 'vanguard', name: 'Vanguard', tagline: 'Pipeline & Operations', home: '/vanguard' },
   { id: 'nexus', name: 'Nexus', tagline: 'Commercial & Client Portal', home: '/nexus' },
   { id: 'retailpower', name: 'RetailPower', tagline: 'Field & Shelf Execution', home: '/retailpower' },
 ];
@@ -37,6 +38,11 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
               { path: '/symphony/integrations', label: 'Integrations', description: 'Integration keys for external portals' },
             ]
           : []),
+      ];
+    case 'vanguard':
+      return [
+        { path: '/vanguard', label: 'Pipeline', description: 'Deals per stage; move them forward with one click' },
+        { path: '/vanguard/deals', label: 'All deals', description: 'Deal list with filters, owners and due dates' },
       ];
     case 'nexus':
       return [

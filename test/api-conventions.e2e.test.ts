@@ -144,6 +144,11 @@ describe('OpenAPI document', () => {
       '/v1/clients/{id}/contacts/{contactId}': ['patch'],
       '/v1/dsrs/{id}': ['get'],
       '/v1/dsrs/{id}/status': ['patch'],
+      '/v1/deals': ['get', 'post'],
+      '/v1/deals/{id}': ['delete', 'get', 'patch'],
+      '/v1/deals/{id}/stage': ['patch'],
+      '/v1/nexus/client-rooms/{roomId}/milestones': ['get', 'post'],
+      '/v1/nexus/client-rooms/{roomId}/milestones/{id}': ['delete', 'patch'],
     };
     assert.match(document.openapi, /^3\./);
     assert.deepEqual(Object.keys(document.paths).sort(), Object.keys(expected).sort());

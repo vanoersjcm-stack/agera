@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 
 export type NewKind =
   | 'work_order'
+  | 'deal'
   | 'store_visit'
   | 'store'
   | 'agreement'

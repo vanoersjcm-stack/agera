@@ -39,7 +39,8 @@ export async function api<T>(token: string | null, method: string, path: string,
     headers,
     body: body === undefined ? undefined : JSON.stringify(body),
   });
-  return { status: response.status, body: (await response.json()) as T };
+  const text = await response.text();
+  return { status: response.status, body: (text ? JSON.parse(text) : null) as T };
 }
 
 export async function waitFor<T>(probe: () => Promise<T | undefined>, timeoutMs = 3000): Promise<T> {

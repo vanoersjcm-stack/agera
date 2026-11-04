@@ -1,4 +1,5 @@
-import { api, type EngagementStatus, type RoomEngagement, type RoomStatus } from '../api';
+import { type FormEvent, useState } from 'react';
+import { api, type EngagementStatus, type Milestone, type MilestoneOwnerSide, type RoomEngagement, type RoomStatus } from '../api';
 import { clientName, useClients } from '../directory';
 import { ACTIVITY_TYPE, AGREEMENT_STATUS, ENGAGEMENT_STATUS, formatDate, formatDateTime, ROOM_STATUS } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
@@ -124,6 +125,74 @@ export function ClientRoomsView({ route, external }: { route: Route; external: b
   );
 }
 
+/** Mutual action plan: steps for the Agera team and the client; client contacts tick off their own steps. */
+function ActionPlanPanel({ roomId, external, active }: { roomId: string; external: boolean; active: boolean }) {
+  const { notify } = useShell();
+  const { data, error, reload } = useLoad(() => api.milestones(roomId), [roomId]);
+  const [form, setForm] = useState({ title: '', ownerSide: 'internal' as MilestoneOwnerSide, dueDate: '' });
+  const action = useAction();
+  const steps = data ?? [];
+  const done = steps.filter((m) => m.completed).length;
+  const canTick = (m: Milestone) => active && (!external || m.ownerSide === 'client');
+  const toggle = (m: Milestone) =>
+    void action.run(() => api.updateMilestone(roomId, m.id, { completed: !m.completed })).then((r) => r && (notify(r.completed ? 'Step completed' : 'Step reopened'), reload()));
+  const add = (e: FormEvent) => {
+    e.preventDefault();
+    void action
+      .run(() => api.addMilestone(roomId, { title: form.title.trim(), ownerSide: form.ownerSide, dueDate: form.dueDate || null }))
+      .then((r) => r && (setForm({ title: '', ownerSide: form.ownerSide, dueDate: '' }), notify('Step added'), reload()));
+  };
+  const remove = (m: Milestone) => {
+    if (!window.confirm(`Remove the step “${m.title}”?`)) return;
+    void action.run(() => api.deleteMilestone(roomId, m.id)).then((r) => r !== undefined && reload());
+  };
+  return (
+    <div className="card-panel">
+      <h2>Action plan</h2>
+      <p className="muted">
+        {external ? 'The steps agreed with Agera. Tick off the steps marked “Your team” when they are done.' : 'Steps agreed with the client. The client sees this plan in their portal and ticks off their own steps.'}
+      </p>
+      {!data && <Loading error={error} />}
+      {data && steps.length === 0 && <p className="muted">No steps yet.</p>}
+      {steps.length > 0 && (
+        <>
+          <div className="plan-progress" role="progressbar" aria-valuenow={done} aria-valuemax={steps.length} aria-label={`${done} of ${steps.length} steps done`}>
+            <div style={{ width: `${(done / steps.length) * 100}%` }} />
+          </div>
+          <ul className="plan-list">
+            {steps.map((m) => (
+              <li key={m.id} className={`plan-item${m.completed ? ' done' : ''}`}>
+                <input type="checkbox" checked={m.completed} disabled={!canTick(m) || action.busy} onChange={() => toggle(m)} aria-label={`Done: ${m.title}`} />
+                <span className="plan-title">
+                  {m.title}
+                  <div className="muted small">
+                    {m.dueDate ? `Due ${formatDate(m.dueDate)}` : 'No due date'}
+                    {m.completed && m.completedAt ? ` · done ${formatDateTime(m.completedAt)}${m.completedByName ? ` by ${m.completedByName}` : ''}` : ''}
+                  </div>
+                </span>
+                <span className={`plan-side ${m.ownerSide}`}>{m.ownerSide === 'client' ? (external ? 'Your team' : 'Client') : 'Agera team'}</span>
+                {!external && <button className="link-button danger" disabled={action.busy} onClick={() => remove(m)}>Remove</button>}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+      <ErrorText error={action.error} />
+      {!external && active && (
+        <form className="inline-form" onSubmit={add}>
+          <input required maxLength={200} placeholder="New step, e.g. Legal review of the agreement" aria-label="New step" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <select aria-label="Who does this step" value={form.ownerSide} onChange={(e) => setForm({ ...form, ownerSide: e.target.value as MilestoneOwnerSide })}>
+            <option value="internal">Agera team</option>
+            <option value="client">Client</option>
+          </select>
+          <input type="date" aria-label="Due date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+          <button className="primary" disabled={action.busy}>Add step</button>
+        </form>
+      )}
+    </div>
+  );
+}
+
 export function ClientRoomDossier({ id, route, external }: { id: string; route: Route; external: boolean }) {
   const { notify } = useShell();
   const clients = useClients(!external);
@@ -166,6 +235,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
       <Tabs
         tabs={[
           { id: 'details', label: 'Details' },
+          { id: 'plan', label: 'Action plan' },
           { id: 'engagement', label: `Engagement${stats ? ` (${stats.stakeholderCount})` : ''}` },
           { id: 'activity', label: 'Comments & activity' },
         ]}
@@ -191,6 +261,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
           ]}
         />
       )}
+      {tab === 'plan' && <ActionPlanPanel roomId={id} external={external} active={r.status === 'active'} />}
       {tab === 'activity' && <RoomActivityPanel roomId={id} canComment={r.status === 'active'} />}
       {tab === 'engagement' && (
         <>

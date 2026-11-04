@@ -17,6 +17,7 @@ import { RetailOverview } from './retailpower/RetailOverview';
 import { StoreDossier, StoresView } from './retailpower/Stores';
 import { StoreVisitsView, VisitDossier } from './retailpower/StoreVisits';
 import { WorkOrderDossier, WorkOrdersView } from './retailpower/WorkOrders';
+import { DealDossier, DealsView, PipelineBoard } from './vanguard/Pipeline';
 import { navigate, type Route, useRoute } from './router';
 import { type NewDefaults, type NewKind, ShellContext } from './shell';
 import { LEGACY_ROUTES, lastSuite, type NavItem, navFor, PORTAL_NAV, rememberSuite, SUITES, type Suite, type SuiteId } from './suites';
@@ -49,6 +50,10 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return user.isPlatformAdmin ? <OrganisationsView route={route} /> : <NotAvailable path={route.path} />;
     case 'symphony/integrations':
       return user.isPlatformAdmin ? <IntegrationsView route={route} /> : <NotAvailable path={route.path} />;
+    case 'vanguard/':
+      return <PipelineBoard />;
+    case 'vanguard/deals':
+      return id ? <DealDossier id={id} /> : <DealsView route={route} />;
     case 'nexus/':
       return <NexusOverview />;
     case 'nexus/clients':
@@ -248,7 +253,7 @@ function NewMenu({ suite, user, onPick }: { suite: SuiteId; user: UserContext; o
   const { open, setOpen, ref } = useDropdown();
   const items = NEW_ITEMS.filter((i) => !i.platformAdminOnly || user.isPlatformAdmin);
   const current = SUITES.find((s) => s.id === suite)!.name;
-  const groups = [current, ...['Nexus', 'RetailPower', 'Symphony'].filter((g) => g !== current)];
+  const groups = [current, ...['Vanguard', 'Nexus', 'RetailPower', 'Symphony'].filter((g) => g !== current)];
   return (
     <div className="dropdown" ref={ref}>
       <button className="new-button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>

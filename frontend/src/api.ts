@@ -374,6 +374,57 @@ export interface Agreement {
 
 export type RoomStatus = 'active' | 'archived';
 
+export type DealStage = 'lead_ingest' | 'proposal_sent' | 'contract_negotiation' | 'ops_handoff';
+export type DealPriority = 'low' | 'medium' | 'high';
+
+export interface Deal {
+  id: string;
+  clientId: string;
+  clientName: string;
+  title: string;
+  value: string;
+  stage: DealStage;
+  ownerId: string | null;
+  ownerName: string | null;
+  priority: DealPriority;
+  clientRoomId: string | null;
+  clientRoomName: string | null;
+  dueDate: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DealRecord extends Deal {
+  history: { id: string; fromStage: DealStage | null; toStage: DealStage; changedByName: string | null; changedAt: string }[];
+}
+
+export interface DealInput {
+  clientId: string;
+  title: string;
+  value?: string;
+  stage?: DealStage;
+  ownerId?: string | null;
+  priority?: DealPriority;
+  clientRoomId?: string | null;
+  dueDate?: string | null;
+  notes?: string | null;
+}
+
+export type MilestoneOwnerSide = 'internal' | 'client';
+
+export interface Milestone {
+  id: string;
+  clientRoomId: string;
+  title: string;
+  ownerSide: MilestoneOwnerSide;
+  dueDate: string | null;
+  completed: boolean;
+  completedAt: string | null;
+  completedByName: string | null;
+  createdAt: string;
+}
+
 export interface ClientRoom {
   id: string;
   clientId: string;
@@ -463,6 +514,21 @@ export const api = {
   recordActivity: (body: { dsrId: string; stakeholderEmail: string; activityType: string; details?: Record<string, unknown> }) =>
     request<RoomActivity>('POST', '/v1/nexus/dsr-activities', body),
   alerts: () => request<Alerts>('GET', '/v1/nexus/anomalies'),
+  deals: (params: { stage?: DealStage; clientId?: string } = {}) => {
+    const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString();
+    return request<Deal[]>('GET', `/v1/deals${q ? `?${q}` : ''}`);
+  },
+  deal: (id: string) => request<DealRecord>('GET', `/v1/deals/${id}`),
+  createDeal: (body: DealInput) => request<DealRecord>('POST', '/v1/deals', body),
+  updateDeal: (id: string, body: Partial<Omit<DealInput, 'stage'>>) => request<DealRecord>('PATCH', `/v1/deals/${id}`, body),
+  setDealStage: (id: string, stage: DealStage) => request<DealRecord>('PATCH', `/v1/deals/${id}/stage`, { stage }),
+  deleteDeal: (id: string) => request<void>('DELETE', `/v1/deals/${id}`).then(() => true),
+  milestones: (roomId: string) => request<Milestone[]>('GET', `/v1/nexus/client-rooms/${roomId}/milestones`),
+  addMilestone: (roomId: string, body: { title: string; ownerSide: MilestoneOwnerSide; dueDate: string | null }) =>
+    request<Milestone>('POST', `/v1/nexus/client-rooms/${roomId}/milestones`, body),
+  updateMilestone: (roomId: string, id: string, body: Partial<{ title: string; ownerSide: MilestoneOwnerSide; dueDate: string | null; completed: boolean }>) =>
+    request<Milestone>('PATCH', `/v1/nexus/client-rooms/${roomId}/milestones/${id}`, body),
+  deleteMilestone: (roomId: string, id: string) => request<void>('DELETE', `/v1/nexus/client-rooms/${roomId}/milestones/${id}`).then(() => true),
   rooms: () => request<ClientRoom[]>('GET', '/v1/dsrs'),
   room: (id: string) => request<ClientRoom>('GET', `/v1/dsrs/${id}`),
   createRoom: (body: { clientId: string; roomName: string; agreementId?: string | null }) => request<ClientRoom>('POST', '/v1/dsrs', body),

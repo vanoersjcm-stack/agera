@@ -326,3 +326,39 @@ button.secondary, .button-link, select, input, textarea, .chip { border-color: #
   .actionbar { top: 0; position: static; flex-wrap: wrap; padding: 0.5rem 1rem; }
 }
 .search-trigger, .search-label { white-space: nowrap; }
+
+.suite-vanguard { --accent: #2563eb; --accent-light: #60a5fa; }
+.dot-vanguard { background: #60a5fa; }
+.waffle-card.vanguard strong { color: #93c5fd; }
+.waffle-card.vanguard:hover, .waffle-card.vanguard.current { border-color: #3b82f6; background: rgba(23, 37, 84, 0.7); }
+
+/* Vanguard pipeline board */
+.board { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 1rem; overflow-x: auto; padding-bottom: 0.5rem; }
+.board-column { background: #e2e8f0; border-radius: 12px; padding: 0.75rem; min-height: 240px; display: flex; flex-direction: column; gap: 0.6rem; transition: background 0.15s; }
+.board-column.drop { background: #dbeafe; outline: 2px dashed var(--accent); }
+.board-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.8rem; color: #334155; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+.board-head span { font-weight: 500; color: #64748b; text-transform: none; letter-spacing: 0; }
+.deal-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.7rem; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05); cursor: grab; font-size: 0.85rem; display: flex; flex-direction: column; gap: 0.3rem; }
+.deal-card:hover { border-color: var(--accent); }
+.deal-card a { font-weight: 600; color: #0f172a; text-decoration: none; }
+.deal-card .deal-meta { color: #64748b; font-size: 0.75rem; }
+.deal-card .deal-foot { display: flex; justify-content: space-between; align-items: center; }
+.deal-card .deal-value { font-weight: 700; color: #0f172a; }
+.deal-moves { display: flex; gap: 0.25rem; }
+.deal-moves button { border: 1px solid #cbd5e1; background: #fff; border-radius: 6px; padding: 0 0.45rem; cursor: pointer; font: inherit; line-height: 1.6; }
+.deal-moves button:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.prio { font-size: 10px; text-transform: uppercase; font-weight: 700; padding: 0 0.35rem; border-radius: 4px; }
+.prio-high { background: #fee2e2; color: #b91c1c; }
+.prio-medium { background: #fef3c7; color: #92400e; }
+.prio-low { background: #f1f5f9; color: #475569; }
+
+/* Mutual action plan */
+.plan-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.4rem; }
+.plan-item { display: flex; align-items: center; gap: 0.75rem; background: #fff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.6rem 0.8rem; }
+.plan-item.done .plan-title { text-decoration: line-through; color: #64748b; }
+.plan-item input[type='checkbox'] { width: 1.1rem; height: 1.1rem; accent-color: var(--accent); }
+.plan-title { flex: 1; }
+.plan-side { font-size: 10px; text-transform: uppercase; font-weight: 700; padding: 0.05rem 0.4rem; border-radius: 4px; background: #eef2ff; color: #4338ca; }
+.plan-side.client { background: #ecfdf5; color: #047857; }
+.plan-progress { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; margin: 0.5rem 0 1rem; }
+.plan-progress div { height: 100%; background: var(--accent); }

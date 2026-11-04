@@ -8,11 +8,12 @@ import { Drawer, ErrorText, Field, FormActions, useAction } from './ui';
 export interface NewItem {
   kind: NewKind;
   label: string;
-  group: 'Nexus' | 'RetailPower' | 'Symphony';
+  group: 'Vanguard' | 'Nexus' | 'RetailPower' | 'Symphony';
   platformAdminOnly?: boolean;
 }
 
 export const NEW_ITEMS: NewItem[] = [
+  { kind: 'deal', label: 'Deal', group: 'Vanguard' },
   { kind: 'client', label: 'Client', group: 'Nexus' },
   { kind: 'contact', label: 'Contact', group: 'Nexus' },
   { kind: 'agreement', label: 'Agreement', group: 'Nexus' },
@@ -518,8 +519,64 @@ function IntegrationKeyForm({ onDone, onCancel }: FormProps) {
   );
 }
 
+function DealForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onSwitch: (kind: NewKind) => void }) {
+  const clients = useClients();
+  const users = useUsers();
+  const [form, setForm] = useState({ clientId: defaults?.clientId ?? '', title: '', value: '', priority: 'medium', ownerId: '', dueDate: '', notes: '' });
+  const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
+  const { busy, error, submit } = useSubmit(onDone);
+  if (activeClients(clients).length === 0) return <NoClients onCancel={onCancel} onNewClient={() => onSwitch('client')} />;
+  return (
+    <form
+      onSubmit={(e) =>
+        submit(e, async () => {
+          const d = await api.createDeal({
+            clientId: form.clientId,
+            title: form.title.trim(),
+            value: form.value || '0',
+            priority: form.priority as 'low' | 'medium' | 'high',
+            ownerId: form.ownerId || null,
+            dueDate: form.dueDate || null,
+            notes: form.notes.trim() || null,
+          });
+          return { route: `/vanguard/deals/${d.id}`, message: `Deal “${d.title}” added to the pipeline` };
+        })
+      }
+    >
+      <Field label="Client">
+        <select required value={form.clientId} onChange={set('clientId')} autoFocus>
+          <option value="">Choose a client…</option>
+          {activeClients(clients).map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
+        </select>
+      </Field>
+      <Field label="Deal name"><input required maxLength={200} value={form.title} onChange={set('title')} placeholder="e.g. Shelf replenishment Q3" /></Field>
+      <div className="field-row">
+        <Field label="Value (EUR)"><input type="number" min={0} step="0.01" value={form.value} onChange={set('value')} /></Field>
+        <Field label="Priority">
+          <select value={form.priority} onChange={set('priority')}>
+            <option value="low">Low</option>
+            <option value="medium">Medium</option>
+            <option value="high">High</option>
+          </select>
+        </Field>
+      </div>
+      <Field label="Owner">
+        <select value={form.ownerId} onChange={set('ownerId')}>
+          <option value="">Not assigned</option>
+          {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+      </Field>
+      <Field label="Expected close date"><input type="date" value={form.dueDate} onChange={set('dueDate')} /></Field>
+      <Field label="Notes"><textarea rows={3} value={form.notes} onChange={set('notes')} /></Field>
+      <ErrorText error={error} />
+      <FormActions busy={busy} submitLabel="Add deal" onCancel={onCancel} />
+    </form>
+  );
+}
+
 const TITLES: Record<NewKind, string> = {
   work_order: 'New work order',
+  deal: 'New deal',
   store_visit: 'New store visit',
   store: 'New store',
   agreement: 'New agreement',
@@ -552,6 +609,7 @@ export function NewDrawer({
   const props = { defaults, onDone, onCancel: onClose };
   return (
     <Drawer title={TITLES[kind]} onClose={onClose}>
+      {kind === 'deal' && <DealForm {...props} onSwitch={onSwitch} />}
       {kind === 'work_order' && <WorkOrderForm {...props} />}
       {kind === 'store_visit' && <StoreVisitForm {...props} />}
       {kind === 'store' && <StoreForm {...props} />}
