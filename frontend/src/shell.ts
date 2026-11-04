@@ -1,6 +1,8 @@
 import { createContext, useContext } from 'react';
 
 export type NewKind =
+  | 'price_list'
+  | 'document_template'
   | 'exception'
   | 'product'
   | 'planogram'

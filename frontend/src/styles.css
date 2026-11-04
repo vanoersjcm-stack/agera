@@ -507,3 +507,15 @@ body { -webkit-font-smoothing: antialiased; color: #1e293b; }
 .bell-menu button.unread { background: #eef2ff; }
 .bell-menu button span { font-size: 0.8rem; color: #475569; }
 .bell-menu button small { font-size: 0.7rem; color: #94a3b8; }
+.client-filter-note { display: flex; gap: 0.4rem; align-items: center; margin: 0 0 0.75rem; padding: 0.4rem 0.75rem; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 8px; font-size: 0.85rem; color: #065f46; }
+.client-pill.filtered > button { background: #ecfdf5; border-color: #34d399; color: #065f46; }
+.client-pill .menu button[role='menuitem'] { display: block; width: 100%; text-align: left; border: 0; background: none; padding: 0.4rem 0.6rem; font: inherit; cursor: pointer; border-radius: 6px; }
+.client-pill .menu button[role='menuitem']:hover, .client-pill .selected { background: #f1f5f9; }
+.client-pill-row { display: flex; align-items: center; gap: 0.25rem; padding-right: 0.5rem; }
+.placeholder-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.4rem; }
+.placeholder-chips .chip { font-family: ui-monospace, monospace; font-size: 0.72rem; padding: 0.15rem 0.45rem; border: 1px solid #c7d2fe; background: #eef2ff; color: #3730a3; border-radius: 999px; cursor: pointer; }
+.template-preview { white-space: pre-wrap; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.75rem; font-size: 0.82rem; max-height: 320px; overflow: auto; }
+.inline-label { display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.8rem; color: #64748b; }
+.inline-label input { width: 5.5rem; }
+.form-grid.two { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.panel-actions { display: inline-flex; gap: 0.5rem; }

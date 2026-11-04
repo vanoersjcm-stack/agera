@@ -123,6 +123,17 @@ export interface AuditRound {
 }
 export interface VisitContext { auditRound: { id: string; name: string; checklist: string[] } | null; planograms: Planogram[] }
 
+/* ---------- Commercial ---------- */
+
+export interface PriceListItem { id: string; productId: string; sku: string; productName: string; catalogPrice: string; unitPrice: string; minQuantity: number }
+export interface PriceList {
+  id: string; name: string; clientId: string | null; clientName: string | null; validFrom: string | null; validTo: string | null; active: boolean; itemCount: number;
+  createdAt: string; updatedAt: string; items?: PriceListItem[];
+}
+export type TemplateKind = 'proposal' | 'agreement' | 'letter' | 'mail';
+export interface DocumentTemplate { id: string; name: string; kind: TemplateKind; body: string; active: boolean; createdAt: string; updatedAt: string }
+export interface PriceListBody { name: string; clientId: string | null; validFrom: string | null; validTo: string | null; active?: boolean; items: { productId: string; unitPrice: string | number; minQuantity: number }[] }
+
 /* ---------- Workflow ---------- */
 
 export type ApprovalEntity = 'financial_plan' | 'agreement';
@@ -711,6 +722,15 @@ export const api = {
   notifications: () => request<{ unread: number; items: AppNotification[] }>('GET', '/v1/notifications'),
   readNotifications: (id?: string) => request<null>('POST', '/v1/notifications/read', id ? { id } : {}),
   clientsHealth: () => request<ClientHealth[]>('GET', '/v1/clients-health'),
+  priceLists: (clientId?: string) => request<PriceList[]>('GET', `/v1/price-lists${clientId ? `?clientId=${clientId}` : ''}`),
+  priceList: (id: string) => request<PriceList>('GET', `/v1/price-lists/${id}`),
+  createPriceList: (body: PriceListBody) => request<PriceList>('POST', '/v1/price-lists', body),
+  updatePriceList: (id: string, body: Partial<PriceListBody>) => request<PriceList>('PATCH', `/v1/price-lists/${id}`, body),
+  documentTemplates: (includeInactive = false) => request<{ placeholders: string[]; items: DocumentTemplate[] }>('GET', `/v1/document-templates${includeInactive ? '?includeInactive=true' : ''}`),
+  createDocumentTemplate: (body: { name: string; kind: TemplateKind; body: string }) => request<DocumentTemplate>('POST', '/v1/document-templates', body),
+  updateDocumentTemplate: (id: string, body: Partial<{ name: string; kind: TemplateKind; body: string; active: boolean }>) => request<DocumentTemplate>('PATCH', `/v1/document-templates/${id}`, body),
+  renderTemplate: (id: string, roomId: string) => request<{ name: string; text: string; missing: string[] }>('POST', `/v1/document-templates/${id}/render`, { roomId }),
+  generateRoomDocument: (roomId: string, templateId: string, title?: string) => request<RoomDocument>('POST', `/v1/nexus/client-rooms/${roomId}/documents/from-template`, { templateId, title: title || null }),
   products: (includeInactive = false) => request<Product[]>('GET', `/v1/field/products${includeInactive ? '?includeInactive=true' : ''}`),
   createProduct: (body: { sku: string; name: string; brand?: string | null; category?: string | null; unitPrice: string | number }) => request<Product>('POST', '/v1/field/products', body),
   updateProduct: (id: string, body: Partial<{ sku: string; name: string; brand: string | null; category: string | null; unitPrice: string | number; active: boolean }>) =>

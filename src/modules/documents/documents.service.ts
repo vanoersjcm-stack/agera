@@ -21,6 +21,7 @@ export const DOCUMENT_TYPES: Record<string, string> = {
   xls: 'application/vnd.ms-excel',
   csv: 'text/csv',
   txt: 'text/plain',
+  html: 'text/html',
   png: 'image/png',
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',

@@ -1,3 +1,4 @@
+import { matchesClient, useClientFilter } from '../clientFilter';
 import { type FormEvent, useEffect, useState } from 'react';
 import { api, type ApprovalEntity, type AppNotification, type ExceptionRecord, type ExceptionSeverity, type ExceptionStatus } from '../api';
 import { useUsers, userName } from '../directory';
@@ -204,6 +205,7 @@ export function ExceptionsView({ route }: { route: Route }) {
   const { openNew } = useShell();
   const status = route.params.get('status') ?? 'unresolved';
   const list = useLoad(() => api.exceptions(status === 'all' ? undefined : status), [status]);
+  const clientFilter = useClientFilter();
   return (
     <ViewFrame title="Exceptions" subtitle="Issues that need an owner and a resolution" crumbs={[{ label: 'Nexus', href: '#/nexus' }, { label: 'Exceptions' }]} actions={<button className="primary" onClick={() => openNew('exception')}>+ New exception</button>}>
       <div className="list-toolbar">
@@ -215,7 +217,7 @@ export function ExceptionsView({ route }: { route: Route }) {
         <table className="grid clickable">
           <thead><tr><th>Exception</th><th>Severity</th><th>Owner</th><th>Store / client</th><th>Status</th></tr></thead>
           <tbody>
-            {list.data.map((e) => (
+            {list.data.filter((e) => matchesClient(clientFilter, e.clientId)).map((e) => (
               <tr key={e.id} onClick={() => navigate(`/nexus/exceptions/${e.id}`)}>
                 <td><a href={`#/nexus/exceptions/${e.id}`}>{e.title}</a><div className="muted small">{formatDate(e.createdAt)}</div></td>
                 <td><StatusBadge status={e.severity === 'high' ? 'not_compliant' : e.severity === 'medium' ? 'needs_follow_up' : 'compliant'} label={SEVERITY[e.severity]} /></td>
@@ -323,7 +325,8 @@ export function HealthBadge({ clientId }: { clientId: string }) {
 
 export function HealthView() {
   const list = useLoad(() => api.clientsHealth(), []);
-  const rows = [...(list.data ?? [])].sort((a, b) => a.score - b.score);
+  const clientFilter = useClientFilter();
+  const rows = (list.data ?? []).filter((r) => matchesClient(clientFilter, r.clientId)).sort((a, b) => a.score - b.score);
   return (
     <ViewFrame title="Account health" subtitle="Score 0–100 per client from credit, overdue invoices, churn risk, open exceptions and client activity" crumbs={[{ label: 'Symphony', href: '#/symphony' }, { label: 'Account health' }]}>
       {!list.data && <Loading error={list.error} />}

@@ -1,3 +1,4 @@
+import { matchesClient, useClientFilter } from '../clientFilter';
 import { type FormEvent, useMemo, useState } from 'react';
 import { api, type AuditRound, type FieldOrder, type FieldOrderStatus, type Planogram, type Product } from '../api';
 import { useUsers, userName } from '../directory';
@@ -298,6 +299,7 @@ export function FieldOrdersView({ route }: { route: Route }) {
   const { openNew } = useShell();
   const status = (route.params.get('status') ?? '') as FieldOrderStatus | '';
   const orders = useLoad(() => api.fieldOrders(status || undefined), [status]);
+  const clientFilter = useClientFilter();
   return (
     <ViewFrame title="Field orders" subtitle="Orders taken in stores, from draft to delivery" crumbs={[SUITE, { label: 'Field orders' }]} actions={<button className="primary" onClick={() => openNew('field_order')}>+ New field order</button>}>
       <div className="list-toolbar">
@@ -309,7 +311,7 @@ export function FieldOrdersView({ route }: { route: Route }) {
         <table className="grid clickable">
           <thead><tr><th>Created</th><th>Store</th><th>Client</th><th className="num">Lines</th><th className="num">Total</th><th>Status</th></tr></thead>
           <tbody>
-            {orders.data.map((o) => (
+            {orders.data.filter((o) => matchesClient(clientFilter, o.clientId)).map((o) => (
               <tr key={o.id} onClick={() => navigate(`/retailpower/orders/${o.id}`)}>
                 <td><a href={`#/retailpower/orders/${o.id}`}>{formatDate(o.createdAt)}</a><div className="muted small">{o.createdByName ?? '—'}</div></td>
                 <td>{o.storeName}</td>

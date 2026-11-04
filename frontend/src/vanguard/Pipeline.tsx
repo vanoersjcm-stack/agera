@@ -1,3 +1,4 @@
+import { matchesClient, useClientFilter } from '../clientFilter';
 import { type DragEvent, type FormEvent, useState } from 'react';
 import { api, type Deal, type DealPriority, type DealRecord, type DealStage } from '../api';
 import { useUsers } from '../directory';
@@ -98,7 +99,8 @@ export function DealsView({ route }: { route: Route }) {
   const q = route.params.get('q') ?? '';
   const { data, error } = useLoad(() => api.deals());
   const items = data ?? [];
-  const filtered = items.filter((d) => (stage === 'all' || d.stage === stage) && includesText([d.title, d.clientName, d.ownerName], q));
+  const clientFilter = useClientFilter();
+  const filtered = items.filter((x) => matchesClient(clientFilter, x.clientId)).filter((d) => (stage === 'all' || d.stage === stage) && includesText([d.title, d.clientName, d.ownerName], q));
   return (
     <ViewFrame title="All deals" crumbs={[SUITE, { label: 'All deals' }]} actions={<button className="primary" onClick={() => openNew('deal')}>+ New deal</button>}>
       <div className="list-toolbar">

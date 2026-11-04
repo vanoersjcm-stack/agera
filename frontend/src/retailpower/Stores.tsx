@@ -1,3 +1,4 @@
+import { matchesClient, useClientFilter } from '../clientFilter';
 import { useState } from 'react';
 import { api, type Alert } from '../api';
 import { EditStoreDrawer } from '../EditForms';
@@ -24,7 +25,8 @@ export function StoresView({ route }: { route: Route }) {
   const alerts = useLoad(() => api.alerts());
   const flagged = nonCompliantStores(alerts.data?.anomalies);
   const items = stores.data?.items ?? [];
-  const filtered = items.filter(
+  const clientFilter = useClientFilter();
+  const filtered = items.filter((x) => matchesClient(clientFilter, x.clientId)).filter(
     (s) =>
       (compliance === 'all' || (compliance === 'not_compliant') === flagged.has(s.id)) &&
       includesText([s.name, s.storeCode, s.city, s.address], q),

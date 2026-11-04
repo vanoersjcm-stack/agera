@@ -3,6 +3,7 @@ import { api, type AgreementSignature, type RoomDocument } from '../api';
 import { formatDateTime } from '../labels';
 import { useShell } from '../shell';
 import { ErrorText, Loading, useAction, useLoad } from '../ui';
+import { GenerateDocumentDrawer } from './Commercial';
 
 const ACCEPT = '.pdf,.docx,.xlsx,.pptx,.doc,.xls,.csv,.txt,.png,.jpg,.jpeg';
 
@@ -40,6 +41,7 @@ export function RoomDocumentsPanel({ roomId, external, active, compact = false }
   const [versionOf, setVersionOf] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const canEdit = !external && active;
+  const [generating, setGenerating] = useState(false);
   const upload = (files: FileList | null) => {
     const file = files?.[0];
     if (!file) return;
@@ -66,9 +68,10 @@ export function RoomDocumentsPanel({ roomId, external, active, compact = false }
       {!compact && (
         <div className="panel-head">
           <h2>Documents</h2>
-          {canEdit && <button className="primary" disabled={busy} onClick={() => pick(null)}>+ Upload document</button>}
+          {canEdit && <span className="panel-actions"><button className="secondary" disabled={busy} onClick={() => setGenerating(true)}>Generate from template…</button> <button className="primary" disabled={busy} onClick={() => pick(null)}>+ Upload document</button></span>}
         </div>
       )}
+      {generating && <GenerateDocumentDrawer roomId={roomId} onClose={() => setGenerating(false)} onDone={() => (setGenerating(false), notify('Document generated'), docs.reload())} />}
       <input ref={fileInput} type="file" accept={ACCEPT} hidden onChange={(e) => upload(e.target.files)} />
       {!compact && (
         <p className="muted">

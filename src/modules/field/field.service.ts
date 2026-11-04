@@ -216,9 +216,19 @@ export class FieldService {
   private async replaceLines(m: EntityManager, id: string, lines: OrderLineInput[]): Promise<void> {
     const products = await this.assertProducts(m, lines.map((l) => l.productId));
     await m.query('DELETE FROM field_order_lines WHERE order_id = $1', [id]);
+    const [order] = await m.query('SELECT s.client_id FROM field_orders o JOIN stores s ON s.id = o.store_id WHERE o.id = $1', [id]);
     for (const l of lines) {
+      const [listed] = order?.client_id
+        ? await m.query(
+            `SELECT i.unit_price::text AS price FROM price_lists pl JOIN price_list_items i ON i.price_list_id = pl.id
+              WHERE pl.tenant_id = $1 AND pl.client_id = $2 AND pl.active AND i.product_id = $3 AND i.min_quantity <= $4
+                AND (pl.valid_from IS NULL OR pl.valid_from <= CURRENT_DATE) AND (pl.valid_to IS NULL OR pl.valid_to >= CURRENT_DATE)
+              ORDER BY i.min_quantity DESC, i.unit_price LIMIT 1`,
+            [this.t, order.client_id, l.productId, l.quantity],
+          )
+        : [];
       await m.query('INSERT INTO field_order_lines (tenant_id, order_id, product_id, quantity, unit_price) VALUES ($1,$2,$3,$4,$5)', [
-        this.t, id, l.productId, l.quantity, products.get(l.productId)!.unitPrice,
+        this.t, id, l.productId, l.quantity, listed?.price ?? products.get(l.productId)!.unitPrice,
       ]);
     }
   }

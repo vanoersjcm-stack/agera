@@ -1,6 +1,7 @@
 import { brandLabel } from './suites';
 import { createPortal } from 'react-dom';
 import { type ReactNode, useEffect, useState } from 'react';
+import { setClientFilter, useClientFilter } from './clientFilter';
 
 export interface Crumb {
   label: string;
@@ -51,6 +52,7 @@ export function ViewFrame({
         </div>
         {actions && <div className="view-actions">{actions}</div>}
       </header>
+      <ClientFilterNote />
       {children}
     </section>
   );
@@ -71,4 +73,15 @@ function useCrumbSlot(): HTMLElement | null {
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   useEffect(() => setSlot(document.getElementById('actionbar-crumbs')), []);
   return slot;
+}
+
+/** Shown on every page while a global client filter is active. */
+export function ClientFilterNote() {
+  const filter = useClientFilter();
+  if (!filter) return null;
+  return (
+    <p className="client-filter-note">
+      Lists show only <strong>{filter.name}</strong>. <button className="link-button" onClick={() => setClientFilter(null)}>Show all clients</button>
+    </p>
+  );
 }

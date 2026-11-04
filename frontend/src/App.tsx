@@ -26,6 +26,8 @@ import { CREDIT_HOLDS_CHANGED, CreditControlView } from './symphony/CreditContro
 import { InvoicesView } from './symphony/Invoices';
 import { PeopleView } from './symphony/People';
 import { PrognosisView } from './symphony/Prognosis';
+import { setClientFilter, useClientFilter } from './clientFilter';
+import { PriceListDossier, PriceListsView, TemplatesView } from './nexus/Commercial';
 import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
 import { ActivityLogView, IntegrationsView, OrganisationsView, SymphonyOverview } from './symphony/SymphonyViews';
 
@@ -49,6 +51,10 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return id ? <ApprovalDossier id={id} /> : <ApprovalsView route={route} />;
     case 'symphony/health':
       return <HealthView />;
+    case 'nexus/price-lists':
+      return id ? <PriceListDossier id={id} /> : <PriceListsView route={route} />;
+    case 'nexus/templates':
+      return <TemplatesView />;
     case 'nexus/exceptions':
       return id ? <ExceptionDossier id={id} /> : <ExceptionsView route={route} />;
     case 'symphony/credit-control':
@@ -395,22 +401,24 @@ function shortCode(name: string): string {
 function ClientPill() {
   const [clients, setClients] = useState<Client[] | null>(null);
   const [open, setOpen] = useState(false);
-  const route = useRoute();
+  const filter = useClientFilter();
   useEffect(() => void api.clients().then(setClients, () => setClients([])), []);
   if (!clients || clients.length === 0) return null;
-  const m = route.path.match(/^\/nexus\/clients\/([0-9a-f-]{36})/);
-  const current = m ? clients.find((c) => c.id === m[1]) : undefined;
   return (
-    <div className="client-pill">
-      <button aria-haspopup="menu" aria-expanded={open} title="Switch client" onClick={() => setOpen(!open)} onBlur={() => setTimeout(() => setOpen(false), 150)}>
-        [{current ? shortCode(current.name) : 'Client'} ▾]
+    <div className={`client-pill${filter ? ' filtered' : ''}`}>
+      <button aria-haspopup="menu" aria-expanded={open} title={filter ? `Lists filtered on ${filter.name}` : 'Filter all lists on one client'} onClick={() => setOpen(!open)} onBlur={() => setTimeout(() => setOpen(false), 200)}>
+        [{filter ? shortCode(filter.name) : 'All clients'} ▾]
       </button>
       {open && (
         <div className="menu" role="menu">
+          <button role="menuitem" className={!filter ? 'selected' : undefined} onMouseDown={() => setClientFilter(null)}>All clients</button>
           {clients.filter((c) => c.status === 'active').map((c) => (
-            <a key={c.id} role="menuitem" href={`#/nexus/clients/${c.id}`} className={c.id === current?.id ? 'selected' : undefined}>
-              <code>{shortCode(c.name)}</code> {c.name}
-            </a>
+            <div key={c.id} className={`client-pill-row${c.id === filter?.id ? ' selected' : ''}`}>
+              <button role="menuitem" onMouseDown={() => setClientFilter({ id: c.id, name: c.name })} title="Filter all lists on this client">
+                <code>{shortCode(c.name)}</code> {c.name}
+              </button>
+              <a href={`#/nexus/clients/${c.id}`} onMouseDown={() => navigate(`/nexus/clients/${c.id}`)} className="small">dossier</a>
+            </div>
           ))}
         </div>
       )}

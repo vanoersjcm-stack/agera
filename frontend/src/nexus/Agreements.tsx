@@ -1,3 +1,4 @@
+import { matchesClient, useClientFilter } from '../clientFilter';
 import { api, type AgreementStatus } from '../api';
 import { clientName, useClients } from '../directory';
 import { AGREEMENT_STATUS, formatDate, ROOM_STATUS } from '../labels';
@@ -37,7 +38,8 @@ export function AgreementsView({ route, external }: { route: Route; external: bo
   const c = crumbs(external);
   const base = external ? '/portal/agreements' : '/nexus/agreements';
   const count = (s: AgreementStatus) => items.filter((a) => a.status === s).length;
-  const filtered = items.filter((a) => (status === 'all' || a.status === status) && includesText([a.title, external ? '' : clientName(clients, a.clientId)], q));
+  const clientFilter = useClientFilter();
+  const filtered = items.filter((x) => matchesClient(clientFilter, x.clientId)).filter((a) => (status === 'all' || a.status === status) && includesText([a.title, external ? '' : clientName(clients, a.clientId)], q));
   return (
     <ViewFrame
       title={external ? 'My agreements' : 'Agreements'}

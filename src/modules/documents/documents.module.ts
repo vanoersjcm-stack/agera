@@ -8,5 +8,6 @@ import { DocumentsService } from './documents.service.js';
   imports: [CoreModule, UserModule],
   controllers: [RoomDocumentsController, SignaturesController],
   providers: [DocumentsService],
+  exports: [DocumentsService],
 })
 export class DocumentsModule {}

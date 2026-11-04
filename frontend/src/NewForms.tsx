@@ -1,3 +1,4 @@
+import { NewPriceListForm, NewTemplateForm } from './nexus/Commercial';
 import { NewExceptionForm } from './symphony/Workflow';
 import { NewAuditRoundForm, NewFieldOrderForm, NewPlanogramForm, NewProductForm } from './retailpower/Field';
 import { type FormEvent, useEffect, useState } from 'react';
@@ -21,6 +22,8 @@ export const NEW_ITEMS: NewItem[] = [
   { kind: 'agreement', label: 'Agreement', group: 'Nexus' },
   { kind: 'client_room', label: 'Client room', group: 'Nexus' },
   { kind: 'exception', label: 'Exception', group: 'Nexus' },
+  { kind: 'price_list', label: 'Price list', group: 'Nexus' },
+  { kind: 'document_template', label: 'Document template', group: 'Nexus' },
   { kind: 'financial_plan', label: 'Financial plan', group: 'Nexus' },
   { kind: 'work_order', label: 'Work order', group: 'RetailPower' },
   { kind: 'store_visit', label: 'Store visit', group: 'RetailPower' },
@@ -656,6 +659,8 @@ function DealForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onSwit
 }
 
 const TITLES: Record<NewKind, string> = {
+  price_list: 'New price list',
+  document_template: 'New document template',
   exception: 'New exception',
   product: 'New product',
   planogram: 'New planogram',
@@ -710,6 +715,8 @@ export function NewDrawer({
       {kind === 'integration_key' && <IntegrationKeyForm {...props} />}
       {kind === 'product' && <NewProductForm {...props} />}
       {kind === 'exception' && <NewExceptionForm {...props} />}
+      {kind === 'price_list' && <NewPriceListForm {...props} />}
+      {kind === 'document_template' && <NewTemplateForm {...props} />}
       {kind === 'planogram' && <NewPlanogramForm {...props} />}
       {kind === 'field_order' && <NewFieldOrderForm {...props} />}
       {kind === 'audit_round' && <NewAuditRoundForm {...props} />}

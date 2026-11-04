@@ -1,3 +1,4 @@
+import { matchesClient, useClientFilter } from '../clientFilter';
 import { type FormEvent, useState } from 'react';
 import { api, type EngagementStatus, type Milestone, type MilestoneOwnerSide, type RoomEngagement, type RoomStatus } from '../api';
 import { clientName, useClients } from '../directory';
@@ -64,7 +65,8 @@ export function ClientRoomsView({ route, external }: { route: Route; external: b
   const items = rooms.data ?? [];
   const lastActivity = (id: string) => engagement.data?.dsrs.find((d) => d.dsrId === id);
   const count = (s: RoomStatus) => items.filter((r) => r.status === s).length;
-  const filtered = items.filter((r) => (status === 'all' || r.status === status) && includesText([r.roomName, external ? '' : clientName(clients, r.clientId)], q));
+  const clientFilter = useClientFilter();
+  const filtered = items.filter((x) => matchesClient(clientFilter, x.clientId)).filter((r) => (status === 'all' || r.status === status) && includesText([r.roomName, external ? '' : clientName(clients, r.clientId)], q));
   return (
     <ViewFrame
       title={external ? 'My client rooms' : 'Client rooms'}

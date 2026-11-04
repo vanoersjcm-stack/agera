@@ -1,3 +1,4 @@
+import { matchesClient, useClientFilter } from '../clientFilter';
 import { api, type Invoice, type InvoiceStatus } from '../api';
 import { formatDate } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
@@ -74,7 +75,8 @@ export function InvoicesView({ route }: { route: Route }) {
   const { data, error, reload } = useLoad(() => api.invoices());
   const items = data ?? [];
   const overdue = items.filter((i) => i.overdue);
-  const filtered = items.filter((i) => (status === 'all' || (status === 'overdue' ? i.overdue : i.status === status)) && includesText([i.invoiceNumber, i.clientName, i.description], q));
+  const clientFilter = useClientFilter();
+  const filtered = items.filter((x) => matchesClient(clientFilter, x.clientId)).filter((i) => (status === 'all' || (status === 'overdue' ? i.overdue : i.status === status)) && includesText([i.invoiceNumber, i.clientName, i.description], q));
   const year = new Date().getFullYear();
   const paidThisYear = items.filter((i) => i.status === 'paid' && i.paidAt?.startsWith(String(year))).reduce((s, i) => s + Number(i.amountExclVat), 0);
   const open = items.filter((i) => i.status === 'issued').reduce((s, i) => s + Number(i.totalAmount), 0);

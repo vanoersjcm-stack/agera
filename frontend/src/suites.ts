@@ -54,6 +54,8 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/nexus/client-rooms', label: 'Client rooms', description: 'Online rooms per client deal, with engagement' },
         { path: '/nexus/financial-plans', label: 'Financial plans', description: 'Plans, plan lines and approval' },
         { path: '/nexus/profit-loss', label: 'Profit & loss', description: 'Plan versus actual per period' },
+        { path: '/nexus/price-lists', label: 'Price lists', description: 'Client and volume prices on top of the catalogue' },
+        { path: '/nexus/templates', label: 'Document templates', description: 'Proposals and letters filled with client data' },
         { path: '/nexus/exceptions', label: 'Exceptions', description: 'Issues with an owner, severity and resolution' },
         { path: '/nexus/alerts', label: 'Alerts', description: 'Plan deviations, inactive rooms, non-compliant stores' },
       ];
