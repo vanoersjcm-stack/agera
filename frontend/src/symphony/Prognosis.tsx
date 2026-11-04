@@ -4,6 +4,7 @@ import { ViewFrame } from '../Layout';
 import { money } from '../nexus/Clients';
 import { navigate, type Route, withParams } from '../router';
 import { Loading, useLoad } from '../ui';
+import { t } from '../i18n';
 
 interface Bar {
   label: string;
@@ -30,10 +31,10 @@ export function PrognosisView({ route }: { route: Route }) {
   const [expansionPct, setExpansionPct] = useState(100);
   const [churnPct, setChurnPct] = useState(100);
   const [pipelinePct, setPipelinePct] = useState(0);
-  const crumbs = [{ label: 'Symphony', href: '#/symphony' }, { label: 'Prognosis' }];
+  const crumbs = [{ label: t("Symphony"), href: '#/symphony' }, { label: t("Prognosis") }];
   if (!data) {
     return (
-      <ViewFrame title="Run-rate prognosis" crumbs={crumbs}>
+      <ViewFrame title={t("Run-rate prognosis")} crumbs={crumbs}>
         <Loading error={error} />
       </ViewFrame>
     );
@@ -46,23 +47,23 @@ export function PrognosisView({ route }: { route: Route }) {
   const actuals = Number(data.actuals);
   const adjusted = expansionPct !== 100 || churnPct !== 100 || pipelinePct !== 0;
   const bars: Bar[] = [
-    { label: 'Baseline', hint: 'Approved financial plans', value: baseline, start: 0, kind: 'total', href: '#/nexus/financial-plans' },
-    { label: '+ Signed expansion', hint: 'Annual value of active agreements', value: expansion, start: baseline, kind: 'up', href: '#/nexus/agreements?status=active' },
-    ...(pipelinePct > 0 ? [{ label: '+ Pipeline won', hint: `${pipelinePct}% of open deals`, value: pipeline, start: baseline + expansion, kind: 'up' as const, href: '#/nexus/pipeline' }] : []),
-    { label: '− Known churn', hint: 'Agreements ending within 90 days', value: churn, start: prognosis, kind: 'down', href: '#/nexus/agreements?status=active' },
-    { label: adjusted ? 'Prognosis (what-if)' : 'Live prognosis', hint: 'Baseline + expansion − churn', value: prognosis, start: 0, kind: 'total' },
-    { label: 'Invoiced actuals', hint: `Paid invoices in ${year}, excl. VAT`, value: actuals, start: 0, kind: 'actual', href: '#/symphony/invoices?status=paid' },
+    { label: t("Baseline"), hint: t("Approved financial plans"), value: baseline, start: 0, kind: 'total', href: '#/nexus/financial-plans' },
+    { label: t("+ Signed expansion"), hint: t("Annual value of active agreements"), value: expansion, start: baseline, kind: 'up', href: '#/nexus/agreements?status=active' },
+    ...(pipelinePct > 0 ? [{ label: t("+ Pipeline won"), hint: `${pipelinePct}% of open deals`, value: pipeline, start: baseline + expansion, kind: 'up' as const, href: '#/nexus/pipeline' }] : []),
+    { label: t("− Known churn"), hint: t("Agreements ending within 90 days"), value: churn, start: prognosis, kind: 'down', href: '#/nexus/agreements?status=active' },
+    { label: adjusted ? t("Prognosis (what-if)") : t("Live prognosis"), hint: t("Baseline + expansion − churn"), value: prognosis, start: 0, kind: 'total' },
+    { label: t("Invoiced actuals"), hint: `Paid invoices in ${year}, excl. VAT`, value: actuals, start: 0, kind: 'actual', href: '#/symphony/invoices?status=paid' },
   ];
   const max = Math.max(...bars.map((b) => b.start + b.value), 1);
   const pct = (v: number) => `${Math.max(0, (v / max) * 100)}%`;
   return (
     <ViewFrame
-      title="Run-rate prognosis"
+      title={t("Run-rate prognosis")}
       subtitle={`Fiscal year ${year} · all amounts in EUR`}
       crumbs={crumbs}
       actions={
         <label className="inline-select">
-          Year{' '}
+          {t("Year")}{' '}
           <select value={year} onChange={(e) => navigate(withParams(route, { year: e.target.value }))}>
             {[year - 2, year - 1, year, year + 1].map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
@@ -70,14 +71,14 @@ export function PrognosisView({ route }: { route: Route }) {
       }
     >
       <div className="wf-columns">
-        <a className="wf-card" href="#/nexus/financial-plans"><small>Baseline target</small><strong>{money(baseline)}</strong><span>Approved financial plans</span></a>
-        <a className="wf-card up" href="#/nexus/agreements?status=active"><small>(+) Signed expansion</small><strong>{money(expansion)}</strong><span>{pipelinePct > 0 ? `+ ${money(pipeline)} pipeline won` : `Open deal pipeline ${money(data.openPipeline)}`}</span></a>
-        <a className="wf-card down" href="#/nexus/agreements?status=active"><small>(−) Known churn</small><strong>{money(churn)}</strong><span>Agreements ending within 90 days</span></a>
-        <div className="wf-card live"><small>{adjusted ? 'Prognosis (what-if)' : 'Live prognosis run-rate'}</small><strong>{money(prognosis)}</strong><span>Baseline + expansion − churn</span></div>
-        <a className="wf-card" href="#/symphony/invoices?status=paid"><small>Invoiced actuals</small><strong>{money(actuals)}</strong><span>{prognosis > 0 ? `${Math.round((actuals / prognosis) * 100)}% of prognosis` : 'Paid invoices'}</span></a>
+        <a className="wf-card" href="#/nexus/financial-plans"><small>{t("Baseline target")}</small><strong>{money(baseline)}</strong><span>{t("Approved financial plans")}</span></a>
+        <a className="wf-card up" href="#/nexus/agreements?status=active"><small>{t("(+) Signed expansion")}</small><strong>{money(expansion)}</strong><span>{pipelinePct > 0 ? `+ ${money(pipeline)} pipeline won` : `Open deal pipeline ${money(data.openPipeline)}`}</span></a>
+        <a className="wf-card down" href="#/nexus/agreements?status=active"><small>{t("(−) Known churn")}</small><strong>{money(churn)}</strong><span>{t("Agreements ending within 90 days")}</span></a>
+        <div className="wf-card live"><small>{adjusted ? t("Prognosis (what-if)") : t("Live prognosis run-rate")}</small><strong>{money(prognosis)}</strong><span>{t("Baseline + expansion − churn")}</span></div>
+        <a className="wf-card" href="#/symphony/invoices?status=paid"><small>{t("Invoiced actuals")}</small><strong>{money(actuals)}</strong><span>{prognosis > 0 ? `${Math.round((actuals / prognosis) * 100)}% of prognosis` : t("Paid invoices")}</span></a>
       </div>
       <div className="card-panel">
-        <h2>Waterfall</h2>
+        <h2>{t("Waterfall")}</h2>
         <div className="waterfall" role="list">
           {bars.map((b) => (
             <div key={b.label} className="wf-row" role="listitem">
@@ -94,14 +95,14 @@ export function PrognosisView({ route }: { route: Route }) {
         </div>
       </div>
       <div className="card-panel">
-        <h2>What-if</h2>
-        <p className="muted">Adjust the assumptions; the waterfall recalculates instantly. Nothing is saved.</p>
+        <h2>{t("What-if")}</h2>
+        <p className="muted">{t("Adjust the assumptions; the waterfall recalculates instantly. Nothing is saved.")}</p>
         <div className="what-if-box what-if-grid">
-          <Slider label="Signed expansion realised" hint="Share of the annual value of active agreements that is realised" value={expansionPct} max={150} onChange={setExpansionPct} />
-          <Slider label="Churn exposure" hint="How much of the known churn risk materialises" value={churnPct} max={200} onChange={setChurnPct} />
-          <Slider label="Open pipeline won" hint="Share of open deals expected to close" value={pipelinePct} max={100} onChange={setPipelinePct} />
+          <Slider label={t("Signed expansion realised")} hint={t("Share of the annual value of active agreements that is realised")} value={expansionPct} max={150} onChange={setExpansionPct} />
+          <Slider label={t("Churn exposure")} hint={t("How much of the known churn risk materialises")} value={churnPct} max={200} onChange={setChurnPct} />
+          <Slider label={t("Open pipeline won")} hint={t("Share of open deals expected to close")} value={pipelinePct} max={100} onChange={setPipelinePct} />
         </div>
-        {adjusted && <button className="secondary" onClick={() => (setExpansionPct(100), setChurnPct(100), setPipelinePct(0))}>Reset to live figures</button>}
+        {adjusted && <button className="secondary" onClick={() => (setExpansionPct(100), setChurnPct(100), setPipelinePct(0))}>{t("Reset to live figures")}</button>}
       </div>
     </ViewFrame>
   );

@@ -7,6 +7,7 @@ import { activeClients, clientName, invalidateDirectory, useClients, useUsers } 
 import { navigate } from './router';
 import type { NewDefaults, NewKind } from './shell';
 import { Drawer, ErrorText, Field, FormActions, useAction } from './ui';
+import { t as tr } from './i18n';
 
 export interface NewItem {
   kind: NewKind;
@@ -16,25 +17,25 @@ export interface NewItem {
 }
 
 export const NEW_ITEMS: NewItem[] = [
-  { kind: 'deal', label: 'Deal', group: 'Nexus' },
-  { kind: 'client', label: 'Client', group: 'Nexus' },
-  { kind: 'contact', label: 'Contact', group: 'Nexus' },
-  { kind: 'agreement', label: 'Agreement', group: 'Nexus' },
-  { kind: 'client_room', label: 'Client room', group: 'Nexus' },
-  { kind: 'exception', label: 'Exception', group: 'Nexus' },
-  { kind: 'price_list', label: 'Price list', group: 'Nexus' },
-  { kind: 'document_template', label: 'Document template', group: 'Nexus' },
-  { kind: 'financial_plan', label: 'Financial plan', group: 'Nexus' },
-  { kind: 'work_order', label: 'Work order', group: 'RetailPower' },
-  { kind: 'store_visit', label: 'Store visit', group: 'RetailPower' },
-  { kind: 'store', label: 'Store', group: 'RetailPower' },
-  { kind: 'field_order', label: 'Field order', group: 'RetailPower' },
-  { kind: 'audit_round', label: 'Audit round', group: 'RetailPower' },
-  { kind: 'product', label: 'Product', group: 'RetailPower' },
-  { kind: 'planogram', label: 'Planogram', group: 'RetailPower' },
-  { kind: 'invoice', label: 'Invoice', group: 'Symphony' },
-  { kind: 'organisation', label: 'Organisation', group: 'Symphony', platformAdminOnly: true },
-  { kind: 'integration_key', label: 'Integration key', group: 'Symphony', platformAdminOnly: true },
+  { kind: 'deal', label: tr("Deal"), group: 'Nexus' },
+  { kind: 'client', label: tr("Client"), group: 'Nexus' },
+  { kind: 'contact', label: tr("Contact"), group: 'Nexus' },
+  { kind: 'agreement', label: tr("Agreement"), group: 'Nexus' },
+  { kind: 'client_room', label: tr("Client room"), group: 'Nexus' },
+  { kind: 'exception', label: tr("Exception"), group: 'Nexus' },
+  { kind: 'price_list', label: tr("Price list"), group: 'Nexus' },
+  { kind: 'document_template', label: tr("Document template"), group: 'Nexus' },
+  { kind: 'financial_plan', label: tr("Financial plan"), group: 'Nexus' },
+  { kind: 'work_order', label: tr("Work order"), group: 'RetailPower' },
+  { kind: 'store_visit', label: tr("Store visit"), group: 'RetailPower' },
+  { kind: 'store', label: tr("Store"), group: 'RetailPower' },
+  { kind: 'field_order', label: tr("Field order"), group: 'RetailPower' },
+  { kind: 'audit_round', label: tr("Audit round"), group: 'RetailPower' },
+  { kind: 'product', label: tr("Product"), group: 'RetailPower' },
+  { kind: 'planogram', label: tr("Planogram"), group: 'RetailPower' },
+  { kind: 'invoice', label: tr("Invoice"), group: 'Symphony' },
+  { kind: 'organisation', label: tr("Organisation"), group: 'Symphony', platformAdminOnly: true },
+  { kind: 'integration_key', label: tr("Integration key"), group: 'Symphony', platformAdminOnly: true },
 ];
 
 interface FormProps {
@@ -72,22 +73,22 @@ function WorkOrderForm({ onDone, onCancel }: FormProps) {
         })
       }
     >
-      <Field label="Title">
-        <input required maxLength={255} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Q3 shelf reset MediaMarkt" autoFocus />
+      <Field label={tr("Title")}>
+        <input required maxLength={255} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr("e.g. Q3 shelf reset MediaMarkt")} autoFocus />
       </Field>
-      <Field label="Description" hint="Optional: what needs to be done">
+      <Field label={tr("Description")} hint={tr("Optional: what needs to be done")}>
         <textarea rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />
       </Field>
-      <Field label="Assign to" hint="Optional: you can also assign it later">
+      <Field label={tr("Assign to")} hint={tr("Optional: you can also assign it later")}>
         <select value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-          <option value="">Not assigned</option>
+          <option value="">{tr("Not assigned")}</option>
           {users.map((u) => (
             <option key={u.id} value={u.id}>{u.name}</option>
           ))}
         </select>
       </Field>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel="Create work order" onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Create work order")} onCancel={onCancel} />
     </form>
   );
 }
@@ -128,38 +129,38 @@ function StoreVisitForm({ defaults, onDone, onCancel }: FormProps) {
         })
       }
     >
-      <Field label="Store">
+      <Field label={tr("Store")}>
         <select required value={storeId} onChange={(e) => setStoreId(e.target.value)} autoFocus>
-          <option value="">Choose a store…</option>
+          <option value="">{tr("Choose a store…")}</option>
           {stores.map((s) => (
             <option key={s.id} value={s.id}>{s.name} ({s.storeCode})</option>
           ))}
         </select>
       </Field>
-      <Field label="Date and time">
+      <Field label={tr("Date and time")}>
         <input type="datetime-local" required value={date} onChange={(e) => setDate(e.target.value)} />
       </Field>
-      <Field label="Field representative">
+      <Field label={tr("Field representative")}>
         <select value={rep} onChange={(e) => setRep(e.target.value)}>
-          <option value="">Me</option>
+          <option value="">{tr("Me")}</option>
           {users.map((u) => (
             <option key={u.id} value={u.id}>{u.name}</option>
           ))}
         </select>
       </Field>
-      <Field label="Linked work order" hint="Optional">
+      <Field label={tr("Linked work order")} hint={tr("Optional")}>
         <select value={workOrderId} onChange={(e) => setWorkOrderId(e.target.value)}>
-          <option value="">None</option>
+          <option value="">{tr("None")}</option>
           {workOrders.map((w) => (
             <option key={w.id} value={w.id}>{w.title}</option>
           ))}
         </select>
       </Field>
-      <Field label="Notes" hint="Optional: instructions for the visit">
+      <Field label={tr("Notes")} hint={tr("Optional: instructions for the visit")}>
         <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
       </Field>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel="Plan visit" onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Plan visit")} onCancel={onCancel} />
     </form>
   );
 }
@@ -186,34 +187,34 @@ function StoreForm({ onDone, onCancel }: FormProps) {
         })
       }
     >
-      <Field label="Store name">
-        <input required maxLength={200} value={form.name} onChange={set('name')} placeholder="e.g. MediaMarkt Utrecht" autoFocus />
+      <Field label={tr("Store name")}>
+        <input required maxLength={200} value={form.name} onChange={set('name')} placeholder={tr("e.g. MediaMarkt Utrecht")} autoFocus />
       </Field>
-      <Field label="Store code" hint="Your own unique code for this store">
-        <input required maxLength={50} value={form.storeCode} onChange={set('storeCode')} placeholder="e.g. MM-UTR-01" />
+      <Field label={tr("Store code")} hint={tr("Your own unique code for this store")}>
+        <input required maxLength={50} value={form.storeCode} onChange={set('storeCode')} placeholder={tr("e.g. MM-UTR-01")} />
       </Field>
-      <Field label="Street and number">
+      <Field label={tr("Street and number")}>
         <input maxLength={255} value={form.address} onChange={set('address')} />
       </Field>
       <div className="field-row">
-        <Field label="Postal code">
+        <Field label={tr("Postal code")}>
           <input maxLength={20} value={form.postalCode} onChange={set('postalCode')} />
         </Field>
-        <Field label="City">
+        <Field label={tr("City")}>
           <input maxLength={100} value={form.city} onChange={set('city')} />
         </Field>
       </div>
-      <Field label="Country">
+      <Field label={tr("Country")}>
         <input maxLength={100} value={form.country} onChange={set('country')} />
       </Field>
-      <Field label="Client" hint="Optional: the brand or client whose products this store carries">
+      <Field label={tr("Client")} hint={tr("Optional: the brand or client whose products this store carries")}>
         <select value={form.clientId} onChange={set('clientId')}>
-          <option value="">No client</option>
+          <option value="">{tr("No client")}</option>
           {storeClients.map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
         </select>
       </Field>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel="Add store" onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Add store")} onCancel={onCancel} />
     </form>
   );
 }
@@ -221,10 +222,10 @@ function StoreForm({ onDone, onCancel }: FormProps) {
 function NoClients({ onCancel, onNewClient }: { onCancel: () => void; onNewClient: () => void }) {
   return (
     <div>
-      <p>There are no clients yet. Add the client company first.</p>
+      <p>{tr("There are no clients yet. Add the client company first.")}</p>
       <div className="form-actions">
-        <button className="secondary" onClick={onCancel}>Cancel</button>
-        <button className="primary" onClick={onNewClient}>+ New client</button>
+        <button className="secondary" onClick={onCancel}>{tr("Cancel")}</button>
+        <button className="primary" onClick={onNewClient}>{tr("+ New client")}</button>
       </div>
     </div>
   );
@@ -254,28 +255,28 @@ function AgreementForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { o
         })
       }
     >
-      <Field label="Client">
+      <Field label={tr("Client")}>
         <select required value={clientId} onChange={(e) => setClientId(e.target.value)} autoFocus>
-          <option value="">Choose a client…</option>
+          <option value="">{tr("Choose a client…")}</option>
           {activeClients(clients).map((c) => (
             <option key={c.clientId} value={c.clientId}>{c.name}</option>
           ))}
         </select>
       </Field>
-      <Field label="Title">
-        <input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Retail activation 2026" />
+      <Field label={tr("Title")}>
+        <input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={tr("e.g. Retail activation 2026")} />
       </Field>
-      <Field label="Document link" hint="Web address (https://…) of the agreement document">
+      <Field label={tr("Document link")} hint={tr("Web address (https://…) of the agreement document")}>
         <input required type="url" maxLength={500} value={documentUrl} onChange={(e) => setDocumentUrl(e.target.value)} placeholder="https://" />
       </Field>
       <div className="field-row">
-        <Field label="Annual value (EUR)"><input type="number" min={0} step="0.01" value={runRate.annualValue} onChange={(e) => setRunRate({ ...runRate, annualValue: e.target.value })} /></Field>
-        <Field label="Churn risk (EUR)" hint="Part that may not renew"><input type="number" min={0} step="0.01" value={runRate.churnRisk} onChange={(e) => setRunRate({ ...runRate, churnRisk: e.target.value })} /></Field>
+        <Field label={tr("Annual value (EUR)")}><input type="number" min={0} step="0.01" value={runRate.annualValue} onChange={(e) => setRunRate({ ...runRate, annualValue: e.target.value })} /></Field>
+        <Field label={tr("Churn risk (EUR)")} hint={tr("Part that may not renew")}><input type="number" min={0} step="0.01" value={runRate.churnRisk} onChange={(e) => setRunRate({ ...runRate, churnRisk: e.target.value })} /></Field>
       </div>
-      <Field label="End date"><input type="date" value={runRate.endDate} onChange={(e) => setRunRate({ ...runRate, endDate: e.target.value })} /></Field>
-      <p className="muted">New agreements start as “Awaiting approval”.</p>
+      <Field label={tr("End date")}><input type="date" value={runRate.endDate} onChange={(e) => setRunRate({ ...runRate, endDate: e.target.value })} /></Field>
+      <p className="muted">{tr("New agreements start as “Awaiting approval”.")}</p>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel="Create agreement" onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Create agreement")} onCancel={onCancel} />
     </form>
   );
 }
@@ -301,28 +302,28 @@ function ClientRoomForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { 
         })
       }
     >
-      <Field label="Client">
+      <Field label={tr("Client")}>
         <select required value={clientId} onChange={(e) => (setClientId(e.target.value), setAgreementId(''))} autoFocus>
-          <option value="">Choose a client…</option>
+          <option value="">{tr("Choose a client…")}</option>
           {activeClients(clients).map((c) => (
             <option key={c.clientId} value={c.clientId}>{c.name}</option>
           ))}
         </select>
       </Field>
-      <Field label="Room name">
-        <input required maxLength={150} value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder="e.g. Retail activation 2026" />
+      <Field label={tr("Room name")}>
+        <input required maxLength={150} value={roomName} onChange={(e) => setRoomName(e.target.value)} placeholder={tr("e.g. Retail activation 2026")} />
       </Field>
-      <Field label="Linked agreement" hint={clientId ? 'Optional' : 'Choose a client first'}>
+      <Field label={tr("Linked agreement")} hint={clientId ? tr("Optional") : tr("Choose a client first")}>
         <select value={agreementId} onChange={(e) => setAgreementId(e.target.value)} disabled={!clientId}>
-          <option value="">None</option>
+          <option value="">{tr("None")}</option>
           {forClient.map((a) => (
             <option key={a.id} value={a.id}>{a.title}</option>
           ))}
         </select>
       </Field>
-      {clientId && <p className="muted">Contacts of {clientName(clients, clientId)} with a client login can open this room.</p>}
+      {clientId && <p className="muted">{tr("Contacts of")} {clientName(clients, clientId)}  {tr("with a client login can open this room.")}</p>}
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel="Open client room" onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Open client room")} onCancel={onCancel} />
     </form>
   );
 }
@@ -349,33 +350,33 @@ function FinancialPlanForm({ defaults, onDone, onCancel }: FormProps) {
         })
       }
     >
-      <Field label="Plan name">
-        <input required maxLength={100} value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder="e.g. TechNova 2027 contract" autoFocus />
+      <Field label={tr("Plan name")}>
+        <input required maxLength={100} value={modelName} onChange={(e) => setModelName(e.target.value)} placeholder={tr("e.g. TechNova 2027 contract")} autoFocus />
       </Field>
-      <Field label="Fiscal year">
+      <Field label={tr("Fiscal year")}>
         <select value={fiscalYear} onChange={(e) => setFiscalYear(e.target.value)}>
           {[year - 1, year, year + 1, year + 2].map((y) => (
             <option key={y} value={y}>{y}</option>
           ))}
         </select>
       </Field>
-      <Field label="Client">
+      <Field label={tr("Client")}>
         <select value={client} onChange={(e) => setClient(e.target.value)}>
-          <option value="">No client (internal plan)</option>
+          <option value="">{tr("No client (internal plan)")}</option>
           {activeClients(clients).map((c) => (
             <option key={c.clientId} value={c.clientId}>{c.name}</option>
           ))}
-          <option value="new">New client…</option>
+          <option value="new">{tr("New client…")}</option>
         </select>
       </Field>
       {client === 'new' && (
-        <Field label="Client company name">
-          <input required maxLength={200} value={newClient} onChange={(e) => setNewClient(e.target.value)} placeholder="e.g. TechNova Electronics B.V." />
+        <Field label={tr("Client company name")}>
+          <input required maxLength={200} value={newClient} onChange={(e) => setNewClient(e.target.value)} placeholder={tr("e.g. TechNova Electronics B.V.")} />
         </Field>
       )}
-      <p className="muted">The plan starts as a draft. Add plan lines in the plan, then approve it.</p>
+      <p className="muted">{tr("The plan starts as a draft. Add plan lines in the plan, then approve it.")}</p>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel="Create plan" onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Create plan")} onCancel={onCancel} />
     </form>
   );
 }
@@ -397,24 +398,24 @@ function ClientForm({ onDone, onCancel }: FormProps) {
         })
       }
     >
-      <Field label="Company name">
-        <input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. TechNova Electronics" autoFocus />
+      <Field label={tr("Company name")}>
+        <input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("e.g. TechNova Electronics")} autoFocus />
       </Field>
-      <Field label="Legal name" hint="Optional, as registered with the Chamber of Commerce">
-        <input maxLength={200} value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder="e.g. TechNova Electronics B.V." />
+      <Field label={tr("Legal name")} hint={tr("Optional, as registered with the Chamber of Commerce")}>
+        <input maxLength={200} value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder={tr("e.g. TechNova Electronics B.V.")} />
       </Field>
-      <Field label="VAT number" hint="Optional">
-        <input maxLength={50} value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} placeholder="e.g. NL123456789B01" />
+      <Field label={tr("VAT number")} hint={tr("Optional")}>
+        <input maxLength={50} value={vatNumber} onChange={(e) => setVatNumber(e.target.value)} placeholder={tr("e.g. NL123456789B01")} />
       </Field>
-      <Field label="City">
+      <Field label={tr("City")}>
         <input maxLength={100} value={city} onChange={(e) => setCity(e.target.value)} />
       </Field>
-      <Field label="Country">
+      <Field label={tr("Country")}>
         <input maxLength={100} value={country} onChange={(e) => setCountry(e.target.value)} />
       </Field>
-      <p className="muted">After creating the client you can add contacts, agreements and client rooms from its record.</p>
+      <p className="muted">{tr("After creating the client you can add contacts, agreements and client rooms from its record.")}</p>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel="Create client" onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Create client")} onCancel={onCancel} />
     </form>
   );
 }
@@ -447,34 +448,33 @@ function ContactForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onS
         })
       }
     >
-      <Field label="Client">
+      <Field label={tr("Client")}>
         <select required value={clientId} onChange={(e) => setClientId(e.target.value)}>
-          <option value="">Choose a client…</option>
+          <option value="">{tr("Choose a client…")}</option>
           {activeClients(clients).map((c) => (
             <option key={c.clientId} value={c.clientId}>{c.name}</option>
           ))}
         </select>
       </Field>
-      <Field label="First name">
+      <Field label={tr("First name")}>
         <input required maxLength={100} value={firstName} onChange={(e) => setFirstName(e.target.value)} autoFocus />
       </Field>
-      <Field label="Last name">
+      <Field label={tr("Last name")}>
         <input maxLength={100} value={lastName} onChange={(e) => setLastName(e.target.value)} />
       </Field>
-      <Field label="Job title" hint="Optional, e.g. Category manager">
+      <Field label={tr("Job title")} hint={tr("Optional, e.g. Category manager")}>
         <input maxLength={150} value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} />
       </Field>
-      <Field label="E-mail">
+      <Field label={tr("E-mail")}>
         <input type="email" maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} />
       </Field>
-      <Field label="Phone">
+      <Field label={tr("Phone")}>
         <input type="tel" maxLength={50} value={phone} onChange={(e) => setPhone(e.target.value)} />
       </Field>
       <label className="checkbox">
-        <input type="checkbox" checked={isPrimary} onChange={(e) => setIsPrimary(e.target.checked)} /> Primary contact for this client
-      </label>
+        <input type="checkbox" checked={isPrimary} onChange={(e) => setIsPrimary(e.target.checked)} />  {tr("Primary contact for this client")}</label>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel="Add contact" onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Add contact")} onCancel={onCancel} />
     </form>
   );
 }
@@ -492,14 +492,14 @@ function OrganisationForm({ onDone, onCancel }: FormProps) {
         })
       }
     >
-      <Field label="Organisation name">
+      <Field label={tr("Organisation name")}>
         <input required maxLength={255} value={name} onChange={(e) => setName(e.target.value)} autoFocus />
       </Field>
-      <Field label="E-mail domain" hint="People who sign in with an address at this domain belong to this organisation, e.g. technova.nl">
+      <Field label={tr("E-mail domain")} hint={tr("People who sign in with an address at this domain belong to this organisation, e.g. technova.nl")}>
         <input required maxLength={255} value={domain} onChange={(e) => setDomain(e.target.value)} placeholder="example.com" />
       </Field>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel="Create organisation" onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Create organisation")} onCancel={onCancel} />
     </form>
   );
 }
@@ -512,11 +512,11 @@ function IntegrationKeyForm({ onDone, onCancel }: FormProps) {
   if (created) {
     return (
       <div>
-        <p><strong>Copy this key now.</strong> For security it is shown only once.</p>
+        <p><strong>{tr("Copy this key now.")}</strong>  {tr("For security it is shown only once.")}</p>
         <code className="secret">{created.key}</code>
         <div className="form-actions">
-          <button className="secondary" onClick={() => void navigator.clipboard?.writeText(created.key)}>Copy key</button>
-          <button className="primary" onClick={() => onDone(`/symphony/integrations?created=${created.id}`, `Integration key “${created.name}” created`)}>Done</button>
+          <button className="secondary" onClick={() => void navigator.clipboard?.writeText(created.key)}>{tr("Copy key")}</button>
+          <button className="primary" onClick={() => onDone(`/symphony/integrations?created=${created.id}`, `Integration key “${created.name}” created`)}>{tr("Done")}</button>
         </div>
       </div>
     );
@@ -530,15 +530,15 @@ function IntegrationKeyForm({ onDone, onCancel }: FormProps) {
         );
       }}
     >
-      <Field label="Name" hint="Which portal or system uses this key">
-        <input required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Retailer portal" autoFocus />
+      <Field label={tr("Name")} hint={tr("Which portal or system uses this key")}>
+        <input required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("e.g. Retailer portal")} autoFocus />
       </Field>
-      <Field label="Expires on" hint="Optional; leave empty for no expiry date">
+      <Field label={tr("Expires on")} hint={tr("Optional; leave empty for no expiry date")}>
         <input type="date" value={expires} onChange={(e) => setExpires(e.target.value)} />
       </Field>
-      <p className="muted">Integration keys can only read work orders, store visits and reports of this organisation.</p>
+      <p className="muted">{tr("Integration keys can only read work orders, store visits and reports of this organisation.")}</p>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel="Create key" onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Create key")} onCancel={onCancel} />
     </form>
   );
 }
@@ -569,36 +569,36 @@ function InvoiceForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onS
         })
       }
     >
-      <Field label="Client">
+      <Field label={tr("Client")}>
         <select required value={form.clientId} onChange={set('clientId')} autoFocus>
-          <option value="">Choose a client…</option>
+          <option value="">{tr("Choose a client…")}</option>
           {activeClients(clients).map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
         </select>
       </Field>
-      <Field label="Invoice number" hint="Must be unique, e.g. INV-2026-0042"><input required maxLength={50} value={form.invoiceNumber} onChange={set('invoiceNumber')} /></Field>
-      <Field label="Description"><input maxLength={255} value={form.description} onChange={set('description')} /></Field>
+      <Field label={tr("Invoice number")} hint={tr("Must be unique, e.g. INV-2026-0042")}><input required maxLength={50} value={form.invoiceNumber} onChange={set('invoiceNumber')} /></Field>
+      <Field label={tr("Description")}><input maxLength={255} value={form.description} onChange={set('description')} /></Field>
       <div className="field-row">
-        <Field label="Invoice date"><input required type="date" value={form.issueDate} onChange={set('issueDate')} /></Field>
-        <Field label="Due date"><input type="date" min={form.issueDate} value={form.dueDate} onChange={set('dueDate')} /></Field>
+        <Field label={tr("Invoice date")}><input required type="date" value={form.issueDate} onChange={set('issueDate')} /></Field>
+        <Field label={tr("Due date")}><input type="date" min={form.issueDate} value={form.dueDate} onChange={set('dueDate')} /></Field>
       </div>
       <div className="field-row">
-        <Field label="Amount excl. VAT (EUR)"><input required type="number" min={0} step="0.01" value={form.amountExclVat} onChange={set('amountExclVat')} /></Field>
-        <Field label="VAT rate" hint={`VAT: € ${vat}`}>
+        <Field label={tr("Amount excl. VAT (EUR)")}><input required type="number" min={0} step="0.01" value={form.amountExclVat} onChange={set('amountExclVat')} /></Field>
+        <Field label={tr("VAT rate")} hint={`VAT: € ${vat}`}>
           <select value={form.vatRate} onChange={set('vatRate')}>
             <option value="21">21%</option>
             <option value="9">9%</option>
-            <option value="0">0% / reverse charge</option>
+            <option value="0">{tr("0% / reverse charge")}</option>
           </select>
         </Field>
       </div>
-      <Field label="Status">
+      <Field label={tr("Status")}>
         <select value={form.status} onChange={set('status')}>
-          <option value="issued">Sent to the client</option>
-          <option value="draft">Draft</option>
+          <option value="issued">{tr("Sent to the client")}</option>
+          <option value="draft">{tr("Draft")}</option>
         </select>
       </Field>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel="Record invoice" onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Record invoice")} onCancel={onCancel} />
     </form>
   );
 }
@@ -627,33 +627,33 @@ function DealForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onSwit
         })
       }
     >
-      <Field label="Client">
+      <Field label={tr("Client")}>
         <select required value={form.clientId} onChange={set('clientId')} autoFocus>
-          <option value="">Choose a client…</option>
+          <option value="">{tr("Choose a client…")}</option>
           {activeClients(clients).map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
         </select>
       </Field>
-      <Field label="Deal name"><input required maxLength={200} value={form.title} onChange={set('title')} placeholder="e.g. Shelf replenishment Q3" /></Field>
+      <Field label={tr("Deal name")}><input required maxLength={200} value={form.title} onChange={set('title')} placeholder={tr("e.g. Shelf replenishment Q3")} /></Field>
       <div className="field-row">
-        <Field label="Value (EUR)"><input type="number" min={0} step="0.01" value={form.value} onChange={set('value')} /></Field>
-        <Field label="Priority">
+        <Field label={tr("Value (EUR)")}><input type="number" min={0} step="0.01" value={form.value} onChange={set('value')} /></Field>
+        <Field label={tr("Priority")}>
           <select value={form.priority} onChange={set('priority')}>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
+            <option value="low">{tr("Low")}</option>
+            <option value="medium">{tr("Medium")}</option>
+            <option value="high">{tr("High")}</option>
           </select>
         </Field>
       </div>
-      <Field label="Owner">
+      <Field label={tr("Owner")}>
         <select value={form.ownerId} onChange={set('ownerId')}>
-          <option value="">Not assigned</option>
+          <option value="">{tr("Not assigned")}</option>
           {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
         </select>
       </Field>
-      <Field label="Expected close date"><input type="date" value={form.dueDate} onChange={set('dueDate')} /></Field>
-      <Field label="Notes"><textarea rows={3} value={form.notes} onChange={set('notes')} /></Field>
+      <Field label={tr("Expected close date")}><input type="date" value={form.dueDate} onChange={set('dueDate')} /></Field>
+      <Field label={tr("Notes")}><textarea rows={3} value={form.notes} onChange={set('notes')} /></Field>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel="Add deal" onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Add deal")} onCancel={onCancel} />
     </form>
   );
 }

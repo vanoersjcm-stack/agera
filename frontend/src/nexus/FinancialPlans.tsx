@@ -7,9 +7,10 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, Field, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
+import { t as tr } from '../i18n';
 
-const SUITE_CRUMB = { label: 'Nexus', href: '#/nexus' };
-const LIST_CRUMB = { label: 'Financial plans', href: '#/nexus/financial-plans' };
+const SUITE_CRUMB = { label: tr("Nexus"), href: '#/nexus' };
+const LIST_CRUMB = { label: tr("Financial plans"), href: '#/nexus/financial-plans' };
 
 function planClient(metadata: Record<string, unknown>): string {
   return typeof metadata.companyName === 'string' ? metadata.companyName : '—';
@@ -24,35 +25,35 @@ export function FinancialPlansView({ route }: { route: Route }) {
   const count = (s: PlanStatus) => items.filter((m) => m.status === s).length;
   const filtered = items.filter((m) => (status === 'all' || m.status === status) && includesText([m.modelName, planClient(m.metadata)], q));
   return (
-    <ViewFrame title="Financial plans" crumbs={[SUITE_CRUMB, { label: 'Financial plans' }]} actions={<button className="primary" onClick={() => openNew('financial_plan')}>+ New financial plan</button>}>
+    <ViewFrame title={tr("Financial plans")} crumbs={[SUITE_CRUMB, { label: tr("Financial plans") }]} actions={<button className="primary" onClick={() => openNew('financial_plan')}>{tr("+ New financial plan")}</button>}>
       <div className="list-toolbar">
         <FilterChips
           value={status}
           onChange={(v) => navigate(withParams(route, { status: v === 'all' ? null : v }))}
           chips={[
-            { value: 'all', label: 'All', count: items.length },
-            { value: 'draft', label: 'Draft', count: count('draft') },
-            { value: 'approved', label: 'Approved', count: count('approved') },
-            { value: 'archived', label: 'Archived', count: count('archived') },
+            { value: 'all', label: tr("All"), count: items.length },
+            { value: 'draft', label: tr("Draft"), count: count('draft') },
+            { value: 'approved', label: tr("Approved"), count: count('approved') },
+            { value: 'archived', label: tr("Archived"), count: count('archived') },
           ]}
         />
-        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder="Filter by plan or client" />
+        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder={tr("Filter by plan or client")} />
       </div>
       {!data && <Loading error={error} />}
       {data && filtered.length === 0 && (
-        <EmptyState title={items.length === 0 ? 'No financial plans yet' : 'No plans match this filter'} action={<button className="primary" onClick={() => openNew('financial_plan')}>+ New financial plan</button>}>
-          {items.length === 0 ? 'A financial plan holds the expected revenue and costs per period, for example for one client contract.' : undefined}
+        <EmptyState title={items.length === 0 ? tr("No financial plans yet") : tr("No plans match this filter")} action={<button className="primary" onClick={() => openNew('financial_plan')}>{tr("+ New financial plan")}</button>}>
+          {items.length === 0 ? tr("A financial plan holds the expected revenue and costs per period, for example for one client contract.") : undefined}
         </EmptyState>
       )}
       {filtered.length > 0 && (
         <table className="grid clickable">
           <thead>
             <tr>
-              <th>Plan</th>
-              <th>Client</th>
-              <th>Fiscal year</th>
-              <th>Status</th>
-              <th>Last change</th>
+              <th>{tr("Plan")}</th>
+              <th>{tr("Client")}</th>
+              <th>{tr("Fiscal year")}</th>
+              <th>{tr("Status")}</th>
+              <th>{tr("Last change")}</th>
             </tr>
           </thead>
           <tbody>
@@ -117,16 +118,16 @@ function AddLineForm({ modelId, year, onDone, onCancel }: { modelId: string; yea
   };
   return (
     <form className="card-panel inline-form" onSubmit={submit}>
-      <h3>New plan line</h3>
+      <h3>{tr("New plan line")}</h3>
       <div className="field-row">
-        <Field label="Category">
+        <Field label={tr("Category")}>
           <select value={category} onChange={(e) => setCategory(e.target.value as Category)}>
             {(Object.keys(CATEGORY) as Category[]).map((c) => (
               <option key={c} value={c}>{CATEGORY[c]}</option>
             ))}
           </select>
         </Field>
-        <Field label="Period">
+        <Field label={tr("Period")}>
           <select value={period} onChange={(e) => setPeriod(e.target.value)}>
             {PERIODS(year).map((p) => (
               <option key={p.value} value={p.value}>{p.label}</option>
@@ -134,21 +135,21 @@ function AddLineForm({ modelId, year, onDone, onCancel }: { modelId: string; yea
           </select>
         </Field>
       </div>
-      <Field label="Description" hint="Optional, e.g. the project or cost type">
+      <Field label={tr("Description")} hint={tr("Optional, e.g. the project or cost type")}>
         <input maxLength={100} value={description} onChange={(e) => setDescription(e.target.value)} />
       </Field>
       <div className="field-row">
-        <Field label="Planned amount (EUR)">
+        <Field label={tr("Planned amount (EUR)")}>
           <input required inputMode="decimal" value={projected} onChange={(e) => setProjected(e.target.value)} placeholder="0,00" />
         </Field>
-        <Field label="Actual amount (EUR)" hint="Optional; fill in when known">
+        <Field label={tr("Actual amount (EUR)")} hint={tr("Optional; fill in when known")}>
           <input inputMode="decimal" value={actual} onChange={(e) => setActual(e.target.value)} placeholder="—" />
         </Field>
       </div>
       <ErrorText error={error} />
       <div className="form-actions start">
-        <button type="button" className="secondary" onClick={onCancel}>Cancel</button>
-        <button type="submit" className="primary" disabled={busy}>{busy ? 'Saving…' : 'Add line'}</button>
+        <button type="button" className="secondary" onClick={onCancel}>{tr("Cancel")}</button>
+        <button type="submit" className="primary" disabled={busy}>{busy ? tr("Saving…") : tr("Add line")}</button>
       </div>
     </form>
   );
@@ -162,7 +163,7 @@ function ActualCell({ line, editable, onSaved }: { line: LineItem; editable: boo
     return (
       <span>
         {formatAmount(line.actualAmount, line.currency)}{' '}
-        {editable && <button className="link-button" onClick={() => setEditing(true)}>{line.actualAmount === null ? 'Record actual' : 'Edit'}</button>}
+        {editable && <button className="link-button" onClick={() => setEditing(true)}>{line.actualAmount === null ? tr("Record actual") : tr("Edit")}</button>}
       </span>
     );
   }
@@ -174,9 +175,9 @@ function ActualCell({ line, editable, onSaved }: { line: LineItem; editable: boo
         void run(() => api.updateLineItem(line.id, { actualAmount: value.trim() ? normaliseAmount(value) : null })).then((r) => r && (setEditing(false), onSaved()));
       }}
     >
-      <input autoFocus inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} aria-label="Actual amount" />
-      <button className="primary small" disabled={busy}>Save</button>
-      <button type="button" className="link-button" onClick={() => setEditing(false)}>Cancel</button>
+      <input autoFocus inputMode="decimal" value={value} onChange={(e) => setValue(e.target.value)} aria-label={tr("Actual amount")} />
+      <button className="primary small" disabled={busy}>{tr("Save")}</button>
+      <button type="button" className="link-button" onClick={() => setEditing(false)}>{tr("Cancel")}</button>
       {error && <span className="error">{error}</span>}
     </form>
   );
@@ -191,7 +192,7 @@ export function PlanDossier({ id }: { id: string }) {
   const m = plan.data;
   if (!m) {
     return (
-      <ViewFrame title="Financial plan" crumbs={[SUITE_CRUMB, LIST_CRUMB, { label: 'Loading…' }]}>
+      <ViewFrame title={tr("Financial plan")} crumbs={[SUITE_CRUMB, LIST_CRUMB, { label: tr("Loading…") }]}>
         <Loading error={plan.error} />
       </ViewFrame>
     );
@@ -217,44 +218,43 @@ export function PlanDossier({ id }: { id: string }) {
           {m.status === 'approved' && <a className="button-link" href={`#/nexus/profit-loss?modelId=${id}`}>View in Profit &amp; loss</a>}
           {m.status !== 'archived' && (
             <button className="secondary" disabled={action.busy} onClick={() => setStatus('archived', 'Plan archived', 'Archive this plan? It no longer counts in Profit & loss and Alerts.')}>
-              Archive
-            </button>
+              {tr("Archive")}</button>
           )}
           {m.status === 'draft' && (
-            <button className="primary" disabled={action.busy} onClick={() => setStatus('approved', 'Plan approved')}>Approve plan ✓</button>
+            <button className="primary" disabled={action.busy} onClick={() => setStatus('approved', 'Plan approved')}>{tr("Approve plan ✓")}</button>
           )}
           {m.status === 'archived' && (
-            <button className="secondary" disabled={action.busy} onClick={() => setStatus('draft', 'Plan restored as draft')}>Restore as draft</button>
+            <button className="secondary" disabled={action.busy} onClick={() => setStatus('draft', 'Plan restored as draft')}>{tr("Restore as draft")}</button>
           )}
         </>
       }
     >
       <ol className="stepper compact">
-        <li className={m.status === 'draft' ? 'current' : 'done'}><span className="step-index">1</span>Draft</li>
-        <li className={m.status === 'approved' ? 'current' : m.status === 'archived' ? 'done' : undefined}><span className="step-index">2</span>Approved</li>
-        <li className={m.status === 'archived' ? 'current' : undefined}><span className="step-index">3</span>Archived</li>
+        <li className={m.status === 'draft' ? 'current' : 'done'}><span className="step-index">1</span>{tr("Draft")}</li>
+        <li className={m.status === 'approved' ? 'current' : m.status === 'archived' ? 'done' : undefined}><span className="step-index">2</span>{tr("Approved")}</li>
+        <li className={m.status === 'archived' ? 'current' : undefined}><span className="step-index">3</span>{tr("Archived")}</li>
       </ol>
       <ErrorText error={action.error} />
       <ApprovalPanel entityType="financial_plan" entityId={id} canRequest={m.status === 'draft'} onChanged={plan.reload} />
       <DetailList items={[['Client', planClient(m.metadata)], ['Fiscal year', String(m.fiscalYear)], ['Created', formatDate(m.createdAt)]]} />
       <p className="muted">Only approved plans count in Profit &amp; loss and Alerts.</p>
       <div className="section-head">
-        <h2 className="section-title">Plan lines ({lines.data?.length ?? '…'})</h2>
-        {editable && !adding && <button className="primary" onClick={() => setAdding(true)}>+ Line</button>}
+        <h2 className="section-title">{tr("Plan lines (")}{lines.data?.length ?? '…'})</h2>
+        {editable && !adding && <button className="primary" onClick={() => setAdding(true)}>{tr("+ Line")}</button>}
       </div>
-      {adding && <AddLineForm modelId={id} year={m.fiscalYear} onCancel={() => setAdding(false)} onDone={() => (setAdding(false), notify('Plan line added'), lines.reload())} />}
+      {adding && <AddLineForm modelId={id} year={m.fiscalYear} onCancel={() => setAdding(false)} onDone={() => (setAdding(false), notify(tr("Plan line added")), lines.reload())} />}
       {!lines.data && <Loading error={lines.error} />}
-      {lines.data?.length === 0 && !adding && <p className="muted">No plan lines yet. Add the expected revenue and costs per period.</p>}
+      {lines.data?.length === 0 && !adding && <p className="muted">{tr("No plan lines yet. Add the expected revenue and costs per period.")}</p>}
       {lines.data && lines.data.length > 0 && (
         <table className="grid">
           <thead>
             <tr>
-              <th>Period</th>
-              <th>Category</th>
-              <th>Description</th>
-              <th className="num">Planned</th>
-              <th className="num">Actual</th>
-              <th className="num">Difference</th>
+              <th>{tr("Period")}</th>
+              <th>{tr("Category")}</th>
+              <th>{tr("Description")}</th>
+              <th className="num">{tr("Planned")}</th>
+              <th className="num">{tr("Actual")}</th>
+              <th className="num">{tr("Difference")}</th>
             </tr>
           </thead>
           <tbody>
@@ -272,7 +272,7 @@ export function PlanDossier({ id }: { id: string }) {
           <tfoot>
             {Object.entries(totals).map(([cat, t]) => (
               <tr key={cat}>
-                <td>Total</td>
+                <td>{tr("Total")}</td>
                 <td>{CATEGORY[cat as Category]}</td>
                 <td />
                 <td className="num">{formatAmount(String(t.projected), t.currency)}</td>

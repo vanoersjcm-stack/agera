@@ -6,6 +6,7 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { FilterChips, Loading, useLoad } from '../ui';
 import { periodLabel } from './FinancialPlans';
+import { t as tr } from '../i18n';
 
 const POLL_MS = 60_000;
 
@@ -24,11 +25,11 @@ function describe(a: Alert): string {
 function openLink(a: Alert): { href: string; label: string } {
   switch (a.anomalyType) {
     case 'financial_variance':
-      return { href: `#/nexus/financial-plans/${String(a.details.modelId)}`, label: 'Open plan' };
+      return { href: `#/nexus/financial-plans/${String(a.details.modelId)}`, label: tr("Open plan") };
     case 'dsr_stagnation':
-      return { href: `#/nexus/client-rooms/${a.sourceId}?tab=engagement`, label: 'Open client room' };
+      return { href: `#/nexus/client-rooms/${a.sourceId}?tab=engagement`, label: tr("Open client room") };
     case 'store_compliance':
-      return { href: `#/retailpower/stores/${a.sourceId}`, label: 'Open store' };
+      return { href: `#/retailpower/stores/${a.sourceId}`, label: tr("Open store") };
   }
 }
 
@@ -44,12 +45,12 @@ export function AlertsView({ route }: { route: Route }) {
   const count = (t: AlertType) => items.filter((a) => a.anomalyType === t).length;
   const filtered = items.filter((a) => type === 'all' || a.anomalyType === type);
   return (
-    <ViewFrame title="Alerts" crumbs={[{ label: 'Nexus', href: '#/nexus' }, { label: 'Alerts' }]}>
+    <ViewFrame title={tr("Alerts")} crumbs={[{ label: tr("Nexus"), href: '#/nexus' }, { label: tr("Alerts") }]}>
       <FilterChips
         value={type}
         onChange={(v) => navigate(withParams(route, { type: v === 'all' ? null : v }))}
         chips={[
-          { value: 'all', label: 'All alerts', count: items.length },
+          { value: 'all', label: tr("All alerts"), count: items.length },
           { value: 'financial_variance', label: ALERT_TYPE.financial_variance, count: count('financial_variance') },
           { value: 'dsr_stagnation', label: ALERT_TYPE.dsr_stagnation, count: count('dsr_stagnation') },
           { value: 'store_compliance', label: ALERT_TYPE.store_compliance, count: count('store_compliance') },
@@ -57,17 +58,16 @@ export function AlertsView({ route }: { route: Route }) {
       />
       {!data && <Loading error={error} />}
       {data && filtered.length === 0 && (
-        <EmptyState title="No open alerts">
-          All approved plan lines are within 10% of plan, every active client room had client activity in the last 7 days, and no store report is flagged.
-        </EmptyState>
+        <EmptyState title={tr("No open alerts")}>
+          {tr("All approved plan lines are within 10% of plan, every active client room had client activity in the last 7 days, and no store report is flagged.")}</EmptyState>
       )}
       {filtered.length > 0 && (
         <table className="grid">
           <thead>
             <tr>
-              <th>Alert</th>
-              <th>What happened</th>
-              <th>Since</th>
+              <th>{tr("Alert")}</th>
+              <th>{tr("What happened")}</th>
+              <th>{tr("Since")}</th>
               <th />
             </tr>
           </thead>
@@ -86,7 +86,7 @@ export function AlertsView({ route }: { route: Route }) {
           </tbody>
         </table>
       )}
-      {data && <p className="muted">Updated {new Date(data.generatedAt).toLocaleTimeString()} · refreshes every minute</p>}
+      {data && <p className="muted">{tr("Updated")} {new Date(data.generatedAt).toLocaleTimeString()}  {tr("· refreshes every minute")}</p>}
     </ViewFrame>
   );
 }

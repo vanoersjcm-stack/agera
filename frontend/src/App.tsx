@@ -32,16 +32,15 @@ import { AutomationDossier, AutomationsView } from './symphony/Automations';
 import { ReportBuilderView, ReportsView } from './symphony/Reports';
 import { IntegrationsView as ExternalSystemsView } from './symphony/Integrations';
 import { GoldenThreadTour, startTour } from './tour';
-import { getLanguage, setLanguage, t, useLanguage } from './i18n';
+import { getLanguage, setLanguage, t, useLanguage, t as tr } from './i18n';
 import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
 import { ActivityLogView, IntegrationsView, OrganisationsView, SymphonyOverview } from './symphony/SymphonyViews';
 
 function NotAvailable({ path }: { path: string }) {
   return (
-    <ViewFrame title="Page not available">
-      <EmptyState title="This page does not exist or is not available for your account" action={<a className="button-link" href="#/">Go to the start page</a>}>
-        The address <code>#{path}</code> could not be opened.
-      </EmptyState>
+    <ViewFrame title={tr("Page not available")}>
+      <EmptyState title={tr("This page does not exist or is not available for your account")} action={<a className="button-link" href="#/">{tr("Go to the start page")}</a>}>
+        {tr("The address")} <code>#{path}</code>  {tr("could not be opened.")}</EmptyState>
     </ViewFrame>
   );
 }
@@ -163,19 +162,19 @@ function WaffleMenu({ active, tier }: { active: Suite; tier: LicenseTier }) {
   const { open, setOpen, ref } = useDropdown();
   return (
     <div className="dropdown" ref={ref}>
-      <button className={`waffle-button${open ? ' open' : ''}`} aria-haspopup="menu" aria-expanded={open} aria-label="Switch suite" title="Switch suite" onClick={() => setOpen(!open)}>
+      <button className={`waffle-button${open ? ' open' : ''}`} aria-haspopup="menu" aria-expanded={open} aria-label={tr("Switch suite")} title={tr("Switch suite")} onClick={() => setOpen(!open)}>
         <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden><g fill="currentColor">{[3, 9, 15].flatMap((x) => [3, 9, 15].map((y) => <rect key={`${x}-${y}`} x={x - 1.5} y={y - 1.5} width="3" height="3" rx="0.8" />))}</g></svg>
       </button>
       {open && (
         <div className="waffle-panel" role="menu">
           <div className="waffle-head">
-            <span>Agera suites</span>
-            <span className="waffle-hint">1 click</span>
+            <span>{tr("Agera suites")}</span>
+            <span className="waffle-hint">{tr("1 click")}</span>
           </div>
           <div className="waffle-grid">
             {SUITES.map((s) => (
               <a key={s.id} role="menuitem" href={`#${s.home}`} className={`waffle-card ${s.id}${s.id === active.id ? ' current' : ''}`} onClick={() => setOpen(false)}>
-                <strong>Agera {suiteName(s, tier)}</strong>
+                <strong>{tr("Agera")} {suiteName(s, tier)}</strong>
                 {s.tagline}
               </a>
             ))}
@@ -247,20 +246,20 @@ function SearchPalette({ user, tier }: { user: UserContext; tier: LicenseTier })
 
   return (
     <>
-      <button className="search-trigger" onClick={() => setOpen(true)} title="Search (Ctrl K)">
+      <button className="search-trigger" onClick={() => setOpen(true)} title={tr("Search (Ctrl K)")}>
         <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" strokeWidth="1.6" /><path d="M11 11l3.5 3.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" /></svg>
-        <span className="search-label">Search…</span>
-        <kbd>Ctrl K</kbd>
+        <span className="search-label">{tr("Search…")}</span>
+        <kbd>{tr("Ctrl K")}</kbd>
       </button>
       {open && (
         <div className="palette-backdrop" onMouseDown={(e) => e.target === e.currentTarget && close()}>
-          <div className="palette" role="dialog" aria-label="Search">
+          <div className="palette" role="dialog" aria-label={tr("Search")}>
             <input
               autoFocus
               type="search"
               value={q}
-              placeholder="Search clients, stores, work orders, agreements, client rooms or pages…"
-              aria-label="Search"
+              placeholder={tr("Search clients, stores, work orders, agreements, client rooms or pages…")}
+              aria-label={tr("Search")}
               onChange={(e) => setQ(e.target.value)}
               onKeyDown={(e) => {
                 if (e.key === 'Escape') close();
@@ -270,14 +269,14 @@ function SearchPalette({ user, tier }: { user: UserContext; tier: LicenseTier })
               }}
             />
             <div className="palette-results" role="listbox">
-              {q.trim().length < 2 && <p className="muted menu-note">Type at least two letters. Use ↑ ↓ and Enter to open a result.</p>}
+              {q.trim().length < 2 && <p className="muted menu-note">{tr("Type at least two letters. Use ↑ ↓ and Enter to open a result.")}</p>}
               {results.map((r, i) => (
                 <button key={r.route} role="option" aria-selected={i === selected} className={i === selected ? 'selected' : undefined} onMouseEnter={() => setSelected(i)} onClick={() => go(r.route)}>
                   <strong>{r.title}{r.type && <em className="palette-type">{r.type}</em>}</strong>
                   <span>{r.subtitle}</span>
                 </button>
               ))}
-              {q.trim().length >= 2 && results.length === 0 && <p className="muted menu-note">{searching ? 'Searching…' : 'Nothing found'}</p>}
+              {q.trim().length >= 2 && results.length === 0 && <p className="muted menu-note">{searching ? tr("Searching…") : tr("Nothing found")}</p>}
             </div>
           </div>
         </div>
@@ -303,8 +302,7 @@ function NewMenu({ suite, user, tier, onPick }: { suite: SuiteId; user: UserCont
   return (
     <div className="dropdown" ref={ref}>
       <button className="new-button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
-        + New
-      </button>
+        {tr("+ New")}</button>
       {open && (
         <div className="menu new-menu" role="menu">
           {groups.map((g) => {
@@ -312,7 +310,7 @@ function NewMenu({ suite, user, tier, onPick }: { suite: SuiteId; user: UserCont
             if (groupItems.length === 0) return null;
             return (
               <div key={g} className="menu-group">
-                <span className="menu-heading">{g === 'Symphony' && tier === 'vanguard' ? 'Vanguard' : g}{g === current ? ' (current)' : ''}</span>
+                <span className="menu-heading">{g === 'Symphony' && tier === 'vanguard' ? tr("Vanguard") : g}{g === current ? tr(" (current)") : ''}</span>
                 {groupItems.map((i) => (
                   <button key={i.kind} role="menuitem" onClick={() => (setOpen(false), onPick(i.kind))}>
                     {i.label}
@@ -356,12 +354,12 @@ function UserMenu({ user, tenant, tier, tipsOn, onToggleTips }: { user: UserCont
           </div>
           {user.isPlatformAdmin && (
             <button role="menuitem" onClick={() => setPreviewTier(tier === 'vanguard' ? 'symphony' : 'vanguard')}>
-              {tier === 'vanguard' ? 'View as Enterprise (Symphony)' : 'View as Vanguard'}
+              {tier === 'vanguard' ? tr("View as Enterprise (Symphony)") : tr("View as Vanguard")}
             </button>
           )}
-          {user.isPlatformAdmin && previewTier() && <button role="menuitem" onClick={() => setPreviewTier(null)}>Stop edition preview</button>}
+          {user.isPlatformAdmin && previewTier() && <button role="menuitem" onClick={() => setPreviewTier(null)}>{tr("Stop edition preview")}</button>}
           <button role="menuitem" onClick={() => (setOpen(false), startTour())}>{t('Take the Golden Thread tour')}</button>
-          <button role="menuitem" onClick={() => setLanguage(getLanguage() === 'nl' ? 'en' : 'nl')}>{getLanguage() === 'nl' ? 'Language: Nederlands → English' : 'Language: English → Nederlands'}</button>
+          <button role="menuitem" onClick={() => setLanguage(getLanguage() === 'nl' ? 'en' : 'nl')}>{getLanguage() === 'nl' ? tr("Language: Nederlands → English") : tr("Language: English → Nederlands")}</button>
           <button role="menuitem" onClick={onToggleTips}>{t(tipsOn ? 'Hide page tips' : 'Show page tips')}</button>
           <button role="menuitem" onClick={() => void keycloak.logout({ redirectUri: window.location.origin + '/' })}>{t('Log out')}</button>
         </div>
@@ -422,18 +420,18 @@ function ClientPill() {
   if (!clients || clients.length === 0) return null;
   return (
     <div className={`client-pill${filter ? ' filtered' : ''}`}>
-      <button aria-haspopup="menu" aria-expanded={open} title={filter ? `Lists filtered on ${filter.name}` : 'Filter all lists on one client'} onClick={() => setOpen(!open)} onBlur={() => setTimeout(() => setOpen(false), 200)}>
-        [{filter ? shortCode(filter.name) : 'All clients'} ▾]
+      <button aria-haspopup="menu" aria-expanded={open} title={filter ? `Lists filtered on ${filter.name}` : tr("Filter all lists on one client")} onClick={() => setOpen(!open)} onBlur={() => setTimeout(() => setOpen(false), 200)}>
+        [{filter ? shortCode(filter.name) : tr("All clients")} ▾]
       </button>
       {open && (
         <div className="menu" role="menu">
-          <button role="menuitem" className={!filter ? 'selected' : undefined} onMouseDown={() => setClientFilter(null)}>All clients</button>
+          <button role="menuitem" className={!filter ? 'selected' : undefined} onMouseDown={() => setClientFilter(null)}>{tr("All clients")}</button>
           {clients.filter((c) => c.status === 'active').map((c) => (
             <div key={c.id} className={`client-pill-row${c.id === filter?.id ? ' selected' : ''}`}>
-              <button role="menuitem" onMouseDown={() => setClientFilter({ id: c.id, name: c.name })} title="Filter all lists on this client">
+              <button role="menuitem" onMouseDown={() => setClientFilter({ id: c.id, name: c.name })} title={tr("Filter all lists on this client")}>
                 <code>{shortCode(c.name)}</code> {c.name}
               </button>
-              <a href={`#/nexus/clients/${c.id}`} onMouseDown={() => navigate(`/nexus/clients/${c.id}`)} className="small">dossier</a>
+              <a href={`#/nexus/clients/${c.id}`} onMouseDown={() => navigate(`/nexus/clients/${c.id}`)} className="small">{tr("dossier")}</a>
             </div>
           ))}
         </div>
@@ -453,8 +451,8 @@ function StatusPill() {
   }, []);
   if (ok === null) return null;
   return (
-    <span className={`status-pill${ok ? '' : ' down'}`} title="Status of the Agera database. No ERP system is connected.">
-      <span className="dot" aria-hidden /> {ok ? 'Database connected' : 'Database unreachable'}
+    <span className={`status-pill${ok ? '' : ' down'}`} title={tr("Status of the Agera database. No ERP system is connected.")}>
+      <span className="dot" aria-hidden /> {ok ? tr("Database connected") : tr("Database unreachable")}
     </span>
   );
 }
@@ -471,16 +469,15 @@ function CreditPill({ user }: { user: UserContext }) {
   if (count === null) return null;
   if (count > 0) {
     return (
-      <a className="credit-pill locked" href="#/symphony/credit-control" title="Agreements cannot be activated for locked clients">
-        <span className="pulse" aria-hidden /> Credit lock active{count > 1 ? ` (${count})` : ''}
+      <a className="credit-pill locked" href="#/symphony/credit-control" title={tr("Agreements cannot be activated for locked clients")}>
+        <span className="pulse" aria-hidden />  {tr("Credit lock active")}{count > 1 ? ` (${count})` : ''}
       </a>
     );
   }
   if (!(user.role === 'admin' || user.isPlatformAdmin)) return null;
   return (
-    <a className="credit-pill" href="#/symphony/credit-control?lock=" title="Emergency credit lock">
-      Credit lock
-    </a>
+    <a className="credit-pill" href="#/symphony/credit-control?lock=" title={tr("Emergency credit lock")}>
+      {tr("Credit lock")}</a>
   );
 }
 
@@ -490,13 +487,13 @@ function OrgBadge({ user, tenant }: { user: UserContext; tenant: Tenant | null }
     if (user.isPlatformAdmin) api.tenants().then(setTenants, () => setTenants(null));
   }, [user.isPlatformAdmin]);
   if (!user.isPlatformAdmin || !tenant || !tenants || tenants.length < 2) {
-    return <span className="org-badge" title="Organisation you are working in">{tenant?.name ?? '…'}</span>;
+    return <span className="org-badge" title={tr("Organisation you are working in")}>{tenant?.name ?? '…'}</span>;
   }
   return (
     <select
       className="org-badge org-switch"
-      aria-label="Switch organisation"
-      title="Platform administrators can view other organisations (read-only)"
+      aria-label={tr("Switch organisation")}
+      title={tr("Platform administrators can view other organisations (read-only)")}
       value={tenant.id}
       onChange={(e) => switchOrganisation(e.target.value)}
     >
@@ -555,15 +552,15 @@ export function App() {
       <div className={`shell suite-${external ? 'portal' : suite.id} tier-${tier}`}>
         <header className="topbar">
           {external ? (
-            <span className="brand">Agera · Client portal</span>
+            <span className="brand">{tr("Agera · Client portal")}</span>
           ) : (
             <>
               <WaffleMenu active={suite} tier={tier} />
               <div className="suite-indicator">
-                <span className="suite-title">Agera {brand}</span>
+                <span className="suite-title">{tr("Agera")} {brand}</span>
                 <span className="suite-tag">{suiteBadge(suite.id, tier)}</span>
               </div>
-              <nav className="suite-nav" aria-label="Suites">
+              <nav className="suite-nav" aria-label={tr("Suites")}>
                 {SUITES.map((s) => (
                   <a key={s.id} href={`#${s.home}`} className={s.id === suite.id ? 'active' : undefined}>
                     <span className={`suite-dot dot-${s.id}`} aria-hidden />
@@ -582,7 +579,7 @@ export function App() {
         </header>
         <div className="actionbar">
           <div className="actionbar-crumbs">
-            <strong>Agera Platform</strong>
+            <strong>{tr("Agera Platform")}</strong>
             <span className="sep" aria-hidden>›</span>
             <span id="actionbar-crumbs" className="crumbs-slot" data-fallback={external ? 'Client portal' : brand} />
           </div>
@@ -595,21 +592,21 @@ export function App() {
         </div>
         <div className="workspace">
           {external ? (
-            <SideNav items={PORTAL_NAV} path={route.path} heading="Client portal" />
+            <SideNav items={PORTAL_NAV} path={route.path} heading={tr("Client portal")} />
           ) : (
             <SideNav items={navFor(suite.id, user)} path={route.path} heading={`${brand} · ${suite.tagline}`} />
           )}
           <main>
             {preview && preview !== tenant?.licenseTier && (
               <p className="callout readonly-banner">
-                Previewing the interface of <strong>{editionName(preview)}</strong>. Server-side limits still follow this organisation’s real edition.{' '}
-                <button className="link-button" onClick={() => setPreviewTier(null)}>Stop preview</button>
+                {tr("Previewing the interface of")} <strong>{editionName(preview)}</strong>{tr(". Server-side limits still follow this organisation’s real edition.")}{' '}
+                <button className="link-button" onClick={() => setPreviewTier(null)}>{tr("Stop preview")}</button>
               </p>
             )}
             {tenant?.readOnly && (
               <p className="callout readonly-banner">
-                You are viewing <strong>{tenant.name}</strong> read-only. Changes are only possible in your own organisation.{' '}
-                <button className="link-button" onClick={() => switchOrganisation(null)}>Back to my organisation</button>
+                {tr("You are viewing")} <strong>{tenant.name}</strong>  {tr("read-only. Changes are only possible in your own organisation.")}{' '}
+                <button className="link-button" onClick={() => switchOrganisation(null)}>{tr("Back to my organisation")}</button>
               </p>
             )}
             <AssistantTip path={route.path} assistant={assistant} />

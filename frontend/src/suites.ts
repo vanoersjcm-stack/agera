@@ -1,5 +1,6 @@
 import type { LicenseTier } from './api';
 import type { UserContext } from './context';
+import { t } from './i18n';
 
 export type SuiteId = 'symphony' | 'nexus' | 'retailpower';
 
@@ -11,9 +12,9 @@ export interface Suite {
 }
 
 export const SUITES: Suite[] = [
-  { id: 'symphony', name: 'Symphony', tagline: 'HQ & Governance', home: '/symphony' },
-  { id: 'nexus', name: 'Nexus', tagline: 'Commercial & Client Portal', home: '/nexus' },
-  { id: 'retailpower', name: 'RetailPower', tagline: 'Field & Shelf Execution', home: '/retailpower' },
+  { id: 'symphony', name: 'Symphony', tagline: t("HQ & Governance"), home: '/symphony' },
+  { id: 'nexus', name: 'Nexus', tagline: t("Commercial & Client Portal"), home: '/nexus' },
+  { id: 'retailpower', name: 'RetailPower', tagline: t("Field & Shelf Execution"), home: '/retailpower' },
 ];
 
 export interface NavItem {
@@ -26,61 +27,61 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
   switch (suite) {
     case 'symphony':
       return [
-        { path: '/symphony', label: 'Overview', description: 'Key figures across all suites' },
-        { path: '/symphony/prognosis', label: 'Prognosis', description: 'Run-rate waterfall with what-if sliders' },
-        { path: '/symphony/invoices', label: 'Invoices', description: 'Record invoices, mark them sent or paid' },
-        { path: '/symphony/credit-control', label: 'Credit control', description: 'Emergency credit locks per client or organisation-wide' },
-        { path: '/symphony/approvals', label: 'Approvals', description: 'Approval chains waiting for you and all requests' },
-        { path: '/symphony/health', label: 'Account health', description: 'Health score and engagement per client' },
-        { path: '/symphony/automations', label: 'Automations', description: 'When something happens, notify someone or open an exception' },
-        { path: '/symphony/reports', label: 'Reports', description: 'KPI dashboard, CSV exports and the report builder' },
-        { path: '/symphony/clients', label: 'Client dossiers', description: 'Open360: master data, contacts, contracts and stores per client' },
-        { path: '/symphony/activity', label: 'Activity log', description: 'Who did what, and when' },
+        { path: '/symphony', label: t("Overview"), description: t("Key figures across all suites") },
+        { path: '/symphony/prognosis', label: t("Prognosis"), description: t("Run-rate waterfall with what-if sliders") },
+        { path: '/symphony/invoices', label: t("Invoices"), description: t("Record invoices, mark them sent or paid") },
+        { path: '/symphony/credit-control', label: t("Credit control"), description: t("Emergency credit locks per client or organisation-wide") },
+        { path: '/symphony/approvals', label: t("Approvals"), description: t("Approval chains waiting for you and all requests") },
+        { path: '/symphony/health', label: t("Account health"), description: t("Health score and engagement per client") },
+        { path: '/symphony/automations', label: t("Automations"), description: t("When something happens, notify someone or open an exception") },
+        { path: '/symphony/reports', label: t("Reports"), description: t("KPI dashboard, CSV exports and the report builder") },
+        { path: '/symphony/clients', label: t("Client dossiers"), description: t("Open360: master data, contacts, contracts and stores per client") },
+        { path: '/symphony/activity', label: t("Activity log"), description: t("Who did what, and when") },
         ...(user.role === 'admin' || user.isPlatformAdmin
-          ? [{ path: '/symphony/people', label: 'People & access', description: 'Invite colleagues and clients, roles, deactivate accounts' }]
+          ? [{ path: '/symphony/people', label: t("People & access"), description: t("Invite colleagues and clients, roles, deactivate accounts") }]
           : []),
         ...(user.isPlatformAdmin
           ? [
-              { path: '/symphony/organisations', label: 'Organisations', description: 'Your organisation and new organisations' },
-              { path: '/symphony/integrations', label: 'Integrations', description: 'Integration keys for external portals' },
-              { path: '/symphony/connections', label: 'External systems', description: 'ERP, e-mail, OCR, voice and e-signature: not connected yet' },
+              { path: '/symphony/organisations', label: t("Organisations"), description: t("Your organisation and new organisations") },
+              { path: '/symphony/integrations', label: t("Integrations"), description: t("Integration keys for external portals") },
+              { path: '/symphony/connections', label: t("External systems"), description: t("ERP, e-mail, OCR, voice and e-signature: not connected yet") },
             ]
           : []),
       ];
     case 'nexus':
       return [
-        { path: '/nexus', label: 'Overview', description: 'Contract value, client rooms and alerts' },
-        { path: '/nexus/clients', label: 'Clients', description: 'Client companies, contacts and their deals' },
-        { path: '/nexus/pipeline', label: 'Deal pipeline', description: 'Deals per stage; move them forward with one click' },
-        { path: '/nexus/deals', label: 'Deals', description: 'Deal list with filters, owners and due dates' },
-        { path: '/nexus/agreements', label: 'Agreements', description: 'Client agreements and approvals' },
-        { path: '/nexus/client-rooms', label: 'Client rooms', description: 'Online rooms per client deal, with engagement' },
-        { path: '/nexus/financial-plans', label: 'Financial plans', description: 'Plans, plan lines and approval' },
-        { path: '/nexus/profit-loss', label: 'Profit & loss', description: 'Plan versus actual per period' },
-        { path: '/nexus/price-lists', label: 'Price lists', description: 'Client and volume prices on top of the catalogue' },
-        { path: '/nexus/templates', label: 'Document templates', description: 'Proposals and letters filled with client data' },
-        { path: '/nexus/exceptions', label: 'Exceptions', description: 'Issues with an owner, severity and resolution' },
-        { path: '/nexus/alerts', label: 'Alerts', description: 'Plan deviations, inactive rooms, non-compliant stores' },
+        { path: '/nexus', label: t("Overview"), description: t("Contract value, client rooms and alerts") },
+        { path: '/nexus/clients', label: t("Clients"), description: t("Client companies, contacts and their deals") },
+        { path: '/nexus/pipeline', label: t("Deal pipeline"), description: t("Deals per stage; move them forward with one click") },
+        { path: '/nexus/deals', label: t("Deals"), description: t("Deal list with filters, owners and due dates") },
+        { path: '/nexus/agreements', label: t("Agreements"), description: t("Client agreements and approvals") },
+        { path: '/nexus/client-rooms', label: t("Client rooms"), description: t("Online rooms per client deal, with engagement") },
+        { path: '/nexus/financial-plans', label: t("Financial plans"), description: t("Plans, plan lines and approval") },
+        { path: '/nexus/profit-loss', label: t("Profit & loss"), description: t("Plan versus actual per period") },
+        { path: '/nexus/price-lists', label: t("Price lists"), description: t("Client and volume prices on top of the catalogue") },
+        { path: '/nexus/templates', label: t("Document templates"), description: t("Proposals and letters filled with client data") },
+        { path: '/nexus/exceptions', label: t("Exceptions"), description: t("Issues with an owner, severity and resolution") },
+        { path: '/nexus/alerts', label: t("Alerts"), description: t("Plan deviations, inactive rooms, non-compliant stores") },
       ];
     case 'retailpower':
       return [
-        { path: '/retailpower', label: 'Overview', description: 'Visits, open work orders and store compliance' },
-        { path: '/retailpower/work-orders', label: 'Work orders', description: 'Field tasks, assignment and status' },
-        { path: '/retailpower/store-visits', label: 'Store visits', description: 'Plan visits, write reports, add photos' },
-        { path: '/retailpower/stores', label: 'Stores', description: 'Store list and compliance' },
-        { path: '/retailpower/calendar', label: 'Field calendar', description: 'Visits per rep per day, with capacity warnings' },
-        { path: '/retailpower/audit-rounds', label: 'Audit rounds', description: 'Plan visits to many stores with one checklist' },
-        { path: '/retailpower/orders', label: 'Field orders', description: 'Orders taken in stores, draft to delivery' },
-        { path: '/retailpower/products', label: 'Products', description: 'Product catalogue and prices' },
-        { path: '/retailpower/planograms', label: 'Planograms', description: 'Expected shelf layouts and facings' },
+        { path: '/retailpower', label: t("Overview"), description: t("Visits, open work orders and store compliance") },
+        { path: '/retailpower/work-orders', label: t("Work orders"), description: t("Field tasks, assignment and status") },
+        { path: '/retailpower/store-visits', label: t("Store visits"), description: t("Plan visits, write reports, add photos") },
+        { path: '/retailpower/stores', label: t("Stores"), description: t("Store list and compliance") },
+        { path: '/retailpower/calendar', label: t("Field calendar"), description: t("Visits per rep per day, with capacity warnings") },
+        { path: '/retailpower/audit-rounds', label: t("Audit rounds"), description: t("Plan visits to many stores with one checklist") },
+        { path: '/retailpower/orders', label: t("Field orders"), description: t("Orders taken in stores, draft to delivery") },
+        { path: '/retailpower/products', label: t("Products"), description: t("Product catalogue and prices") },
+        { path: '/retailpower/planograms', label: t("Planograms"), description: t("Expected shelf layouts and facings") },
       ];
   }
 }
 
 export const PORTAL_NAV: NavItem[] = [
-  { path: '/portal', label: 'Overview', description: 'What Agera shares with you' },
-  { path: '/portal/rooms', label: 'My client rooms', description: 'Rooms Agera opened for your organisation' },
-  { path: '/portal/agreements', label: 'My agreements', description: 'Agreements and their status' },
+  { path: '/portal', label: t("Overview"), description: t("What Agera shares with you") },
+  { path: '/portal/rooms', label: t("My client rooms"), description: t("Rooms Agera opened for your organisation") },
+  { path: '/portal/agreements', label: t("My agreements"), description: t("Agreements and their status") },
 ];
 
 const SUITE_KEY = 'agera.suite';

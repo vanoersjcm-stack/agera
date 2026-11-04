@@ -8,9 +8,10 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
+import { t as tr } from '../i18n';
 
-const SUITE = { label: 'Nexus', href: '#/nexus' };
-const LIST = { label: 'Clients', href: '#/nexus/clients' };
+const SUITE = { label: tr("Nexus"), href: '#/nexus' };
+const LIST = { label: tr("Clients"), href: '#/nexus/clients' };
 
 export function money(value: string | number): string {
   return new Intl.NumberFormat('en-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(value));
@@ -30,38 +31,38 @@ export function ClientsView({ route }: { route: Route }) {
   const count = (s: string) => items.filter((c) => c.status === s).length;
   const filtered = items.filter((c) => (status === 'all' || c.status === status) && includesText([c.name, c.legalName, c.city, c.vatNumber, c.erpId, c.kvkNumber, c.accountManagerName], q));
   return (
-    <ViewFrame title="Clients" crumbs={[SUITE, { label: 'Clients' }]} actions={<button className="primary" onClick={() => openNew('client')}>+ New client</button>}>
+    <ViewFrame title={tr("Clients")} crumbs={[SUITE, { label: tr("Clients") }]} actions={<button className="primary" onClick={() => openNew('client')}>{tr("+ New client")}</button>}>
       <div className="list-toolbar">
         <FilterChips
           value={status}
           onChange={(v) => navigate(withParams(route, { status: v === 'active' ? null : v }))}
           chips={[
-            { value: 'active', label: 'Active', count: count('active') },
-            { value: 'archived', label: 'Archived', count: count('archived') },
-            { value: 'all', label: 'All', count: items.length },
+            { value: 'active', label: tr("Active"), count: count('active') },
+            { value: 'archived', label: tr("Archived"), count: count('archived') },
+            { value: 'all', label: tr("All"), count: items.length },
           ]}
         />
-        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder="Filter by name, city, ERP ID, KvK or account manager" />
+        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder={tr("Filter by name, city, ERP ID, KvK or account manager")} />
       </div>
       {!data && <Loading error={error} />}
       {data && filtered.length === 0 && (
         <EmptyState
-          title={items.length === 0 ? 'No clients yet' : 'No clients match this filter'}
-          action={<button className="primary" onClick={() => openNew('client')}>+ New client</button>}
+          title={items.length === 0 ? tr("No clients yet") : tr("No clients match this filter")}
+          action={<button className="primary" onClick={() => openNew('client')}>{tr("+ New client")}</button>}
         />
       )}
       {filtered.length > 0 && (
         <table className="grid clickable">
           <thead>
             <tr>
-              <th>Client</th>
-              <th>ERP ID</th>
-              <th>Account manager</th>
-              <th>City</th>
-              <th>Status</th>
-              <th className="num">Active agreements</th>
-              <th className="num">Active client rooms</th>
-              <th className="num">Contract value</th>
+              <th>{tr("Client")}</th>
+              <th>{tr("ERP ID")}</th>
+              <th>{tr("Account manager")}</th>
+              <th>{tr("City")}</th>
+              <th>{tr("Status")}</th>
+              <th className="num">{tr("Active agreements")}</th>
+              <th className="num">{tr("Active client rooms")}</th>
+              <th className="num">{tr("Contract value")}</th>
             </tr>
           </thead>
           <tbody>
@@ -72,7 +73,7 @@ export function ClientsView({ route }: { route: Route }) {
                   {c.legalName && c.legalName !== c.name && <div className="muted small">{c.legalName}</div>}
                 </td>
                 <td>{c.erpId ?? <span className="muted">—</span>}</td>
-                <td>{c.accountManagerName ?? <span className="muted">Not assigned</span>}</td>
+                <td>{c.accountManagerName ?? <span className="muted">{tr("Not assigned")}</span>}</td>
                 <td>{c.city ?? '—'}</td>
                 <td><StatusBadge status={c.status} label={CLIENT_STATUS[c.status]} /></td>
                 <td className="num">{c.activeAgreements}</td>
@@ -128,34 +129,34 @@ function EditClientDrawer({ client, onClose, onSaved }: { client: Client; onClos
     ).then((r) => r && onSaved());
   };
   return (
-    <Drawer title="Edit client" onClose={onClose}>
+    <Drawer title={tr("Edit client")} onClose={onClose}>
       <form onSubmit={submit}>
-        <Field label="Company name"><input required maxLength={200} value={form.name} onChange={set('name')} autoFocus /></Field>
-        <Field label="Legal name"><input maxLength={200} value={form.legalName} onChange={set('legalName')} /></Field>
-        <Field label="VAT number"><input maxLength={50} value={form.vatNumber} onChange={set('vatNumber')} /></Field>
-        <Field label="City"><input maxLength={100} value={form.city} onChange={set('city')} /></Field>
-        <Field label="Country"><input maxLength={100} value={form.country} onChange={set('country')} /></Field>
-        <Field label="Street and number"><input maxLength={255} value={form.address} onChange={set('address')} /></Field>
-        <Field label="Chamber of Commerce (KvK) number"><input maxLength={20} value={form.kvkNumber} onChange={set('kvkNumber')} /></Field>
-        <Field label="Sector"><input maxLength={100} value={form.sector} onChange={set('sector')} placeholder="e.g. Consumer electronics" /></Field>
-        <Field label="ERP customer number" hint="Customer number in your ERP system; must be unique"><input maxLength={50} value={form.erpId} onChange={set('erpId')} /></Field>
-        <Field label="Account manager">
+        <Field label={tr("Company name")}><input required maxLength={200} value={form.name} onChange={set('name')} autoFocus /></Field>
+        <Field label={tr("Legal name")}><input maxLength={200} value={form.legalName} onChange={set('legalName')} /></Field>
+        <Field label={tr("VAT number")}><input maxLength={50} value={form.vatNumber} onChange={set('vatNumber')} /></Field>
+        <Field label={tr("City")}><input maxLength={100} value={form.city} onChange={set('city')} /></Field>
+        <Field label={tr("Country")}><input maxLength={100} value={form.country} onChange={set('country')} /></Field>
+        <Field label={tr("Street and number")}><input maxLength={255} value={form.address} onChange={set('address')} /></Field>
+        <Field label={tr("Chamber of Commerce (KvK) number")}><input maxLength={20} value={form.kvkNumber} onChange={set('kvkNumber')} /></Field>
+        <Field label={tr("Sector")}><input maxLength={100} value={form.sector} onChange={set('sector')} placeholder={tr("e.g. Consumer electronics")} /></Field>
+        <Field label={tr("ERP customer number")} hint={tr("Customer number in your ERP system; must be unique")}><input maxLength={50} value={form.erpId} onChange={set('erpId')} /></Field>
+        <Field label={tr("Account manager")}>
           <select value={form.accountManagerId} onChange={set('accountManagerId')}>
-            <option value="">Not assigned</option>
+            <option value="">{tr("Not assigned")}</option>
             {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
         </Field>
-        <Field label="Payment terms"><input required maxLength={100} value={form.paymentTerms} onChange={set('paymentTerms')} /></Field>
+        <Field label={tr("Payment terms")}><input required maxLength={100} value={form.paymentTerms} onChange={set('paymentTerms')} /></Field>
         <div className="field-row">
-          <Field label="Credit limit (EUR)"><input type="number" min={0} step="0.01" value={form.creditLimit} onChange={set('creditLimit')} /></Field>
-          <Field label="Credit status">
+          <Field label={tr("Credit limit (EUR)")}><input type="number" min={0} step="0.01" value={form.creditLimit} onChange={set('creditLimit')} /></Field>
+          <Field label={tr("Credit status")}>
             <select value={form.creditStatus} onChange={set('creditStatus')}>
               {(Object.keys(CREDIT_STATUS) as CreditStatus[]).map((s) => <option key={s} value={s}>{CREDIT_STATUS[s]}</option>)}
             </select>
           </Field>
         </div>
         <ErrorText error={error} />
-        <FormActions busy={busy} submitLabel="Save changes" onCancel={onClose} />
+        <FormActions busy={busy} submitLabel={tr("Save changes")} onCancel={onClose} />
       </form>
     </Drawer>
   );
@@ -187,18 +188,17 @@ function EditContactDrawer({ contact, onClose, onSaved }: { contact: Contact; on
     ).then((r) => r && onSaved());
   };
   return (
-    <Drawer title="Edit contact" onClose={onClose}>
+    <Drawer title={tr("Edit contact")} onClose={onClose}>
       <form onSubmit={submit}>
-        <Field label="First name"><input required maxLength={100} value={form.firstName} onChange={set('firstName')} autoFocus /></Field>
-        <Field label="Last name"><input maxLength={100} value={form.lastName} onChange={set('lastName')} /></Field>
-        <Field label="Job title"><input maxLength={150} value={form.roleTitle} onChange={set('roleTitle')} /></Field>
-        <Field label="E-mail"><input type="email" maxLength={255} value={form.email} onChange={set('email')} /></Field>
-        <Field label="Phone"><input type="tel" maxLength={50} value={form.phone} onChange={set('phone')} /></Field>
+        <Field label={tr("First name")}><input required maxLength={100} value={form.firstName} onChange={set('firstName')} autoFocus /></Field>
+        <Field label={tr("Last name")}><input maxLength={100} value={form.lastName} onChange={set('lastName')} /></Field>
+        <Field label={tr("Job title")}><input maxLength={150} value={form.roleTitle} onChange={set('roleTitle')} /></Field>
+        <Field label={tr("E-mail")}><input type="email" maxLength={255} value={form.email} onChange={set('email')} /></Field>
+        <Field label={tr("Phone")}><input type="tel" maxLength={50} value={form.phone} onChange={set('phone')} /></Field>
         <label className="checkbox">
-          <input type="checkbox" checked={isPrimary} onChange={(e) => setIsPrimary(e.target.checked)} /> Primary contact for this client
-        </label>
+          <input type="checkbox" checked={isPrimary} onChange={(e) => setIsPrimary(e.target.checked)} />  {tr("Primary contact for this client")}</label>
         <ErrorText error={error} />
-        <FormActions busy={busy} submitLabel="Save changes" onCancel={onClose} />
+        <FormActions busy={busy} submitLabel={tr("Save changes")} onCancel={onClose} />
       </form>
     </Drawer>
   );
@@ -210,9 +210,9 @@ function ClientActivity({ record }: { record: ClientRecord }) {
     async () => (await Promise.all(roomIds.map((id) => api.activities(id)))).flat().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).slice(0, 100),
     [roomIds.join(',')],
   );
-  if (roomIds.length === 0) return <p className="muted">Activity appears here once the client has a client room.</p>;
+  if (roomIds.length === 0) return <p className="muted">{tr("Activity appears here once the client has a client room.")}</p>;
   if (!data) return <Loading error={error} />;
-  if (data.length === 0) return <p className="muted">No client activity yet.</p>;
+  if (data.length === 0) return <p className="muted">{tr("No client activity yet.")}</p>;
   const roomName = (a: RoomActivity) => record.rooms.find((r) => r.id === a.dsrId)?.roomName ?? '';
   return (
     <ol className="timeline">
@@ -255,10 +255,10 @@ function RunRateKpis({ contractValue, invoices }: { contractValue: number; invoi
   const expected = contractValue * ((new Date().getMonth() + 1) / 12);
   return (
     <div className="kpi-grid">
-      <div className="kpi kpi-indigo"><span>Contract value (annual)</span><strong>{money(contractValue)}</strong></div>
-      <div className="kpi kpi-emerald"><span>Invoiced in {year} (excl. VAT)</span><strong>{money(invoiced)}</strong></div>
-      <div className="kpi kpi-blue"><span>Open invoices</span><strong>{money(open)}</strong></div>
-      <div className="kpi kpi-purple"><span>Variance vs. run-rate to date</span><strong>{invoiced - expected >= 0 ? '+' : '−'}{money(Math.abs(invoiced - expected))}</strong></div>
+      <div className="kpi kpi-indigo"><span>{tr("Contract value (annual)")}</span><strong>{money(contractValue)}</strong></div>
+      <div className="kpi kpi-emerald"><span>{tr("Invoiced in")} {year}  {tr("(excl. VAT)")}</span><strong>{money(invoiced)}</strong></div>
+      <div className="kpi kpi-blue"><span>{tr("Open invoices")}</span><strong>{money(open)}</strong></div>
+      <div className="kpi kpi-purple"><span>{tr("Variance vs. run-rate to date")}</span><strong>{invoiced - expected >= 0 ? '+' : '−'}{money(Math.abs(invoiced - expected))}</strong></div>
     </div>
   );
 }
@@ -273,7 +273,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
   const tab = route.params.get('tab') ?? 'overview';
   if (!data) {
     return (
-      <ViewFrame title="Client" crumbs={[SUITE, LIST, { label: 'Loading…' }]}>
+      <ViewFrame title={tr("Client")} crumbs={[SUITE, LIST, { label: tr("Loading…") }]}>
         <Loading error={error} />
       </ViewFrame>
     );
@@ -300,36 +300,36 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
       actions={
         <>
           <StatusBadge status={client.status} label={CLIENT_STATUS[client.status]} />
-          <button className="secondary" onClick={() => setEditing(true)}>Edit</button>
-          <button className="secondary" disabled={action.busy} onClick={toggleArchive}>{client.status === 'active' ? 'Archive' : 'Reactivate'}</button>
-          {client.status === 'active' && <button className="primary" onClick={() => openNew('agreement', { clientId: id })}>+ New agreement</button>}
+          <button className="secondary" onClick={() => setEditing(true)}>{tr("Edit")}</button>
+          <button className="secondary" disabled={action.busy} onClick={toggleArchive}>{client.status === 'active' ? tr("Archive") : tr("Reactivate")}</button>
+          {client.status === 'active' && <button className="primary" onClick={() => openNew('agreement', { clientId: id })}>{tr("+ New agreement")}</button>}
         </>
       }
     >
       <div className="dossier-banner">
         <div className="dossier-avatar" aria-hidden>{client.name.slice(0, 1).toUpperCase()}</div>
         <div className="dossier-facts">
-          <span><small>KvK</small><b className="mono">{client.kvkNumber ?? '—'}</b></span>
-          <span><small>ERP ID</small><b className="mono">{client.erpId ?? '—'}</b></span>
-          <span><small>Account manager</small><b>{client.accountManagerName ?? 'Not assigned'}</b></span>
-          <span><small>Credit status</small><b>{CREDIT_STATUS[client.creditStatus]}</b></span>
-          <span><small>Account health</small><b><HealthBadge clientId={id} /></b></span>
+          <span><small>{tr("KvK")}</small><b className="mono">{client.kvkNumber ?? '—'}</b></span>
+          <span><small>{tr("ERP ID")}</small><b className="mono">{client.erpId ?? '—'}</b></span>
+          <span><small>{tr("Account manager")}</small><b>{client.accountManagerName ?? tr("Not assigned")}</b></span>
+          <span><small>{tr("Credit status")}</small><b>{CREDIT_STATUS[client.creditStatus]}</b></span>
+          <span><small>{tr("Account health")}</small><b><HealthBadge clientId={id} /></b></span>
         </div>
         <span className="topbar-spacer" />
-        {rooms.length > 0 && <button className="secondary" onClick={() => navigate(`/nexus/client-rooms/${(rooms.find((x) => x.status === 'active') ?? rooms[0]).id}`)}>Open linked client room</button>}
-        <button className="secondary" onClick={() => navigate('/nexus/clients')}>Back to list</button>
+        {rooms.length > 0 && <button className="secondary" onClick={() => navigate(`/nexus/client-rooms/${(rooms.find((x) => x.status === 'active') ?? rooms[0]).id}`)}>{tr("Open linked client room")}</button>}
+        <button className="secondary" onClick={() => navigate('/nexus/clients')}>{tr("Back to list")}</button>
       </div>
       <ErrorText error={action.error} />
       <Tabs
         tabs={[
-          { id: 'overview', label: 'Master data' },
+          { id: 'overview', label: tr("Master data") },
           { id: 'contacts', label: `Contacts (${contacts.length})` },
           { id: 'agreements', label: `Agreements (${agreements.length})` },
           { id: 'rooms', label: `Client rooms (${rooms.length})` },
           { id: 'financials', label: `Financial plans (${plans.length})` },
           { id: 'stores', label: `Stores (${stores.length})` },
-          { id: 'invoices', label: 'Financials & run-rate' },
-          { id: 'activity', label: 'Activity' },
+          { id: 'invoices', label: tr("Financials & run-rate") },
+          { id: 'activity', label: tr("Activity") },
         ]}
         active={tab}
         onChange={(t) => navigate(withParams(route, { tab: t === 'overview' ? null : t }))}
@@ -337,7 +337,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
       {tab === 'overview' && (
         <div className="info-grid">
           <InfoCard
-            title="Company details"
+            title={tr("Company details")}
             items={[
               ['Company name', client.name],
               ['Legal name', client.legalName ?? '—'],
@@ -349,7 +349,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
             ]}
           />
           <InfoCard
-            title="Credit & payment terms"
+            title={tr("Credit & payment terms")}
             items={[
               ['Payment terms', client.paymentTerms],
               ['Credit limit', <span className="mono">{money(client.creditLimit)}</span>],
@@ -359,7 +359,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
             ]}
           />
           <InfoCard
-            title="Contacts"
+            title={tr("Contacts")}
             items={
               contacts.length === 0
                 ? [['Contacts', 'No contacts yet']]
@@ -377,24 +377,24 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
       {tab === 'contacts' && (
         <div className="card-panel">
           <div className="panel-head">
-            <h2>Contacts</h2>
-            {client.status === 'active' && <button className="primary" onClick={() => openNew('contact', { clientId: id })}>+ New contact</button>}
+            <h2>{tr("Contacts")}</h2>
+            {client.status === 'active' && <button className="primary" onClick={() => openNew('contact', { clientId: id })}>{tr("+ New contact")}</button>}
           </div>
           {contacts.length === 0 ? (
-            <p className="muted">No contacts yet.</p>
+            <p className="muted">{tr("No contacts yet.")}</p>
           ) : (
             <table className="grid">
               <thead>
-                <tr><th>Name</th><th>Job title</th><th>E-mail</th><th>Phone</th><th /></tr>
+                <tr><th>{tr("Name")}</th><th>{tr("Job title")}</th><th>{tr("E-mail")}</th><th>{tr("Phone")}</th><th /></tr>
               </thead>
               <tbody>
                 {contacts.map((k) => (
                   <tr key={k.id}>
-                    <td>{contactName(k)} {k.isPrimary && <StatusBadge status="active" label="Primary" />}</td>
+                    <td>{contactName(k)} {k.isPrimary && <StatusBadge status="active" label={tr("Primary")} />}</td>
                     <td>{k.roleTitle ?? '—'}</td>
                     <td>{k.email ? <a href={`mailto:${k.email}`}>{k.email}</a> : '—'}</td>
                     <td>{k.phone ? <a href={`tel:${k.phone}`}>{k.phone}</a> : '—'}</td>
-                    <td><button className="link-button" onClick={() => setEditContact(k)}>Edit</button></td>
+                    <td><button className="link-button" onClick={() => setEditContact(k)}>{tr("Edit")}</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -405,12 +405,12 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
       {tab === 'agreements' && (
         <div className="card-panel">
           <div className="panel-head">
-            <h2>Agreements</h2>
-            {client.status === 'active' && <button className="primary" onClick={() => openNew('agreement', { clientId: id })}>+ New agreement</button>}
+            <h2>{tr("Agreements")}</h2>
+            {client.status === 'active' && <button className="primary" onClick={() => openNew('agreement', { clientId: id })}>{tr("+ New agreement")}</button>}
           </div>
-          {agreements.length === 0 ? <p className="muted">No agreements yet.</p> : (
+          {agreements.length === 0 ? <p className="muted">{tr("No agreements yet.")}</p> : (
             <table className="grid clickable">
-              <thead><tr><th>Title</th><th>Status</th><th>Created</th></tr></thead>
+              <thead><tr><th>{tr("Title")}</th><th>{tr("Status")}</th><th>{tr("Created")}</th></tr></thead>
               <tbody>
                 {agreements.map((a) => (
                   <tr key={a.id} onClick={() => navigate(`/nexus/agreements/${a.id}`)}>
@@ -427,12 +427,12 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
       {tab === 'rooms' && (
         <div className="card-panel">
           <div className="panel-head">
-            <h2>Client rooms</h2>
-            {client.status === 'active' && <button className="primary" onClick={() => openNew('client_room', { clientId: id })}>+ New client room</button>}
+            <h2>{tr("Client rooms")}</h2>
+            {client.status === 'active' && <button className="primary" onClick={() => openNew('client_room', { clientId: id })}>{tr("+ New client room")}</button>}
           </div>
-          {rooms.length === 0 ? <p className="muted">No client rooms yet.</p> : (
+          {rooms.length === 0 ? <p className="muted">{tr("No client rooms yet.")}</p> : (
             <table className="grid clickable">
-              <thead><tr><th>Room</th><th>Status</th><th>Opened</th></tr></thead>
+              <thead><tr><th>{tr("Room")}</th><th>{tr("Status")}</th><th>{tr("Opened")}</th></tr></thead>
               <tbody>
                 {rooms.map((r) => (
                   <tr key={r.id} onClick={() => navigate(`/nexus/client-rooms/${r.id}`)}>
@@ -449,12 +449,12 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
       {tab === 'financials' && (
         <div className="card-panel">
           <div className="panel-head">
-            <h2>Financial plans</h2>
-            <button className="primary" onClick={() => openNew('financial_plan', { clientId: id })}>+ New financial plan</button>
+            <h2>{tr("Financial plans")}</h2>
+            <button className="primary" onClick={() => openNew('financial_plan', { clientId: id })}>{tr("+ New financial plan")}</button>
           </div>
-          {plans.length === 0 ? <p className="muted">No financial plans yet.</p> : (
+          {plans.length === 0 ? <p className="muted">{tr("No financial plans yet.")}</p> : (
             <table className="grid clickable">
-              <thead><tr><th>Plan</th><th>Fiscal year</th><th>Status</th></tr></thead>
+              <thead><tr><th>{tr("Plan")}</th><th>{tr("Fiscal year")}</th><th>{tr("Status")}</th></tr></thead>
               <tbody>
                 {plans.map((p) => (
                   <tr key={p.id} onClick={() => navigate(`/nexus/financial-plans/${p.id}`)}>
@@ -477,18 +477,18 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
       {tab === 'stores' && (
         <div className="card-panel">
           <div className="panel-head">
-            <h2>Stores of this client</h2>
+            <h2>{tr("Stores of this client")}</h2>
           </div>
-          {stores.length === 0 ? <p className="muted">No stores linked yet. Link a store to this client from the store's Edit panel in RetailPower.</p> : (
+          {stores.length === 0 ? <p className="muted">{tr("No stores linked yet. Link a store to this client from the store's Edit panel in RetailPower.")}</p> : (
             <table className="grid clickable">
-              <thead><tr><th>Store</th><th>Code</th><th>City</th><th>Status</th></tr></thead>
+              <thead><tr><th>{tr("Store")}</th><th>{tr("Code")}</th><th>{tr("City")}</th><th>{tr("Status")}</th></tr></thead>
               <tbody>
                 {stores.map((s) => (
                   <tr key={s.id} onClick={() => navigate(`/retailpower/stores/${s.id}`)}>
                     <td><a href={`#/retailpower/stores/${s.id}`}>{s.name}</a></td>
                     <td>{s.storeCode}</td>
                     <td>{s.city ?? '—'}</td>
-                    <td><StatusBadge status={s.status} label={s.status === 'active' ? 'Open' : 'Closed'} /></td>
+                    <td><StatusBadge status={s.status} label={s.status === 'active' ? tr("Open") : tr("Closed")} /></td>
                   </tr>
                 ))}
               </tbody>
@@ -498,7 +498,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
       )}
       {tab === 'activity' && (
         <div className="card-panel">
-          <h2>Client activity in rooms</h2>
+          <h2>{tr("Client activity in rooms")}</h2>
           <ClientActivity record={data} />
         </div>
       )}

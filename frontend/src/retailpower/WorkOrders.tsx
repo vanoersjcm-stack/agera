@@ -7,21 +7,22 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
+import { t } from '../i18n';
 
-const SUITE_CRUMB = { label: 'RetailPower', href: '#/retailpower' };
-const LIST_CRUMB = { label: 'Work orders', href: '#/retailpower/work-orders' };
+const SUITE_CRUMB = { label: t("RetailPower"), href: '#/retailpower' };
+const LIST_CRUMB = { label: t("Work orders"), href: '#/retailpower/work-orders' };
 
 /** Mirrors ALLOWED_TRANSITIONS in the backend; COMPLETED and CANCELLED are final. */
 const NEXT: Record<WorkOrderStatus, { status: WorkOrderStatus; label: string }[]> = {
   PENDING: [
-    { status: 'IN_PROGRESS', label: 'Start' },
-    { status: 'COMPLETED', label: 'Complete' },
-    { status: 'CANCELLED', label: 'Cancel work order' },
+    { status: 'IN_PROGRESS', label: t("Start") },
+    { status: 'COMPLETED', label: t("Complete") },
+    { status: 'CANCELLED', label: t("Cancel work order") },
   ],
   IN_PROGRESS: [
-    { status: 'COMPLETED', label: 'Complete' },
-    { status: 'PENDING', label: 'Back to pending' },
-    { status: 'CANCELLED', label: 'Cancel work order' },
+    { status: 'COMPLETED', label: t("Complete") },
+    { status: 'PENDING', label: t("Back to pending") },
+    { status: 'CANCELLED', label: t("Cancel work order") },
   ],
   COMPLETED: [],
   CANCELLED: [],
@@ -42,42 +43,42 @@ export function WorkOrdersView({ route }: { route: Route }) {
   );
   return (
     <ViewFrame
-      title="Work orders"
-      crumbs={[SUITE_CRUMB, { label: 'Work orders' }]}
-      actions={<button className="primary" onClick={() => openNew('work_order')}>+ New work order</button>}
+      title={t("Work orders")}
+      crumbs={[SUITE_CRUMB, { label: t("Work orders") }]}
+      actions={<button className="primary" onClick={() => openNew('work_order')}>{t("+ New work order")}</button>}
     >
       <div className="list-toolbar">
         <FilterChips
           value={status}
           onChange={(v) => navigate(withParams(route, { status: v === 'open' ? null : v }))}
           chips={[
-            { value: 'open', label: 'Open', count: count('PENDING') + count('IN_PROGRESS') },
-            { value: 'PENDING', label: 'Pending', count: count('PENDING') },
-            { value: 'IN_PROGRESS', label: 'In progress', count: count('IN_PROGRESS') },
-            { value: 'COMPLETED', label: 'Completed', count: count('COMPLETED') },
-            { value: 'CANCELLED', label: 'Cancelled', count: count('CANCELLED') },
-            { value: 'all', label: 'All', count: items.length },
+            { value: 'open', label: t("Open"), count: count('PENDING') + count('IN_PROGRESS') },
+            { value: 'PENDING', label: t("Pending"), count: count('PENDING') },
+            { value: 'IN_PROGRESS', label: t("In progress"), count: count('IN_PROGRESS') },
+            { value: 'COMPLETED', label: t("Completed"), count: count('COMPLETED') },
+            { value: 'CANCELLED', label: t("Cancelled"), count: count('CANCELLED') },
+            { value: 'all', label: t("All"), count: items.length },
           ]}
         />
-        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder="Filter by title or assignee" />
+        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder={t("Filter by title or assignee")} />
       </div>
       {!data && <Loading error={error} />}
       {data && filtered.length === 0 && (
         <EmptyState
-          title={items.length === 0 ? 'No work orders yet' : 'No work orders match this filter'}
-          action={<button className="primary" onClick={() => openNew('work_order')}>+ New work order</button>}
+          title={items.length === 0 ? t("No work orders yet") : t("No work orders match this filter")}
+          action={<button className="primary" onClick={() => openNew('work_order')}>{t("+ New work order")}</button>}
         >
-          {items.length === 0 ? 'Work orders are field tasks that you can assign to a colleague and link to store visits.' : 'Try another status or clear the filter.'}
+          {items.length === 0 ? t("Work orders are field tasks that you can assign to a colleague and link to store visits.") : t("Try another status or clear the filter.")}
         </EmptyState>
       )}
       {filtered.length > 0 && (
         <table className="grid clickable">
           <thead>
             <tr>
-              <th>Title</th>
-              <th>Status</th>
-              <th>Assigned to</th>
-              <th>Last change</th>
+              <th>{t("Title")}</th>
+              <th>{t("Status")}</th>
+              <th>{t("Assigned to")}</th>
+              <th>{t("Last change")}</th>
             </tr>
           </thead>
           <tbody>
@@ -109,7 +110,7 @@ export function WorkOrderDossier({ id }: { id: string }) {
   const w = order.data;
   if (!w) {
     return (
-      <ViewFrame title="Work order" crumbs={[SUITE_CRUMB, LIST_CRUMB, { label: 'Loading…' }]}>
+      <ViewFrame title={t("Work order")} crumbs={[SUITE_CRUMB, LIST_CRUMB, { label: t("Loading…") }]}>
         <Loading error={order.error} />
       </ViewFrame>
     );
@@ -121,7 +122,7 @@ export function WorkOrderDossier({ id }: { id: string }) {
   const setStatus = (status: WorkOrderStatus, label: string) =>
     void action.run(() => api.setWorkOrderStatus(id, status)).then((r) => r && (notify(`Work order: ${label.toLowerCase()}`), refresh()));
   const assign = (userId: string) =>
-    void action.run(() => api.assignWorkOrder(id, userId || null)).then((r) => r && (notify(userId ? `Assigned to ${userName(users, userId)}` : 'Unassigned'), refresh()));
+    void action.run(() => api.assignWorkOrder(id, userId || null)).then((r) => r && (notify(userId ? `Assigned to ${userName(users, userId)}` : t("Unassigned")), refresh()));
 
   return (
     <ViewFrame
@@ -135,11 +136,10 @@ export function WorkOrderDossier({ id }: { id: string }) {
       crumbs={[SUITE_CRUMB, LIST_CRUMB, { label: w.title }]}
       actions={
         <>
-          <button className="secondary" onClick={() => setEditing(true)}>Edit</button>
+          <button className="secondary" onClick={() => setEditing(true)}>{t("Edit")}</button>
           <label className="inline-field">
-            Assigned to
-            <select value={w.assignedUserId ?? ''} disabled={final || action.busy} onChange={(e) => assign(e.target.value)}>
-              <option value="">Not assigned</option>
+            {t("Assigned to")}<select value={w.assignedUserId ?? ''} disabled={final || action.busy} onChange={(e) => assign(e.target.value)}>
+              <option value="">{t("Not assigned")}</option>
               {users.map((u) => (
                 <option key={u.id} value={u.id}>{u.name}</option>
               ))}
@@ -156,7 +156,7 @@ export function WorkOrderDossier({ id }: { id: string }) {
       <ErrorText error={action.error} />
       <Tabs
         tabs={[
-          { id: 'details', label: 'Details' },
+          { id: 'details', label: t("Details") },
           { id: 'history', label: `History (${logs.data?.length ?? '…'})` },
           { id: 'visits', label: `Store visits (${visits.data ? linked.length : '…'})` },
         ]}
@@ -166,7 +166,7 @@ export function WorkOrderDossier({ id }: { id: string }) {
       {tab === 'details' && (
         <DetailList
           items={[
-            ['Description', w.description || <span className="muted">No description</span>],
+            ['Description', w.description || <span className="muted">{t("No description")}</span>],
             ['Priority', WORK_ORDER_PRIORITY[w.priority] ?? w.priority],
             ['Assigned to', userName(users, w.assignedUserId, 'Not assigned')],
             ['Created', formatDateTime(w.createdAt)],
@@ -185,7 +185,7 @@ export function WorkOrderDossier({ id }: { id: string }) {
                 <span>
                   {l.previousStatus ? `${WORK_ORDER_STATUS[l.previousStatus]} → ${WORK_ORDER_STATUS[l.newStatus]}` : `Created as ${WORK_ORDER_STATUS[l.newStatus]}`}
                 </span>
-                <span className="muted">by {userName(users, l.changedByUserId)}</span>
+                <span className="muted">{t("by")} {userName(users, l.changedByUserId)}</span>
               </li>
             ))}
           </ol>
@@ -195,18 +195,18 @@ export function WorkOrderDossier({ id }: { id: string }) {
         <>
           {!final && (
             <div className="section-actions">
-              <button className="primary" onClick={() => openNew('store_visit', { workOrderId: id })}>+ Plan store visit</button>
+              <button className="primary" onClick={() => openNew('store_visit', { workOrderId: id })}>{t("+ Plan store visit")}</button>
             </div>
           )}
-          {visits.data && linked.length === 0 && <p className="muted">No store visits linked to this work order yet.</p>}
+          {visits.data && linked.length === 0 && <p className="muted">{t("No store visits linked to this work order yet.")}</p>}
           {linked.length > 0 && (
             <table className="grid clickable">
               <thead>
                 <tr>
-                  <th>Store</th>
-                  <th>Date</th>
-                  <th>Status</th>
-                  <th>Field representative</th>
+                  <th>{t("Store")}</th>
+                  <th>{t("Date")}</th>
+                  <th>{t("Status")}</th>
+                  <th>{t("Field representative")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -224,7 +224,7 @@ export function WorkOrderDossier({ id }: { id: string }) {
         </>
       )}
       {editing && (
-        <EditWorkOrderDrawer record={w} onClose={() => setEditing(false)} onSaved={() => (setEditing(false), notify('Work order updated'), refresh())} />
+        <EditWorkOrderDrawer record={w} onClose={() => setEditing(false)} onSaved={() => (setEditing(false), notify(t("Work order updated")), refresh())} />
       )}
     </ViewFrame>
   );

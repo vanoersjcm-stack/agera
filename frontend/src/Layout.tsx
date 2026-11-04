@@ -28,7 +28,7 @@ export function ViewFrame({
   return (
     <section>
       {crumbs.length > 0 && (crumbSlot ? createPortal(
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
+        <nav className="breadcrumbs" aria-label={t("Breadcrumb")}>
           {crumbs.map((c, i) => (
             <span key={`${c.label}-${i}`}>
               {i > 0 && <span className="sep">›</span>}
@@ -38,7 +38,7 @@ export function ViewFrame({
         </nav>,
         crumbSlot,
       ) : (
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
+        <nav className="breadcrumbs" aria-label={t("Breadcrumb")}>
           {crumbs.map((c, i) => (
             <span key={`${c.label}-${i}`}>
               {i > 0 && <span className="sep">›</span>}
@@ -83,7 +83,7 @@ export function ClientFilterNote() {
   if (!filter) return null;
   return (
     <p className="client-filter-note">
-      Lists show only <strong>{filter.name}</strong>. <button className="link-button" onClick={() => setClientFilter(null)}>Show all clients</button>
+      {t("Lists show only")} <strong>{filter.name}</strong>. <button className="link-button" onClick={() => setClientFilter(null)}>{t("Show all clients")}</button>
     </p>
   );
 }

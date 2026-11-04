@@ -7,9 +7,10 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, Stepper, useAction, useLoad } from '../ui';
+import { t } from '../i18n';
 
-const SUITE_CRUMB = { label: 'RetailPower', href: '#/retailpower' };
-const LIST_CRUMB = { label: 'Store visits', href: '#/retailpower/store-visits' };
+const SUITE_CRUMB = { label: t("RetailPower"), href: '#/retailpower' };
+const LIST_CRUMB = { label: t("Store visits"), href: '#/retailpower/store-visits' };
 
 export function StoreVisitsView({ route }: { route: Route }) {
   const { openNew } = useShell();
@@ -29,36 +30,36 @@ export function StoreVisitsView({ route }: { route: Route }) {
     )
     .sort((a, b) => (status === 'upcoming' ? a.visitDate.localeCompare(b.visitDate) : b.visitDate.localeCompare(a.visitDate)));
   return (
-    <ViewFrame title="Store visits" crumbs={[SUITE_CRUMB, { label: 'Store visits' }]} actions={<button className="primary" onClick={() => openNew('store_visit')}>+ New store visit</button>}>
+    <ViewFrame title={t("Store visits")} crumbs={[SUITE_CRUMB, { label: t("Store visits") }]} actions={<button className="primary" onClick={() => openNew('store_visit')}>{t("+ New store visit")}</button>}>
       <div className="list-toolbar">
         <FilterChips
           value={status}
           onChange={(v) => navigate(withParams(route, { status: v === 'upcoming' ? null : v }))}
           chips={[
-            { value: 'upcoming', label: 'Upcoming & ongoing', count: count('PLANNED') + count('IN_PROGRESS') },
-            { value: 'PLANNED', label: 'Planned', count: count('PLANNED') },
-            { value: 'IN_PROGRESS', label: 'In progress', count: count('IN_PROGRESS') },
-            { value: 'COMPLETED', label: 'Completed', count: count('COMPLETED') },
-            { value: 'CANCELLED', label: 'Cancelled', count: count('CANCELLED') },
-            { value: 'all', label: 'All', count: items.length },
+            { value: 'upcoming', label: t("Upcoming & ongoing"), count: count('PLANNED') + count('IN_PROGRESS') },
+            { value: 'PLANNED', label: t("Planned"), count: count('PLANNED') },
+            { value: 'IN_PROGRESS', label: t("In progress"), count: count('IN_PROGRESS') },
+            { value: 'COMPLETED', label: t("Completed"), count: count('COMPLETED') },
+            { value: 'CANCELLED', label: t("Cancelled"), count: count('CANCELLED') },
+            { value: 'all', label: t("All"), count: items.length },
           ]}
         />
-        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder="Filter by store or field representative" />
+        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder={t("Filter by store or field representative")} />
       </div>
       {!visits.data && <Loading error={visits.error} />}
       {visits.data && filtered.length === 0 && (
-        <EmptyState title={items.length === 0 ? 'No store visits yet' : 'No visits match this filter'} action={<button className="primary" onClick={() => openNew('store_visit')}>+ New store visit</button>}>
-          {items.length === 0 ? 'Plan a visit to a store; the field representative then writes the report with photos.' : 'Try another status.'}
+        <EmptyState title={items.length === 0 ? t("No store visits yet") : t("No visits match this filter")} action={<button className="primary" onClick={() => openNew('store_visit')}>{t("+ New store visit")}</button>}>
+          {items.length === 0 ? t("Plan a visit to a store; the field representative then writes the report with photos.") : t("Try another status.")}
         </EmptyState>
       )}
       {filtered.length > 0 && (
         <table className="grid clickable">
           <thead>
             <tr>
-              <th>Store</th>
-              <th>Date</th>
-              <th>Status</th>
-              <th>Field representative</th>
+              <th>{t("Store")}</th>
+              <th>{t("Date")}</th>
+              <th>{t("Status")}</th>
+              <th>{t("Field representative")}</th>
             </tr>
           </thead>
           <tbody>
@@ -91,26 +92,26 @@ function Photo({ media, onDelete }: { media: VisitMedia; onDelete?: () => void }
   }, [media.url]);
   return (
     <figure className="photo">
-      {src ? <a href={src} target="_blank" rel="noreferrer"><img src={src} alt="Visit photo" /></a> : <div className="photo-placeholder">Loading…</div>}
+      {src ? <a href={src} target="_blank" rel="noreferrer"><img src={src} alt={t("Visit photo")} /></a> : <div className="photo-placeholder">{t("Loading…")}</div>}
       <figcaption>
         {formatDateTime(media.createdAt)}
-        {onDelete && <button className="link-button danger" onClick={onDelete}>Delete</button>}
+        {onDelete && <button className="link-button danger" onClick={onDelete}>{t("Delete")}</button>}
       </figcaption>
     </figure>
   );
 }
 
 const CHECKLIST = [
-  { key: 'shelfStocked', label: 'Shelf fully stocked' },
-  { key: 'pricingCorrect', label: 'Price labels correct' },
-  { key: 'promoPlaced', label: 'Promotion material placed' },
-  { key: 'planogramFollowed', label: 'Shelf layout (planogram) followed' },
+  { key: 'shelfStocked', label: t("Shelf fully stocked") },
+  { key: 'pricingCorrect', label: t("Price labels correct") },
+  { key: 'promoPlaced', label: t("Promotion material placed") },
+  { key: 'planogramFollowed', label: t("Shelf layout (planogram) followed") },
 ] as const;
 
 const COMPLIANCE_CHOICES = [
-  { value: 'compliant', label: 'Compliant' },
-  { value: 'needs_follow_up', label: 'Needs follow-up' },
-  { value: 'not_compliant', label: 'Not compliant' },
+  { value: 'compliant', label: t("Compliant") },
+  { value: 'needs_follow_up', label: t("Needs follow-up") },
+  { value: 'not_compliant', label: t("Not compliant") },
 ];
 
 function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; editable: boolean; onSaved: () => void }) {
@@ -150,7 +151,7 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
       .then((r) => {
         if (!r) return;
         setReplenishment(r.replenishmentRoomId ?? null);
-        notify(r.replenishmentRoomId ? 'Visit report saved · replenishment client room updated for the client' : 'Visit report saved');
+        notify(r.replenishmentRoomId ? t("Visit report saved · replenishment client room updated for the client") : t("Visit report saved"));
         onSaved();
       });
   const [replenishment, setReplenishment] = useState<string | null>(null);
@@ -164,23 +165,23 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
       })
       .then((ok) => {
         if (fileInput.current) fileInput.current.value = '';
-        if (ok) (notify(files.length > 1 ? `${files.length} photos added` : 'Photo added'), onSaved());
+        if (ok) (notify(files.length > 1 ? `${files.length} photos added` : t("Photo added")), onSaved());
       });
   };
 
   const remove = (mediaId: string) =>
-    window.confirm('Delete this photo?') && void photos.run(() => api.deleteVisitPhoto(visitId, mediaId)).then((r) => r !== undefined && onSaved());
+    window.confirm(t("Delete this photo?")) && void photos.run(() => api.deleteVisitPhoto(visitId, mediaId)).then((r) => r !== undefined && onSaved());
 
   return (
     <div className="card-panel">
-      <h2>Visit report</h2>
+      <h2>{t("Visit report")}</h2>
       <fieldset disabled={!editable || save.busy}>
         <label className="field">
-          <span className="field-label">Summary</span>
-          <textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder="What did you find in the store?" />
+          <span className="field-label">{t("Summary")}</span>
+          <textarea rows={4} value={text} onChange={(e) => setText(e.target.value)} placeholder={t("What did you find in the store?")} />
         </label>
         <div className="field">
-          <span className="field-label">Checklist</span>
+          <span className="field-label">{t("Checklist")}</span>
           {CHECKLIST.map((c) => (
             <label key={c.key} className="check-row">
               <input type="checkbox" checked={!!checklist[c.key]} onChange={(e) => setChecklist({ ...checklist, [c.key]: e.target.checked })} />
@@ -189,7 +190,7 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
           ))}
           {context.data?.auditRound && (
             <>
-              <span className="field-hint">Audit round “{context.data.auditRound.name}”:</span>
+              <span className="field-hint">{t("Audit round “")}{context.data.auditRound.name}”:</span>
               {context.data.auditRound.checklist.map((item, i) => (
                 <label key={`round-${i}`} className="check-row">
                   <input type="checkbox" checked={!!checklist[`round:${item}`]} onChange={(e) => setChecklist({ ...checklist, [`round:${item}`]: e.target.checked })} />
@@ -201,19 +202,19 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
         </div>
         {planogramItems.length > 0 && (
           <div className="field">
-            <span className="field-label">Planogram check {liveScore != null && <strong className="score-pill">{liveScore}% match</strong>}</span>
-            <span className="field-hint">Count the facings you see for each product; the match score is saved with the report.</span>
+            <span className="field-label">{t("Planogram check")} {liveScore != null && <strong className="score-pill">{liveScore}{t("% match")}</strong>}</span>
+            <span className="field-hint">{t("Count the facings you see for each product; the match score is saved with the report.")}</span>
             {planogramItems.map((i) => (
               <div key={`${i.planogram}-${i.productId}`} className="line-row">
-                <span className="line-name">{i.productName} <span className="muted small">{i.planogram}{i.shelf ? ` · ${i.shelf}` : ''} · expected {i.expectedFacings}</span></span>
+                <span className="line-name">{i.productName} <span className="muted small">{i.planogram}{i.shelf ? ` · ${i.shelf}` : ''}  {t("· expected")} {i.expectedFacings}</span></span>
                 <input type="number" min={0} max={999} aria-label={`Facings found for ${i.productName}`} value={facings[i.productId] ?? ''} onChange={(e) => setFacings({ ...facings, [i.productId]: e.target.value })} />
               </div>
             ))}
-            {typeof audit.planogramScore === 'number' && <span className="field-hint">Saved score: {audit.planogramScore}%</span>}
+            {typeof audit.planogramScore === 'number' && <span className="field-hint">{t("Saved score:")} {audit.planogramScore}%</span>}
           </div>
         )}
-        <div className="field" role="radiogroup" aria-label="Compliance result">
-          <span className="field-label">Compliance result</span>
+        <div className="field" role="radiogroup" aria-label={t("Compliance result")}>
+          <span className="field-label">{t("Compliance result")}</span>
           <div className="radio-row">
             {COMPLIANCE_CHOICES.map((c) => (
               <label key={c.value} className={`radio-pill${compliance === c.value ? ' selected' : ''}`}>
@@ -223,38 +224,38 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
             ))}
           </div>
           {typeof audit.complianceStatus === 'string' && !COMPLIANCE_CHOICES.some((c) => c.value === audit.complianceStatus) && (
-            <span className="field-hint">Imported result: {COMPLIANCE[audit.complianceStatus] ?? audit.complianceStatus}</span>
+            <span className="field-hint">{t("Imported result:")} {COMPLIANCE[audit.complianceStatus] ?? audit.complianceStatus}</span>
           )}
-          <span className="field-hint">“Not compliant” or “Needs follow-up” raises a store alert in Nexus › Alerts.</span>
+          <span className="field-hint">{t("“Not compliant” or “Needs follow-up” raises a store alert in Nexus › Alerts.")}</span>
         </div>
         <label className="field">
-          <span className="field-label">Out-of-stock products</span>
+          <span className="field-label">{t("Out-of-stock products")}</span>
           {(products.data?.length ?? 0) > 0 && (
             <div className="line-row">
-              <select value={pickProduct} onChange={(e) => setPickProduct(e.target.value)} aria-label="Pick an out-of-stock product">
-                <option value="">Pick from the catalogue…</option>
+              <select value={pickProduct} onChange={(e) => setPickProduct(e.target.value)} aria-label={t("Pick an out-of-stock product")}>
+                <option value="">{t("Pick from the catalogue…")}</option>
                 {products.data!.map((p) => <option key={p.id} value={p.name}>{p.name} ({p.sku})</option>)}
               </select>
-              <button type="button" className="secondary small" disabled={!pickProduct} onClick={() => (setOutOfStock([...outOfStock.split('\n').filter((l) => l.trim()), pickProduct].join('\n')), setPickProduct(''))}>Add</button>
+              <button type="button" className="secondary small" disabled={!pickProduct} onClick={() => (setOutOfStock([...outOfStock.split('\n').filter((l) => l.trim()), pickProduct].join('\n')), setPickProduct(''))}>{t("Add")}</button>
             </div>
           )}
-          <textarea rows={3} value={outOfStock} onChange={(e) => setOutOfStock(e.target.value)} placeholder={'One product per line, e.g.\nCola Zero 1.5L'} />
-          <span className="field-hint">If this store belongs to a client, saving opens a “Replenishment” client room where the client confirms each product.</span>
+          <textarea rows={3} value={outOfStock} onChange={(e) => setOutOfStock(e.target.value)} placeholder={t("One product per line, e.g.\nCola Zero 1.5L")} />
+          <span className="field-hint">{t("If this store belongs to a client, saving opens a “Replenishment” client room where the client confirms each product.")}</span>
         </label>
         {replenishment && (
           <p className="callout">
-            Replenishment client room ready: <a href={`#/nexus/client-rooms/${replenishment}?tab=plan`}>open the action plan</a>
+            {t("Replenishment client room ready:")} <a href={`#/nexus/client-rooms/${replenishment}?tab=plan`}>{t("open the action plan")}</a>
           </p>
         )}
         {editable && (
           <div className="form-actions start">
-            <button className="primary" onClick={saveReport} disabled={!compliance}>{save.busy ? 'Saving…' : report ? 'Update report' : 'Save report'}</button>
-            {!compliance && <span className="muted">Choose a compliance result to save.</span>}
+            <button className="primary" onClick={saveReport} disabled={!compliance}>{save.busy ? t("Saving…") : report ? t("Update report") : t("Save report")}</button>
+            {!compliance && <span className="muted">{t("Choose a compliance result to save.")}</span>}
           </div>
         )}
       </fieldset>
       <ErrorText error={save.error} />
-      <h3>Photos ({summary.media.length})</h3>
+      <h3>{t("Photos (")}{summary.media.length})</h3>
       <div className="photos">
         {summary.media.map((m) => (
           <Photo key={m.id} media={m} onDelete={editable ? () => remove(m.id) : undefined} />
@@ -262,11 +263,11 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
         {editable && (
           <label className="photo-add">
             <input ref={fileInput} type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(e) => upload(e.target.files)} hidden />
-            {photos.busy ? 'Uploading…' : '＋ Add photo'}
+            {photos.busy ? t("Uploading…") : t("＋ Add photo")}
           </label>
         )}
       </div>
-      <p className="field-hint">JPEG, PNG or WebP, up to 10 MB per photo.</p>
+      <p className="field-hint">{t("JPEG, PNG or WebP, up to 10 MB per photo.")}</p>
       <ErrorText error={photos.error} />
     </div>
   );
@@ -283,7 +284,7 @@ export function VisitDossier({ id }: { id: string }) {
   const s = summary.data;
   if (!s) {
     return (
-      <ViewFrame title="Store visit" crumbs={[SUITE_CRUMB, LIST_CRUMB, { label: 'Loading…' }]}>
+      <ViewFrame title={t("Store visit")} crumbs={[SUITE_CRUMB, LIST_CRUMB, { label: t("Loading…") }]}>
         <Loading error={summary.error} />
       </ViewFrame>
     );
@@ -295,7 +296,7 @@ export function VisitDossier({ id }: { id: string }) {
   const step = v.status === 'PLANNED' ? 0 : v.status === 'IN_PROGRESS' ? (hasReport ? 2 : 1) : 3;
   const setStatus = (status: VisitStatus, message: string) =>
     void action.run(() => api.setVisitStatus(id, status)).then((r) => r && (notify(message), summary.reload()));
-  const cancel = () => window.confirm('Cancel this store visit?') && setStatus('CANCELLED', 'Store visit cancelled');
+  const cancel = () => window.confirm(t("Cancel this store visit?")) && setStatus('CANCELLED', 'Store visit cancelled');
 
   return (
     <ViewFrame
@@ -305,20 +306,20 @@ export function VisitDossier({ id }: { id: string }) {
       actions={
         (v.status === 'PLANNED' || v.status === 'IN_PROGRESS') && (
           <>
-            <button className="secondary" onClick={() => setEditing(true)}>Edit</button>
-            <button className="secondary danger" disabled={action.busy} onClick={cancel}>Cancel visit</button>
+            <button className="secondary" onClick={() => setEditing(true)}>{t("Edit")}</button>
+            <button className="secondary danger" disabled={action.busy} onClick={cancel}>{t("Cancel visit")}</button>
           </>
         )
       }
     >
       <div className="field-card">
       <div className="field-card-head">
-        <h2>{store?.name ?? 'Store visit'}</h2>
+        <h2>{store?.name ?? t("Store visit")}</h2>
         <p>{formatDateTime(v.visitDate)} · {VISIT_STATUS[v.status]}</p>
       </div>
       <div className="field-card-body">
       {v.status === 'CANCELLED' ? (
-        <p className="callout">This visit was cancelled.</p>
+        <p className="callout">{t("This visit was cancelled.")}</p>
       ) : (
         <Stepper steps={['Planned', 'In progress', 'Visit report', 'Completed']} current={step} />
       )}
@@ -334,8 +335,8 @@ export function VisitDossier({ id }: { id: string }) {
       />
       {v.status === 'PLANNED' && (
         <div className="next-step">
-          <p>When you arrive at the store, start the visit to write the report and add photos.</p>
-          <button className="primary" disabled={action.busy} onClick={() => setStatus('IN_PROGRESS', 'Visit started')}>Start visit</button>
+          <p>{t("When you arrive at the store, start the visit to write the report and add photos.")}</p>
+          <button className="primary" disabled={action.busy} onClick={() => setStatus('IN_PROGRESS', 'Visit started')}>{t("Start visit")}</button>
         </div>
       )}
       {v.status !== 'PLANNED' && v.status !== 'CANCELLED' && (
@@ -343,14 +344,14 @@ export function VisitDossier({ id }: { id: string }) {
       )}
       {v.status === 'IN_PROGRESS' && (
         <div className="next-step">
-          <p>{hasReport ? 'The report is saved. Complete the visit when you are done.' : 'Save the report with a compliance result before completing the visit.'}</p>
-          <button className="primary" disabled={action.busy || !hasReport} onClick={() => setStatus('COMPLETED', 'Visit completed')}>Complete visit</button>
+          <p>{hasReport ? t("The report is saved. Complete the visit when you are done.") : t("Save the report with a compliance result before completing the visit.")}</p>
+          <button className="primary" disabled={action.busy || !hasReport} onClick={() => setStatus('COMPLETED', 'Visit completed')}>{t("Complete visit")}</button>
         </div>
       )}
       </div>
       </div>
       {editing && (
-        <EditVisitDrawer record={v} onClose={() => setEditing(false)} onSaved={() => (setEditing(false), notify('Store visit updated'), summary.reload())} />
+        <EditVisitDrawer record={v} onClose={() => setEditing(false)} onSaved={() => (setEditing(false), notify(t("Store visit updated")), summary.reload())} />
       )}
     </ViewFrame>
   );

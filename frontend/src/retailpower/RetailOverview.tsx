@@ -3,6 +3,7 @@ import { ViewFrame } from '../Layout';
 import { useShell } from '../shell';
 import { Loading, useLoad } from '../ui';
 import { nonCompliantStores } from './Stores';
+import { t } from '../i18n';
 
 function Tile({ href, value, label, tone }: { href: string; value: string; label: string; tone?: string }) {
   return (
@@ -26,21 +27,21 @@ export function RetailOverview() {
   const show = (n: number | undefined) => (n === undefined ? '—' : String(n));
   return (
     <ViewFrame
-      title="RetailPower overview"
-      crumbs={[{ label: 'RetailPower' }]}
+      title={t("RetailPower overview")}
+      crumbs={[{ label: t("RetailPower") }]}
       actions={
         <>
-          <button className="secondary" onClick={() => openNew('store_visit')}>+ New store visit</button>
-          <button className="primary" onClick={() => openNew('work_order')}>+ New work order</button>
+          <button className="secondary" onClick={() => openNew('store_visit')}>{t("+ New store visit")}</button>
+          <button className="primary" onClick={() => openNew('work_order')}>{t("+ New work order")}</button>
         </>
       }
     >
       {error && <Loading error={error} />}
       <div className="tiles">
-        <Tile href="#/retailpower/work-orders" value={show(open)} label="Open work orders" />
-        <Tile href="#/retailpower/store-visits" value={show(upcoming)} label="Planned and ongoing store visits" />
-        <Tile href="#/retailpower/stores" value={show(stores.data?.total)} label="Stores" />
-        <Tile href="#/retailpower/stores?compliance=not_compliant" value={show(flagged)} label="Stores not compliant" tone={flagged ? 'bad' : undefined} />
+        <Tile href="#/retailpower/work-orders" value={show(open)} label={t("Open work orders")} />
+        <Tile href="#/retailpower/store-visits" value={show(upcoming)} label={t("Planned and ongoing store visits")} />
+        <Tile href="#/retailpower/stores" value={show(stores.data?.total)} label={t("Stores")} />
+        <Tile href="#/retailpower/stores?compliance=not_compliant" value={show(flagged)} label={t("Stores not compliant")} tone={flagged ? 'bad' : undefined} />
       </div>
     </ViewFrame>
   );

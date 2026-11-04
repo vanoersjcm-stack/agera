@@ -9,21 +9,22 @@ import { useShell } from '../shell';
 import { RoomActivityPanel, useRecordOpened } from './RoomActivity';
 import { RoomDocumentsPanel } from './Documents';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
+import { t as tr } from '../i18n';
 
 function crumbs(external: boolean) {
   return external
-    ? { suite: { label: 'Client portal', href: '#/portal' }, list: { label: 'My client rooms', href: '#/portal/rooms' } }
-    : { suite: { label: 'Nexus', href: '#/nexus' }, list: { label: 'Client rooms', href: '#/nexus/client-rooms' } };
+    ? { suite: { label: tr("Client portal"), href: '#/portal' }, list: { label: tr("My client rooms"), href: '#/portal/rooms' } }
+    : { suite: { label: tr("Nexus"), href: '#/nexus' }, list: { label: tr("Client rooms"), href: '#/nexus/client-rooms' } };
 }
 
 export function EngagementSummary({ status }: { status: EngagementStatus }) {
   const { summary } = status;
   return (
     <div className="kpis">
-      <div><strong>{summary.stakeholders}</strong> client contacts active (last {status.windowDays} days)</div>
-      <div className="good"><strong>{summary.accepted}</strong> accepted terms</div>
-      <div><strong>{summary.pending}</strong> still deciding</div>
-      <div className="bad"><strong>{summary.rejected}</strong> rejected terms</div>
+      <div><strong>{summary.stakeholders}</strong>  {tr("client contacts active (last")} {status.windowDays}  {tr("days)")}</div>
+      <div className="good"><strong>{summary.accepted}</strong>  {tr("accepted terms")}</div>
+      <div><strong>{summary.pending}</strong>  {tr("still deciding")}</div>
+      <div className="bad"><strong>{summary.rejected}</strong>  {tr("rejected terms")}</div>
     </div>
   );
 }
@@ -33,10 +34,10 @@ function EngagementTable({ room }: { room: RoomEngagement }) {
     <table className="grid">
       <thead>
         <tr>
-          <th>Client contact</th>
-          <th>Status</th>
-          <th className="num">Actions</th>
-          <th>Last action</th>
+          <th>{tr("Client contact")}</th>
+          <th>{tr("Status")}</th>
+          <th className="num">{tr("Actions")}</th>
+          <th>{tr("Last action")}</th>
         </tr>
       </thead>
       <tbody>
@@ -69,9 +70,9 @@ export function ClientRoomsView({ route, external }: { route: Route; external: b
   const filtered = items.filter((x) => matchesClient(clientFilter, x.clientId)).filter((r) => (status === 'all' || r.status === status) && includesText([r.roomName, external ? '' : clientName(clients, r.clientId)], q));
   return (
     <ViewFrame
-      title={external ? 'My client rooms' : 'Client rooms'}
+      title={external ? tr("My client rooms") : tr("Client rooms")}
       crumbs={[c.suite, { label: c.list.label }]}
-      actions={!external && <button className="primary" onClick={() => openNew('client_room')}>+ New client room</button>}
+      actions={!external && <button className="primary" onClick={() => openNew('client_room')}>{tr("+ New client room")}</button>}
     >
       {!external && engagement.data && <EngagementSummary status={engagement.data} />}
       <div className="list-toolbar">
@@ -80,32 +81,32 @@ export function ClientRoomsView({ route, external }: { route: Route; external: b
             value={status}
             onChange={(v) => navigate(withParams(route, { status: v === 'active' ? null : v }))}
             chips={[
-              { value: 'active', label: 'Active', count: count('active') },
-              { value: 'archived', label: 'Archived', count: count('archived') },
-              { value: 'all', label: 'All', count: items.length },
+              { value: 'active', label: tr("Active"), count: count('active') },
+              { value: 'archived', label: tr("Archived"), count: count('archived') },
+              { value: 'all', label: tr("All"), count: items.length },
             ]}
           />
         )}
-        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder={external ? 'Filter by room name' : 'Filter by room or client'} />
+        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder={external ? tr("Filter by room name") : tr("Filter by room or client")} />
       </div>
       {!rooms.data && <Loading error={rooms.error} />}
       {rooms.data && filtered.length === 0 && (
         <EmptyState
-          title={items.length === 0 ? (external ? 'No client rooms shared with you yet' : 'No client rooms yet') : 'No client rooms match this filter'}
-          action={!external && <button className="primary" onClick={() => openNew('client_room')}>+ New client room</button>}
+          title={items.length === 0 ? (external ? tr("No client rooms shared with you yet") : tr("No client rooms yet")) : tr("No client rooms match this filter")}
+          action={!external && <button className="primary" onClick={() => openNew('client_room')}>{tr("+ New client room")}</button>}
         >
-          {items.length === 0 && (external ? 'As soon as Agera opens a room for your organisation, it appears here.' : 'A client room is an online space for one client deal; Nexus tracks what client contacts do in it.')}
+          {items.length === 0 && (external ? tr("As soon as Agera opens a room for your organisation, it appears here.") : tr("A client room is an online space for one client deal; Nexus tracks what client contacts do in it."))}
         </EmptyState>
       )}
       {filtered.length > 0 && (
         <table className="grid clickable">
           <thead>
             <tr>
-              <th>Room</th>
-              {!external && <th>Client</th>}
-              <th>Status</th>
-              <th>Opened</th>
-              <th>Last client activity</th>
+              <th>{tr("Room")}</th>
+              {!external && <th>{tr("Client")}</th>}
+              <th>{tr("Status")}</th>
+              <th>{tr("Opened")}</th>
+              <th>{tr("Last client activity")}</th>
             </tr>
           </thead>
           <tbody>
@@ -117,7 +118,7 @@ export function ClientRoomsView({ route, external }: { route: Route; external: b
                   {!external && <td>{clientName(clients, r.clientId)}</td>}
                   <td><StatusBadge status={r.status} label={ROOM_STATUS[r.status]} /></td>
                   <td>{formatDate(r.createdAt)}</td>
-                  <td>{e ? formatDateTime(e.lastActivityAt) : <span className="muted">None yet</span>}</td>
+                  <td>{e ? formatDateTime(e.lastActivityAt) : <span className="muted">{tr("None yet")}</span>}</td>
                 </tr>
               );
             })}
@@ -138,12 +139,12 @@ function ActionPlanPanel({ roomId, external, active }: { roomId: string; externa
   const done = steps.filter((m) => m.completed).length;
   const canTick = (m: Milestone) => active && (!external || m.ownerSide === 'client');
   const toggle = (m: Milestone) =>
-    void action.run(() => api.updateMilestone(roomId, m.id, { completed: !m.completed })).then((r) => r && (notify(r.completed ? 'Step completed' : 'Step reopened'), reload()));
+    void action.run(() => api.updateMilestone(roomId, m.id, { completed: !m.completed })).then((r) => r && (notify(r.completed ? tr("Step completed") : tr("Step reopened")), reload()));
   const add = (e: FormEvent) => {
     e.preventDefault();
     void action
       .run(() => api.addMilestone(roomId, { title: form.title.trim(), ownerSide: form.ownerSide, dueDate: form.dueDate || null }))
-      .then((r) => r && (setForm({ title: '', ownerSide: form.ownerSide, dueDate: '' }), notify('Step added'), reload()));
+      .then((r) => r && (setForm({ title: '', ownerSide: form.ownerSide, dueDate: '' }), notify(tr("Step added")), reload()));
   };
   const remove = (m: Milestone) => {
     if (!window.confirm(`Remove the step “${m.title}”?`)) return;
@@ -151,12 +152,12 @@ function ActionPlanPanel({ roomId, external, active }: { roomId: string; externa
   };
   return (
     <div className="card-panel">
-      <h2>Action plan</h2>
+      <h2>{tr("Action plan")}</h2>
       <p className="muted">
-        {external ? 'The steps agreed with Agera. Tick off the steps marked “Your team” when they are done.' : 'Steps agreed with the client. The client sees this plan in their portal and ticks off their own steps.'}
+        {external ? tr("The steps agreed with Agera. Tick off the steps marked “Your team” when they are done.") : tr("Steps agreed with the client. The client sees this plan in their portal and ticks off their own steps.")}
       </p>
       {!data && <Loading error={error} />}
-      {data && steps.length === 0 && <p className="muted">No steps yet.</p>}
+      {data && steps.length === 0 && <p className="muted">{tr("No steps yet.")}</p>}
       {steps.length > 0 && (
         <>
           <div className="plan-progress" role="progressbar" aria-valuenow={done} aria-valuemax={steps.length} aria-label={`${done} of ${steps.length} steps done`}>
@@ -169,12 +170,12 @@ function ActionPlanPanel({ roomId, external, active }: { roomId: string; externa
                 <span className="plan-title">
                   {m.title}
                   <div className="muted small">
-                    {m.dueDate ? `Due ${formatDate(m.dueDate)}` : 'No due date'}
+                    {m.dueDate ? `Due ${formatDate(m.dueDate)}` : tr("No due date")}
                     {m.completed && m.completedAt ? ` · done ${formatDateTime(m.completedAt)}${m.completedByName ? ` by ${m.completedByName}` : ''}` : ''}
                   </div>
                 </span>
-                <span className={`plan-side ${m.ownerSide}`}>{m.ownerSide === 'client' ? (external ? 'Your team' : 'Client') : 'Agera team'}</span>
-                {!external && <button className="link-button danger" disabled={action.busy} onClick={() => remove(m)}>Remove</button>}
+                <span className={`plan-side ${m.ownerSide}`}>{m.ownerSide === 'client' ? (external ? tr("Your team") : tr("Client")) : tr("Agera team")}</span>
+                {!external && <button className="link-button danger" disabled={action.busy} onClick={() => remove(m)}>{tr("Remove")}</button>}
               </li>
             ))}
           </ul>
@@ -183,13 +184,13 @@ function ActionPlanPanel({ roomId, external, active }: { roomId: string; externa
       <ErrorText error={action.error} />
       {!external && active && (
         <form className="inline-form" onSubmit={add}>
-          <input required maxLength={200} placeholder="New step, e.g. Legal review of the agreement" aria-label="New step" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
-          <select aria-label="Who does this step" value={form.ownerSide} onChange={(e) => setForm({ ...form, ownerSide: e.target.value as MilestoneOwnerSide })}>
-            <option value="internal">Agera team</option>
-            <option value="client">Client</option>
+          <input required maxLength={200} placeholder={tr("New step, e.g. Legal review of the agreement")} aria-label={tr("New step")} value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+          <select aria-label={tr("Who does this step")} value={form.ownerSide} onChange={(e) => setForm({ ...form, ownerSide: e.target.value as MilestoneOwnerSide })}>
+            <option value="internal">{tr("Agera team")}</option>
+            <option value="client">{tr("Client")}</option>
           </select>
-          <input type="date" aria-label="Due date" value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
-          <button className="primary" disabled={action.busy}>Add step</button>
+          <input type="date" aria-label={tr("Due date")} value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+          <button className="primary" disabled={action.busy}>{tr("Add step")}</button>
         </form>
       )}
     </div>
@@ -209,7 +210,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
   const r = room.data;
   if (!r) {
     return (
-      <ViewFrame title="Client room" crumbs={[c.suite, c.list, { label: 'Loading…' }]}>
+      <ViewFrame title={tr("Client room")} crumbs={[c.suite, c.list, { label: tr("Loading…") }]}>
         <Loading error={room.error} />
       </ViewFrame>
     );
@@ -218,20 +219,20 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
   const agreementBase = external ? '/portal/agreements' : '/nexus/agreements';
   const toggle = () => {
     const next: RoomStatus = r.status === 'active' ? 'archived' : 'active';
-    if (next === 'archived' && !window.confirm('Archive this client room? Client contacts can no longer open it.')) return;
-    void action.run(() => api.setRoomStatus(id, next)).then((x) => x && (notify(next === 'archived' ? 'Client room archived' : 'Client room reactivated'), room.reload()));
+    if (next === 'archived' && !window.confirm(tr("Archive this client room? Client contacts can no longer open it."))) return;
+    void action.run(() => api.setRoomStatus(id, next)).then((x) => x && (notify(next === 'archived' ? tr("Client room archived") : tr("Client room reactivated")), room.reload()));
   };
   return (
     <ViewFrame
       title={r.roomName}
       subtitle={<>
-        <StatusBadge status={r.status} label={ROOM_STATUS[r.status]} /> {!external && <span className="external-pill">External buyer facing</span>}
+        <StatusBadge status={r.status} label={ROOM_STATUS[r.status]} /> {!external && <span className="external-pill">{tr("External buyer facing")}</span>}
       </>}
       crumbs={[c.suite, c.list, { label: r.roomName }]}
       actions={
         !external && (
           <button className={r.status === 'active' ? 'secondary' : 'primary'} disabled={action.busy} onClick={toggle}>
-            {r.status === 'active' ? 'Archive room' : 'Reactivate room'}
+            {r.status === 'active' ? tr("Archive room") : tr("Reactivate room")}
           </button>
         )
       }
@@ -239,11 +240,11 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
       <ErrorText error={action.error} />
       <Tabs
         tabs={[
-          { id: 'details', label: 'Details' },
-          { id: 'documents', label: 'Documents' },
-          { id: 'plan', label: 'Action plan' },
+          { id: 'details', label: tr("Details") },
+          { id: 'documents', label: tr("Documents") },
+          { id: 'plan', label: tr("Action plan") },
           { id: 'engagement', label: `Engagement${stats ? ` (${stats.stakeholderCount})` : ''}` },
-          { id: 'activity', label: 'Comments & activity' },
+          { id: 'activity', label: tr("Comments & activity") },
         ]}
         active={tab}
         onChange={(t) => navigate(withParams(route, { tab: t === 'details' ? null : t }))}
@@ -270,34 +271,34 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
       {tab === 'details' && (
         <div className="room-grid">
           <div className="room-col">
-            <h3>Document vault</h3>
+            <h3>{tr("Document vault")}</h3>
             {agreement.data && (
               <ul>
                 <li>
                   <a href={agreement.data.documentUrl} target="_blank" rel="noreferrer">{agreement.data.title}</a>
-                  <div className="muted small">Agreement document · {AGREEMENT_STATUS[agreement.data.status]}</div>
+                  <div className="muted small">{tr("Agreement document ·")} {AGREEMENT_STATUS[agreement.data.status]}</div>
                 </li>
               </ul>
             )}
             <RoomDocumentsPanel roomId={id} external={external} active={r.status === 'active'} compact />
-            <button className="link-button" onClick={() => navigate(withParams(route, { tab: 'documents' }))}>{external ? 'All documents' : 'Manage documents'}</button>
+            <button className="link-button" onClick={() => navigate(withParams(route, { tab: 'documents' }))}>{external ? tr("All documents") : tr("Manage documents")}</button>
           </div>
           <div className="room-col">
-            <h3>Mutual action plan</h3>
+            <h3>{tr("Mutual action plan")}</h3>
             <ActionPlanPanel roomId={id} external={external} active={r.status === 'active'} />
           </div>
           <div className="room-col signoff-card">
-            <h3>Contract sign-off</h3>
+            <h3>{tr("Contract sign-off")}</h3>
             {agreement.data ? (
               <>
                 <p><strong>{agreement.data.title}</strong></p>
                 <p className="muted">{AGREEMENT_STATUS[agreement.data.status]}</p>
                 <button className="primary" onClick={() => navigate(`${agreementBase}/${agreement.data!.id}`)}>
-                  {external ? (agreement.data.status === 'pending_approval' ? 'Review and sign' : 'View agreement') : 'Open agreement'}
+                  {external ? (agreement.data.status === 'pending_approval' ? tr("Review and sign") : tr("View agreement")) : tr("Open agreement")}
                 </button>
               </>
             ) : (
-              <p className="muted">No agreement is linked to this room.</p>
+              <p className="muted">{tr("No agreement is linked to this room.")}</p>
             )}
           </div>
         </div>
@@ -310,8 +311,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
           {!engagement.data && <Loading error={engagement.error} />}
           {engagement.data && !stats && (
             <EmptyState title={`No client activity in the last ${engagement.data.windowDays} days`}>
-              Opening the room, viewing sections, watching briefings, downloads, comments and accepting or rejecting terms appear here.
-            </EmptyState>
+              {tr("Opening the room, viewing sections, watching briefings, downloads, comments and accepting or rejecting terms appear here.")}</EmptyState>
           )}
           {stats && (
             <>

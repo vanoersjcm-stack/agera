@@ -63,8 +63,8 @@ export function GoldenThreadTour() {
   };
   const s = stops?.[index];
   return (
-    <aside className="tour-card" role="dialog" aria-label="Golden Thread tour">
-      <span className="tour-step">Golden Thread · {index + 1} / {stops?.length ?? 8}</span>
+    <aside className="tour-card" role="dialog" aria-label={t("Golden Thread tour")}>
+      <span className="tour-step">{t("Golden Thread ·")} {index + 1} / {stops?.length ?? 8}</span>
       {!s ? <p>{t('Loading…')}</p> : (
         <>
           <h3>{s.title}</h3>

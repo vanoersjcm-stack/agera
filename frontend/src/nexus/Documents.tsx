@@ -4,6 +4,7 @@ import { formatDateTime } from '../labels';
 import { useShell } from '../shell';
 import { ErrorText, Loading, useAction, useLoad } from '../ui';
 import { GenerateDocumentDrawer } from './Commercial';
+import { t } from '../i18n';
 
 const ACCEPT = '.pdf,.docx,.xlsx,.pptx,.doc,.xls,.csv,.txt,.png,.jpg,.jpeg';
 
@@ -20,10 +21,10 @@ function Versions({ roomId, doc }: { roomId: string; doc: RoomDocument }) {
       {versions.data.map((v) => (
         <li key={v.id}>
           <button className="link-button" onClick={() => void run(() => api.downloadRoomDocument(roomId, doc.id, v.fileName, v.version))}>
-            Version {v.version}: {v.fileName}
+            {t("Version")} {v.version}: {v.fileName}
           </button>{' '}
           <span className="muted small">
-            {size(v.sizeBytes)} · {v.uploadedByName ?? 'Agera'} · {formatDateTime(v.createdAt)} · SHA-256 <code>{v.sha256.slice(0, 12)}…</code>
+            {size(v.sizeBytes)} · {v.uploadedByName ?? t("Agera")} · {formatDateTime(v.createdAt)}  {t("· SHA-256")} <code>{v.sha256.slice(0, 12)}…</code>
           </span>
         </li>
       ))}
@@ -61,28 +62,28 @@ export function RoomDocumentsPanel({ roomId, external, active, compact = false }
     if (title && title !== d.title) void run(() => api.renameRoomDocument(roomId, d.id, title)).then((r) => r && docs.reload());
   };
   const remove = (d: RoomDocument) =>
-    window.confirm(`Delete ${d.title} and all its versions?`) && void run(() => api.deleteRoomDocument(roomId, d.id)).then((r) => r !== undefined && (notify('Document deleted'), docs.reload()));
+    window.confirm(`Delete ${d.title} and all its versions?`) && void run(() => api.deleteRoomDocument(roomId, d.id)).then((r) => r !== undefined && (notify(t("Document deleted")), docs.reload()));
   const list = docs.data ?? [];
   return (
     <div className={compact ? '' : 'card-panel'}>
       {!compact && (
         <div className="panel-head">
-          <h2>Documents</h2>
-          {canEdit && <span className="panel-actions"><button className="secondary" disabled={busy} onClick={() => setGenerating(true)}>Generate from template…</button> <button className="primary" disabled={busy} onClick={() => pick(null)}>+ Upload document</button></span>}
+          <h2>{t("Documents")}</h2>
+          {canEdit && <span className="panel-actions"><button className="secondary" disabled={busy} onClick={() => setGenerating(true)}>{t("Generate from template…")}</button> <button className="primary" disabled={busy} onClick={() => pick(null)}>{t("+ Upload document")}</button></span>}
         </div>
       )}
-      {generating && <GenerateDocumentDrawer roomId={roomId} onClose={() => setGenerating(false)} onDone={() => (setGenerating(false), notify('Document generated'), docs.reload())} />}
+      {generating && <GenerateDocumentDrawer roomId={roomId} onClose={() => setGenerating(false)} onDone={() => (setGenerating(false), notify(t("Document generated")), docs.reload())} />}
       <input ref={fileInput} type="file" accept={ACCEPT} hidden onChange={(e) => upload(e.target.files)} />
       {!compact && (
         <p className="muted">
-          {external ? 'Documents Agera shared with you. Your downloads are visible to your Agera contact.' : 'Shared with the client contacts of this room. Client downloads are counted; every upload keeps the earlier versions.'}
+          {external ? t("Documents Agera shared with you. Your downloads are visible to your Agera contact.") : t("Shared with the client contacts of this room. Client downloads are counted; every upload keeps the earlier versions.")}
         </p>
       )}
       <ErrorText error={error ?? docs.error} />
       {!docs.data ? (
         <Loading error={docs.error} />
       ) : list.length === 0 ? (
-        <p className="muted">No documents shared in this room yet.{canEdit && compact && ' Use the Documents tab to upload one.'}</p>
+        <p className="muted">{t("No documents shared in this room yet.")}{canEdit && compact && t(" Use the Documents tab to upload one.")}</p>
       ) : (
         <ul className="doc-list">
           {list.map((d) => (
@@ -96,11 +97,11 @@ export function RoomDocumentsPanel({ roomId, external, active, compact = false }
               </div>
               {!compact && (
                 <div className="doc-actions">
-                  <button className="secondary small" onClick={() => void run(() => api.downloadRoomDocument(roomId, d.id, d.fileName))}>Download</button>
-                  <button className="secondary small" onClick={() => setOpen(open === d.id ? null : d.id)}>{open === d.id ? 'Hide versions' : 'Versions'}</button>
-                  {canEdit && <button className="secondary small" disabled={busy} onClick={() => pick(d.id)}>Upload new version</button>}
-                  {canEdit && <button className="secondary small" onClick={() => rename(d)}>Rename</button>}
-                  {canEdit && <button className="secondary small danger" onClick={() => remove(d)}>Delete</button>}
+                  <button className="secondary small" onClick={() => void run(() => api.downloadRoomDocument(roomId, d.id, d.fileName))}>{t("Download")}</button>
+                  <button className="secondary small" onClick={() => setOpen(open === d.id ? null : d.id)}>{open === d.id ? t("Hide versions") : t("Versions")}</button>
+                  {canEdit && <button className="secondary small" disabled={busy} onClick={() => pick(d.id)}>{t("Upload new version")}</button>}
+                  {canEdit && <button className="secondary small" onClick={() => rename(d)}>{t("Rename")}</button>}
+                  {canEdit && <button className="secondary small danger" onClick={() => remove(d)}>{t("Delete")}</button>}
                 </div>
               )}
               {open === d.id && <Versions roomId={roomId} doc={d} />}
@@ -121,7 +122,7 @@ function SignatureImage({ agreementId, signatureId }: { agreementId: string; sig
       if (url) URL.revokeObjectURL(url);
     };
   }, [agreementId, signatureId]);
-  return src ? <img className="signature-img" src={src} alt="Drawn signature" /> : null;
+  return src ? <img className="signature-img" src={src} alt={t("Drawn signature")} /> : null;
 }
 
 function SignaturePad({ onChange }: { onChange: (dataUrl: string | null) => void }) {
@@ -160,8 +161,8 @@ function SignaturePad({ onChange }: { onChange: (dataUrl: string | null) => void
   };
   return (
     <div className="signature-pad">
-      <canvas ref={canvas} width={560} height={160} aria-label="Draw your signature" onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerLeave={end} />
-      <button type="button" className="link-button" onClick={clear}>Clear</button>
+      <canvas ref={canvas} width={560} height={160} aria-label={t("Draw your signature")} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerLeave={end} />
+      <button type="button" className="link-button" onClick={clear}>{t("Clear")}</button>
     </div>
   );
 }
@@ -178,44 +179,43 @@ export function SignaturePanel({ agreementId, status, external }: { agreementId:
   const canSign = external && status === 'pending_approval';
   const sign = () =>
     image &&
-    void run(() => api.signAgreement(agreementId, { signerName: name.trim(), signatureImage: image })).then((r) => r && (notify('Agreement signed'), signatures.reload(), setImage(null)));
+    void run(() => api.signAgreement(agreementId, { signerName: name.trim(), signatureImage: image })).then((r) => r && (notify(t("Agreement signed")), signatures.reload(), setImage(null)));
   if (!canSign && list.length === 0 && !external) {
     return (
       <div className="card-panel">
-        <h2>Electronic signature</h2>
-        <p className="muted">Not signed yet. The client contact signs in the client portal while the agreement is awaiting approval.</p>
+        <h2>{t("Electronic signature")}</h2>
+        <p className="muted">{t("Not signed yet. The client contact signs in the client portal while the agreement is awaiting approval.")}</p>
       </div>
     );
   }
   return (
     <div className="card-panel signoff-panel">
-      <h2>Contract sign-off</h2>
+      <h2>{t("Contract sign-off")}</h2>
       {list.map((s) => (
         <div key={s.id} className="signature-record">
           <SignatureImage agreementId={agreementId} signatureId={s.id} />
           <div>
-            <strong>Signed by {s.signerName}</strong> ({s.signerEmail}) on {formatDateTime(s.signedAt)}
+            <strong>{t("Signed by")} {s.signerName}</strong> ({s.signerEmail}{t(") on")} {formatDateTime(s.signedAt)}
             <div className="muted small">
-              Simple electronic signature · SHA-256 <code>{s.contentSha256}</code>
+              {t("Simple electronic signature · SHA-256")} <code>{s.contentSha256}</code>
             </div>
           </div>
         </div>
       ))}
       {canSign && (
         <>
-          <p className="muted">Draw your signature below. It is stored with your login e-mail, the time and a fingerprint (SHA-256) of the agreement, and counts as accepting the terms.</p>
-          <label className="field-label" htmlFor="signer-name">Full name</label>
+          <p className="muted">{t("Draw your signature below. It is stored with your login e-mail, the time and a fingerprint (SHA-256) of the agreement, and counts as accepting the terms.")}</p>
+          <label className="field-label" htmlFor="signer-name">{t("Full name")}</label>
           <input id="signer-name" value={name} maxLength={200} onChange={(e) => setName(e.target.value)} />
           <SignaturePad onChange={setImage} />
           <label className="checkbox">
-            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /> I have read the agreement and sign it on behalf of my organisation
-          </label>
+            <input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} />  {t("I have read the agreement and sign it on behalf of my organisation")}</label>
           <div className="form-actions start">
-            <button className="primary" disabled={busy || !image || !name.trim() || !agree} onClick={sign}>Sign agreement</button>
+            <button className="primary" disabled={busy || !image || !name.trim() || !agree} onClick={sign}>{t("Sign agreement")}</button>
           </div>
         </>
       )}
-      {external && !canSign && list.length === 0 && <p className="muted">This agreement can no longer be signed here.</p>}
+      {external && !canSign && list.length === 0 && <p className="muted">{t("This agreement can no longer be signed here.")}</p>}
       <ErrorText error={error ?? signatures.error} />
     </div>
   );

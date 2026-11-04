@@ -8,6 +8,7 @@ import { money } from '../nexus/Clients';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, useAction, useLoad } from '../ui';
+import { t } from '../i18n';
 
 export const STAGES: DealStage[] = ['lead_ingest', 'proposal_sent', 'contract_negotiation', 'ops_handoff'];
 export const DEAL_STAGE: Record<DealStage, string> = {
@@ -17,7 +18,7 @@ export const DEAL_STAGE: Record<DealStage, string> = {
   ops_handoff: 'Handed to operations',
 };
 const PRIORITY: Record<DealPriority, string> = { low: 'Low', medium: 'Medium', high: 'High' };
-const SUITE = { label: 'Nexus', href: '#/nexus' };
+const SUITE = { label: t("Nexus"), href: '#/nexus' };
 
 function Priority({ value }: { value: DealPriority }) {
   return <span className={`prio prio-${value}`}>{PRIORITY[value]}</span>;
@@ -42,17 +43,16 @@ export function PipelineBoard() {
   const total = deals.filter((d) => d.stage !== 'ops_handoff').reduce((sum, d) => sum + Number(d.value), 0);
   return (
     <ViewFrame
-      title="Deal pipeline"
+      title={t("Deal pipeline")}
       subtitle={data ? `${deals.length} deals · ${money(total)} open pipeline value` : undefined}
-      crumbs={[SUITE, { label: 'Pipeline' }]}
-      actions={<button className="primary" onClick={() => openNew('deal')}>+ New deal</button>}
+      crumbs={[SUITE, { label: t("Pipeline") }]}
+      actions={<button className="primary" onClick={() => openNew('deal')}>{t("+ New deal")}</button>}
     >
       <ErrorText error={action.error} />
       {!data && <Loading error={error} />}
       {data && deals.length === 0 && (
-        <EmptyState title="No deals yet" action={<button className="primary" onClick={() => openNew('deal')}>+ New deal</button>}>
-          Add a deal for a client, then drag it (or use the arrows) through the stages.
-        </EmptyState>
+        <EmptyState title={t("No deals yet")} action={<button className="primary" onClick={() => openNew('deal')}>{t("+ New deal")}</button>}>
+          {t("Add a deal for a client, then drag it (or use the arrows) through the stages.")}</EmptyState>
       )}
       {deals.length > 0 && (
         <div className="board">
@@ -102,27 +102,27 @@ export function DealsView({ route }: { route: Route }) {
   const clientFilter = useClientFilter();
   const filtered = items.filter((x) => matchesClient(clientFilter, x.clientId)).filter((d) => (stage === 'all' || d.stage === stage) && includesText([d.title, d.clientName, d.ownerName], q));
   return (
-    <ViewFrame title="All deals" crumbs={[SUITE, { label: 'All deals' }]} actions={<button className="primary" onClick={() => openNew('deal')}>+ New deal</button>}>
+    <ViewFrame title={t("All deals")} crumbs={[SUITE, { label: t("All deals") }]} actions={<button className="primary" onClick={() => openNew('deal')}>{t("+ New deal")}</button>}>
       <div className="list-toolbar">
         <FilterChips
           value={stage}
           onChange={(v) => navigate(withParams(route, { stage: v === 'all' ? null : v }))}
-          chips={[{ value: 'all', label: 'All', count: items.length }, ...STAGES.map((s) => ({ value: s, label: DEAL_STAGE[s], count: items.filter((d) => d.stage === s).length }))]}
+          chips={[{ value: 'all', label: t("All"), count: items.length }, ...STAGES.map((s) => ({ value: s, label: DEAL_STAGE[s], count: items.filter((d) => d.stage === s).length }))]}
         />
-        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder="Filter by deal, client or owner" />
+        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder={t("Filter by deal, client or owner")} />
       </div>
       {!data && <Loading error={error} />}
-      {data && filtered.length === 0 && <EmptyState title={items.length === 0 ? 'No deals yet' : 'No deals match this filter'} />}
+      {data && filtered.length === 0 && <EmptyState title={items.length === 0 ? t("No deals yet") : t("No deals match this filter")} />}
       {filtered.length > 0 && (
         <table className="grid clickable">
-          <thead><tr><th>Deal</th><th>Client</th><th>Stage</th><th>Owner</th><th>Priority</th><th>Expected close</th><th className="num">Value</th></tr></thead>
+          <thead><tr><th>{t("Deal")}</th><th>{t("Client")}</th><th>{t("Stage")}</th><th>{t("Owner")}</th><th>{t("Priority")}</th><th>{t("Expected close")}</th><th className="num">{t("Value")}</th></tr></thead>
           <tbody>
             {filtered.map((d) => (
               <tr key={d.id} onClick={() => navigate(`/nexus/deals/${d.id}`)}>
                 <td><a href={`#/nexus/deals/${d.id}`}>{d.title}</a></td>
                 <td>{d.clientName}</td>
                 <td>{DEAL_STAGE[d.stage]}</td>
-                <td>{d.ownerName ?? <span className="muted">Not assigned</span>}</td>
+                <td>{d.ownerName ?? <span className="muted">{t("Not assigned")}</span>}</td>
                 <td><Priority value={d.priority} /></td>
                 <td>{d.dueDate ? formatDate(d.dueDate) : '—'}</td>
                 <td className="num">{money(d.value)}</td>
@@ -164,33 +164,33 @@ function EditDealDrawer({ deal, onClose, onSaved }: { deal: DealRecord; onClose:
     ).then((r) => r && onSaved());
   };
   return (
-    <Drawer title="Edit deal" onClose={onClose}>
+    <Drawer title={t("Edit deal")} onClose={onClose}>
       <form onSubmit={submit}>
-        <Field label="Deal name"><input required maxLength={200} value={form.title} onChange={set('title')} autoFocus /></Field>
+        <Field label={t("Deal name")}><input required maxLength={200} value={form.title} onChange={set('title')} autoFocus /></Field>
         <div className="field-row">
-          <Field label="Value (EUR)"><input type="number" min={0} step="0.01" value={form.value} onChange={set('value')} /></Field>
-          <Field label="Priority">
+          <Field label={t("Value (EUR)")}><input type="number" min={0} step="0.01" value={form.value} onChange={set('value')} /></Field>
+          <Field label={t("Priority")}>
             <select value={form.priority} onChange={set('priority')}>
               {(Object.keys(PRIORITY) as DealPriority[]).map((p) => <option key={p} value={p}>{PRIORITY[p]}</option>)}
             </select>
           </Field>
         </div>
-        <Field label="Owner">
+        <Field label={t("Owner")}>
           <select value={form.ownerId} onChange={set('ownerId')}>
-            <option value="">Not assigned</option>
+            <option value="">{t("Not assigned")}</option>
             {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
         </Field>
-        <Field label="Expected close date"><input type="date" value={form.dueDate} onChange={set('dueDate')} /></Field>
-        <Field label="Client room" hint="Link the room where the client follows this deal">
+        <Field label={t("Expected close date")}><input type="date" value={form.dueDate} onChange={set('dueDate')} /></Field>
+        <Field label={t("Client room")} hint={t("Link the room where the client follows this deal")}>
           <select value={form.clientRoomId} onChange={set('clientRoomId')}>
-            <option value="">None</option>
+            <option value="">{t("None")}</option>
             {(rooms.data ?? []).filter((r) => r.clientId === deal.clientId).map((r) => <option key={r.id} value={r.id}>{r.roomName}</option>)}
           </select>
         </Field>
-        <Field label="Notes"><textarea rows={4} value={form.notes} onChange={set('notes')} /></Field>
+        <Field label={t("Notes")}><textarea rows={4} value={form.notes} onChange={set('notes')} /></Field>
         <ErrorText error={error} />
-        <FormActions busy={busy} submitLabel="Save changes" onCancel={onClose} />
+        <FormActions busy={busy} submitLabel={t("Save changes")} onCancel={onClose} />
       </form>
     </Drawer>
   );
@@ -203,7 +203,7 @@ export function DealDossier({ id }: { id: string }) {
   const action = useAction();
   if (!data) {
     return (
-      <ViewFrame title="Deal" crumbs={[SUITE, { label: 'All deals', href: '#/nexus/deals' }, { label: 'Loading…' }]}>
+      <ViewFrame title={t("Deal")} crumbs={[SUITE, { label: t("All deals"), href: '#/nexus/deals' }, { label: t("Loading…") }]}>
         <Loading error={error} />
       </ViewFrame>
     );
@@ -211,23 +211,23 @@ export function DealDossier({ id }: { id: string }) {
   const d = data;
   const remove = () => {
     if (!window.confirm(`Delete the deal “${d.title}”? This cannot be undone.`)) return;
-    void action.run(() => api.deleteDeal(id)).then((r) => r !== undefined && (notify('Deal deleted'), navigate('/nexus/pipeline')));
+    void action.run(() => api.deleteDeal(id)).then((r) => r !== undefined && (notify(t("Deal deleted")), navigate('/nexus/pipeline')));
   };
   return (
     <ViewFrame
       title={d.title}
       subtitle={`${d.clientName} · ${DEAL_STAGE[d.stage]}`}
-      crumbs={[SUITE, { label: 'All deals', href: '#/nexus/deals' }, { label: d.title }]}
+      crumbs={[SUITE, { label: t("All deals"), href: '#/nexus/deals' }, { label: d.title }]}
       actions={
         <>
           <label className="inline-select">
-            Stage{' '}
-            <select aria-label="Stage" value={d.stage} disabled={action.busy} onChange={(e) => void action.run(() => api.setDealStage(id, e.target.value as DealStage)).then((r) => r && (notify('Stage updated'), reload()))}>
+            {t("Stage")}{' '}
+            <select aria-label={t("Stage")} value={d.stage} disabled={action.busy} onChange={(e) => void action.run(() => api.setDealStage(id, e.target.value as DealStage)).then((r) => r && (notify(t("Stage updated")), reload()))}>
               {STAGES.map((s) => <option key={s} value={s}>{DEAL_STAGE[s]}</option>)}
             </select>
           </label>
-          <button className="secondary" onClick={() => setEditing(true)}>Edit</button>
-          <button className="secondary danger" disabled={action.busy} onClick={remove}>Delete</button>
+          <button className="secondary" onClick={() => setEditing(true)}>{t("Edit")}</button>
+          <button className="secondary danger" disabled={action.busy} onClick={remove}>{t("Delete")}</button>
         </>
       }
     >
@@ -245,17 +245,17 @@ export function DealDossier({ id }: { id: string }) {
         ]}
       />
       <div className="card-panel">
-        <h2>Stage history</h2>
+        <h2>{t("Stage history")}</h2>
         <ul className="timeline">
           {d.history.map((h) => (
             <li key={h.id}>
               <strong>{h.fromStage ? `${DEAL_STAGE[h.fromStage]} → ${DEAL_STAGE[h.toStage]}` : `Created in ${DEAL_STAGE[h.toStage]}`}</strong>
-              <span className="muted"> · {h.changedByName ?? 'Unknown'} · {formatDateTime(h.changedAt)}</span>
+              <span className="muted"> · {h.changedByName ?? t("Unknown")} · {formatDateTime(h.changedAt)}</span>
             </li>
           ))}
         </ul>
       </div>
-      {editing && <EditDealDrawer deal={d} onClose={() => setEditing(false)} onSaved={() => (setEditing(false), notify('Deal updated'), reload())} />}
+      {editing && <EditDealDrawer deal={d} onClose={() => setEditing(false)} onSaved={() => (setEditing(false), notify(t("Deal updated")), reload())} />}
     </ViewFrame>
   );
 }

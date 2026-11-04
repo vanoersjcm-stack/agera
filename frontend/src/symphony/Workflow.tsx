@@ -7,6 +7,7 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { type NewDefaults, useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, Loading, StatusBadge, useAction, useLoad } from '../ui';
+import { t as tr } from '../i18n';
 
 const APPROVAL_STATUS: Record<string, string> = { pending: 'Pending', approved: 'Approved', rejected: 'Rejected', cancelled: 'Withdrawn' };
 const SEVERITY: Record<ExceptionSeverity, string> = { low: 'Low', medium: 'Medium', high: 'High' };
@@ -30,30 +31,30 @@ function RequestApprovalDrawer({ entityType, entityId, onClose, onDone }: { enti
     void run(() => api.requestApproval({ entityType, entityId, approverIds: chain, note: note.trim() || null })).then((r) => r && onDone());
   };
   return (
-    <Drawer title="Send for approval" onClose={onClose}>
+    <Drawer title={tr("Send for approval")} onClose={onClose}>
       <form onSubmit={submit}>
-        <p className="muted">Approvers decide one after another. The last approval {entityType === 'agreement' ? 'activates the agreement' : 'approves the plan'} automatically.</p>
+        <p className="muted">{tr("Approvers decide one after another. The last approval")} {entityType === 'agreement' ? tr("activates the agreement") : tr("approves the plan")}  {tr("automatically.")}</p>
         <Field label={`Approval chain (${chain.length} of max. 5)`}>
           <ol className="chain">
             {chain.map((id, i) => (
               <li key={id}>
                 {userName(users, id)}{' '}
                 <button type="button" className="link-button" disabled={i === 0} onClick={() => setChain(chain.map((x, j) => (j === i - 1 ? id : j === i ? chain[i - 1] : x)))}>↑</button>{' '}
-                <button type="button" className="link-button danger" onClick={() => setChain(chain.filter((x) => x !== id))}>Remove</button>
+                <button type="button" className="link-button danger" onClick={() => setChain(chain.filter((x) => x !== id))}>{tr("Remove")}</button>
               </li>
             ))}
           </ol>
           <div className="line-row">
-            <select value={adding} onChange={(e) => setAdding(e.target.value)} aria-label="Add approver">
-              <option value="">Add an approver…</option>
+            <select value={adding} onChange={(e) => setAdding(e.target.value)} aria-label={tr("Add approver")}>
+              <option value="">{tr("Add an approver…")}</option>
               {users.filter((u) => !chain.includes(u.id)).map((u) => <option key={u.id} value={u.id}>{userName(users, u.id)}</option>)}
             </select>
-            <button type="button" className="secondary small" disabled={!adding || chain.length >= 5} onClick={() => (setChain([...chain, adding]), setAdding(''))}>Add</button>
+            <button type="button" className="secondary small" disabled={!adding || chain.length >= 5} onClick={() => (setChain([...chain, adding]), setAdding(''))}>{tr("Add")}</button>
           </div>
         </Field>
-        <Field label="Note for the approvers"><textarea rows={3} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
+        <Field label={tr("Note for the approvers")}><textarea rows={3} maxLength={2000} value={note} onChange={(e) => setNote(e.target.value)} /></Field>
         <ErrorText error={error} />
-        <FormActions busy={busy || chain.length === 0} submitLabel="Send for approval" onCancel={onClose} />
+        <FormActions busy={busy || chain.length === 0} submitLabel={tr("Send for approval")} onCancel={onClose} />
       </form>
     </Drawer>
   );
@@ -70,21 +71,21 @@ export function ApprovalPanel({ entityType, entityId, canRequest, onChanged }: {
   return (
     <div className="card-panel approval-panel">
       <div className="panel-head">
-        <h2>Approval</h2>
-        {canRequest && !pending && <button className="secondary" onClick={() => setOpen(true)}>Send for approval…</button>}
+        <h2>{tr("Approval")}</h2>
+        {canRequest && !pending && <button className="secondary" onClick={() => setOpen(true)}>{tr("Send for approval…")}</button>}
       </div>
       {!latest ? (
-        <p className="muted">No approval requested yet. You can still approve directly, or send it through an approval chain.</p>
+        <p className="muted">{tr("No approval requested yet. You can still approve directly, or send it through an approval chain.")}</p>
       ) : (
         <>
           <p>
-            <StatusBadge status={latest.status === 'approved' ? 'active' : latest.status === 'pending' ? 'pending_approval' : 'archived'} label={APPROVAL_STATUS[latest.status]} /> requested by {latest.requestedByName ?? '—'} on {formatDate(latest.createdAt)} ·{' '}
-            <a href={`#/symphony/approvals/${latest.id}`}>open request</a>
+            <StatusBadge status={latest.status === 'approved' ? 'active' : latest.status === 'pending' ? 'pending_approval' : 'archived'} label={APPROVAL_STATUS[latest.status]} />  {tr("requested by")} {latest.requestedByName ?? '—'}  {tr("on")} {formatDate(latest.createdAt)} ·{' '}
+            <a href={`#/symphony/approvals/${latest.id}`}>{tr("open request")}</a>
           </p>
-          <ol className="chain">{latest.steps.map((s) => <li key={s.id} className={`step-${s.decision}`}>{s.approverName}: {s.decision === 'pending' ? (latest.currentApproverId === s.approverId ? 'to decide' : 'waiting') : s.decision}{s.comment ? ` – “${s.comment}”` : ''}</li>)}</ol>
+          <ol className="chain">{latest.steps.map((s) => <li key={s.id} className={`step-${s.decision}`}>{s.approverName}: {s.decision === 'pending' ? (latest.currentApproverId === s.approverId ? tr("to decide") : 'waiting') : s.decision}{s.comment ? ` – “${s.comment}”` : ''}</li>)}</ol>
         </>
       )}
-      {open && <RequestApprovalDrawer entityType={entityType} entityId={entityId} onClose={() => setOpen(false)} onDone={() => (setOpen(false), notify('Sent for approval'), list.reload(), onChanged?.())} />}
+      {open && <RequestApprovalDrawer entityType={entityType} entityId={entityId} onClose={() => setOpen(false)} onDone={() => (setOpen(false), notify(tr("Sent for approval")), list.reload(), onChanged?.())} />}
     </div>
   );
 }
@@ -93,15 +94,15 @@ export function ApprovalsView({ route }: { route: Route }) {
   const show = route.params.get('show') ?? 'mine';
   const list = useLoad(() => api.approvals(show === 'mine' ? { mine: true } : show === 'pending' ? { status: 'pending' } : {}), [show]);
   return (
-    <ViewFrame title="Approvals" subtitle="Plans and agreements going through an approval chain" crumbs={[{ label: 'Symphony', href: '#/symphony' }, { label: 'Approvals' }]}>
+    <ViewFrame title={tr("Approvals")} subtitle={tr("Plans and agreements going through an approval chain")} crumbs={[{ label: tr("Symphony"), href: '#/symphony' }, { label: tr("Approvals") }]}>
       <div className="list-toolbar">
-        <FilterChips value={show} onChange={(v) => navigate(withParams(route, { show: v === 'mine' ? null : v }))} chips={[{ value: 'mine', label: 'Waiting for me' }, { value: 'pending', label: 'All pending' }, { value: 'all', label: 'All' }]} />
+        <FilterChips value={show} onChange={(v) => navigate(withParams(route, { show: v === 'mine' ? null : v }))} chips={[{ value: 'mine', label: tr("Waiting for me") }, { value: 'pending', label: tr("All pending") }, { value: 'all', label: tr("All") }]} />
       </div>
       {!list.data && <Loading error={list.error} />}
-      {list.data?.length === 0 && <EmptyState title={show === 'mine' ? 'Nothing waiting for you' : 'No approval requests'}>Use “Send for approval” on a draft financial plan or an agreement awaiting approval.</EmptyState>}
+      {list.data?.length === 0 && <EmptyState title={show === 'mine' ? tr("Nothing waiting for you") : tr("No approval requests")}>{tr("Use “Send for approval” on a draft financial plan or an agreement awaiting approval.")}</EmptyState>}
       {list.data && list.data.length > 0 && (
         <table className="grid clickable">
-          <thead><tr><th>Record</th><th>Type</th><th>Requested</th><th>Next approver</th><th>Status</th></tr></thead>
+          <thead><tr><th>{tr("Record")}</th><th>{tr("Type")}</th><th>{tr("Requested")}</th><th>{tr("Next approver")}</th><th>{tr("Status")}</th></tr></thead>
           <tbody>
             {list.data.map((a) => (
               <tr key={a.id} onClick={() => navigate(`/symphony/approvals/${a.id}`)}>
@@ -125,37 +126,37 @@ export function ApprovalDossier({ id }: { id: string }) {
   const a = useLoad(() => api.approval(id), [id]);
   const [comment, setComment] = useState('');
   const action = useAction();
-  const crumbs = [{ label: 'Symphony', href: '#/symphony' }, { label: 'Approvals', href: '#/symphony/approvals' }];
-  if (!a.data) return <ViewFrame title="Approval" crumbs={[...crumbs, { label: 'Loading…' }]}><Loading error={a.error} /></ViewFrame>;
+  const crumbs = [{ label: tr("Symphony"), href: '#/symphony' }, { label: tr("Approvals"), href: '#/symphony/approvals' }];
+  if (!a.data) return <ViewFrame title={tr("Approval")} crumbs={[...crumbs, { label: tr("Loading…") }]}><Loading error={a.error} /></ViewFrame>;
   const r = a.data;
   const link = r.entityType === 'agreement' ? `#/nexus/agreements/${r.entityId}` : `#/nexus/financial-plans/${r.entityId}`;
-  const decide = (d: 'approved' | 'rejected') => void action.run(() => api.decideApproval(id, d, comment.trim())).then((x) => x && (notify(d === 'approved' ? 'Approved' : 'Rejected'), setComment(''), a.reload()));
+  const decide = (d: 'approved' | 'rejected') => void action.run(() => api.decideApproval(id, d, comment.trim())).then((x) => x && (notify(d === 'approved' ? tr("Approved") : tr("Rejected")), setComment(''), a.reload()));
   const myTurn = r.status === 'pending' && r.currentApproverId === me;
   return (
     <ViewFrame
       title={r.entityLabel}
       subtitle={<StatusBadge status={r.status === 'approved' ? 'active' : r.status === 'pending' ? 'pending_approval' : 'archived'} label={APPROVAL_STATUS[r.status]} />}
       crumbs={[...crumbs, { label: r.entityLabel }]}
-      actions={r.status === 'pending' && r.requestedById === me && <button className="secondary" disabled={action.busy} onClick={() => void action.run(() => api.cancelApproval(id)).then((x) => x && a.reload())}>Withdraw request</button>}
+      actions={r.status === 'pending' && r.requestedById === me && <button className="secondary" disabled={action.busy} onClick={() => void action.run(() => api.cancelApproval(id)).then((x) => x && a.reload())}>{tr("Withdraw request")}</button>}
     >
       <ErrorText error={action.error} />
       <DetailList items={[['Record', <a href={link}>{ENTITY[r.entityType]}: {r.entityLabel}</a>], ['Requested by', `${r.requestedByName ?? '—'} · ${formatDateTime(r.createdAt)}`], ['Note', r.note || '—'], ['Decided', r.decidedAt ? formatDateTime(r.decidedAt) : '—']]} />
       <div className="card-panel">
-        <h2>Approval chain</h2>
+        <h2>{tr("Approval chain")}</h2>
         <ol className="chain">
           {r.steps.map((s) => (
             <li key={s.id} className={`step-${s.decision}`}>
-              <strong>{s.approverName}</strong> – {s.decision === 'pending' ? (r.currentApproverId === s.approverId ? 'to decide now' : 'waiting') : `${s.decision} on ${formatDateTime(s.decidedAt!)}`}
+              <strong>{s.approverName}</strong> – {s.decision === 'pending' ? (r.currentApproverId === s.approverId ? tr("to decide now") : 'waiting') : `${s.decision} on ${formatDateTime(s.decidedAt!)}`}
               {s.comment && <div className="muted">“{s.comment}”</div>}
             </li>
           ))}
         </ol>
         {myTurn && (
           <>
-            <Field label="Comment" hint="Required when rejecting"><textarea rows={3} maxLength={2000} value={comment} onChange={(e) => setComment(e.target.value)} /></Field>
+            <Field label={tr("Comment")} hint={tr("Required when rejecting")}><textarea rows={3} maxLength={2000} value={comment} onChange={(e) => setComment(e.target.value)} /></Field>
             <div className="form-actions start">
-              <button className="primary" disabled={action.busy} onClick={() => decide('approved')}>Approve</button>
-              <button className="secondary danger" disabled={action.busy || !comment.trim()} onClick={() => decide('rejected')}>Reject</button>
+              <button className="primary" disabled={action.busy} onClick={() => decide('approved')}>{tr("Approve")}</button>
+              <button className="secondary danger" disabled={action.busy || !comment.trim()} onClick={() => decide('rejected')}>{tr("Reject")}</button>
             </div>
           </>
         )}
@@ -185,18 +186,18 @@ export function NewExceptionForm({ defaults, onDone, onCancel }: { defaults: New
   };
   return (
     <form onSubmit={submit}>
-      <Field label="What went wrong?"><input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></Field>
-      <Field label="Details"><textarea rows={3} maxLength={4000} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
-      <Field label="Severity">
+      <Field label={tr("What went wrong?")}><input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></Field>
+      <Field label={tr("Details")}><textarea rows={3} maxLength={4000} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
+      <Field label={tr("Severity")}>
         <select value={severity} onChange={(e) => setSeverity(e.target.value as ExceptionSeverity)}>{Object.entries(SEVERITY).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
       </Field>
-      <Field label="Owner" hint="The owner gets a notification">
-        <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)}><option value="">Unassigned</option>{users.map((u) => <option key={u.id} value={u.id}>{userName(users, u.id)}</option>)}</select>
+      <Field label={tr("Owner")} hint={tr("The owner gets a notification")}>
+        <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)}><option value="">{tr("Unassigned")}</option>{users.map((u) => <option key={u.id} value={u.id}>{userName(users, u.id)}</option>)}</select>
       </Field>
-      <Field label="Store"><select value={storeId} onChange={(e) => setStoreId(e.target.value)}><option value="">—</option>{stores.data?.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-      <Field label="Client"><select value={clientId} onChange={(e) => setClientId(e.target.value)}><option value="">—</option>{clients.data?.filter((c) => c.status === 'active').map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+      <Field label={tr("Store")}><select value={storeId} onChange={(e) => setStoreId(e.target.value)}><option value="">—</option>{stores.data?.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
+      <Field label={tr("Client")}><select value={clientId} onChange={(e) => setClientId(e.target.value)}><option value="">—</option>{clients.data?.filter((c) => c.status === 'active').map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel="Log exception" onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Log exception")} onCancel={onCancel} />
     </form>
   );
 }
@@ -207,21 +208,21 @@ export function ExceptionsView({ route }: { route: Route }) {
   const list = useLoad(() => api.exceptions(status === 'all' ? undefined : status), [status]);
   const clientFilter = useClientFilter();
   return (
-    <ViewFrame title="Exceptions" subtitle="Issues that need an owner and a resolution" crumbs={[{ label: 'Nexus', href: '#/nexus' }, { label: 'Exceptions' }]} actions={<button className="primary" onClick={() => openNew('exception')}>+ New exception</button>}>
+    <ViewFrame title={tr("Exceptions")} subtitle={tr("Issues that need an owner and a resolution")} crumbs={[{ label: tr("Nexus"), href: '#/nexus' }, { label: tr("Exceptions") }]} actions={<button className="primary" onClick={() => openNew('exception')}>{tr("+ New exception")}</button>}>
       <div className="list-toolbar">
-        <FilterChips value={status} onChange={(v) => navigate(withParams(route, { status: v === 'unresolved' ? null : v }))} chips={[{ value: 'unresolved', label: 'Unresolved' }, { value: 'open', label: 'Open' }, { value: 'in_progress', label: 'In progress' }, { value: 'resolved', label: 'Resolved' }, { value: 'all', label: 'All' }]} />
+        <FilterChips value={status} onChange={(v) => navigate(withParams(route, { status: v === 'unresolved' ? null : v }))} chips={[{ value: 'unresolved', label: tr("Unresolved") }, { value: 'open', label: tr("Open") }, { value: 'in_progress', label: tr("In progress") }, { value: 'resolved', label: tr("Resolved") }, { value: 'all', label: tr("All") }]} />
       </div>
       {!list.data && <Loading error={list.error} />}
-      {list.data?.length === 0 && <EmptyState title="No exceptions">Log one with “+ New exception”, or from an alert.</EmptyState>}
+      {list.data?.length === 0 && <EmptyState title={tr("No exceptions")}>{tr("Log one with “+ New exception”, or from an alert.")}</EmptyState>}
       {list.data && list.data.length > 0 && (
         <table className="grid clickable">
-          <thead><tr><th>Exception</th><th>Severity</th><th>Owner</th><th>Store / client</th><th>Status</th></tr></thead>
+          <thead><tr><th>{tr("Exception")}</th><th>{tr("Severity")}</th><th>{tr("Owner")}</th><th>{tr("Store / client")}</th><th>{tr("Status")}</th></tr></thead>
           <tbody>
             {list.data.filter((e) => matchesClient(clientFilter, e.clientId)).map((e) => (
               <tr key={e.id} onClick={() => navigate(`/nexus/exceptions/${e.id}`)}>
                 <td><a href={`#/nexus/exceptions/${e.id}`}>{e.title}</a><div className="muted small">{formatDate(e.createdAt)}</div></td>
                 <td><StatusBadge status={e.severity === 'high' ? 'not_compliant' : e.severity === 'medium' ? 'needs_follow_up' : 'compliant'} label={SEVERITY[e.severity]} /></td>
-                <td>{e.ownerName ?? 'Unassigned'}</td>
+                <td>{e.ownerName ?? tr("Unassigned")}</td>
                 <td>{[e.storeName, e.clientName].filter(Boolean).join(' · ') || '—'}</td>
                 <td><StatusBadge status={e.status === 'resolved' ? 'active' : 'pending_approval'} label={EXC_STATUS[e.status]} /></td>
               </tr>
@@ -239,18 +240,18 @@ export function ExceptionDossier({ id }: { id: string }) {
   const ex = useLoad(() => api.exception(id), [id]);
   const [resolution, setResolution] = useState('');
   const action = useAction();
-  const crumbs = [{ label: 'Nexus', href: '#/nexus' }, { label: 'Exceptions', href: '#/nexus/exceptions' }];
-  if (!ex.data) return <ViewFrame title="Exception" crumbs={[...crumbs, { label: 'Loading…' }]}><Loading error={ex.error} /></ViewFrame>;
+  const crumbs = [{ label: tr("Nexus"), href: '#/nexus' }, { label: tr("Exceptions"), href: '#/nexus/exceptions' }];
+  if (!ex.data) return <ViewFrame title={tr("Exception")} crumbs={[...crumbs, { label: tr("Loading…") }]}><Loading error={ex.error} /></ViewFrame>;
   const e: ExceptionRecord = ex.data;
   const save = (body: Parameters<typeof api.updateException>[1], msg: string) => void action.run(() => api.updateException(id, body)).then((r) => r && (notify(msg), ex.reload()));
   return (
     <ViewFrame title={e.title} subtitle={<StatusBadge status={e.status === 'resolved' ? 'active' : 'pending_approval'} label={EXC_STATUS[e.status]} />} crumbs={[...crumbs, { label: e.title }]}
-      actions={e.status === 'open' && <button className="secondary" onClick={() => save({ status: 'in_progress' }, 'Marked in progress')}>Start working on it</button>}>
+      actions={e.status === 'open' && <button className="secondary" onClick={() => save({ status: 'in_progress' }, 'Marked in progress')}>{tr("Start working on it")}</button>}>
       <ErrorText error={action.error} />
       <DetailList
         items={[
           ['Severity', SEVERITY[e.severity]],
-          ['Owner', <select value={e.ownerId ?? ''} disabled={e.status === 'resolved'} onChange={(x) => save({ ownerId: x.target.value || null }, 'Owner changed')}><option value="">Unassigned</option>{users.map((u) => <option key={u.id} value={u.id}>{userName(users, u.id)}</option>)}</select>],
+          ['Owner', <select value={e.ownerId ?? ''} disabled={e.status === 'resolved'} onChange={(x) => save({ ownerId: x.target.value || null }, 'Owner changed')}><option value="">{tr("Unassigned")}</option>{users.map((u) => <option key={u.id} value={u.id}>{userName(users, u.id)}</option>)}</select>],
           ['Store', e.storeId ? <a href={`#/retailpower/stores/${e.storeId}`}>{e.storeName}</a> : '—'],
           ['Client', e.clientId ? <a href={`#/nexus/clients/${e.clientId}`}>{e.clientName}</a> : '—'],
           ['Source', e.source || 'Logged manually'],
@@ -261,12 +262,12 @@ export function ExceptionDossier({ id }: { id: string }) {
       />
       {e.status !== 'resolved' ? (
         <div className="card-panel">
-          <h2>Resolve</h2>
-          <Field label="How was it resolved?"><textarea rows={3} maxLength={4000} value={resolution} onChange={(x) => setResolution(x.target.value)} /></Field>
-          <button className="primary" disabled={action.busy || !resolution.trim()} onClick={() => save({ status: 'resolved', resolution: resolution.trim() }, 'Exception resolved')}>Mark resolved</button>
+          <h2>{tr("Resolve")}</h2>
+          <Field label={tr("How was it resolved?")}><textarea rows={3} maxLength={4000} value={resolution} onChange={(x) => setResolution(x.target.value)} /></Field>
+          <button className="primary" disabled={action.busy || !resolution.trim()} onClick={() => save({ status: 'resolved', resolution: resolution.trim() }, 'Exception resolved')}>{tr("Mark resolved")}</button>
         </div>
       ) : (
-        <button className="secondary" onClick={() => save({ status: 'open' }, 'Exception reopened')}>Reopen</button>
+        <button className="secondary" onClick={() => save({ status: 'open' }, 'Exception reopened')}>{tr("Reopen")}</button>
       )}
     </ViewFrame>
   );
@@ -297,8 +298,8 @@ export function NotificationBell() {
       </button>
       {open && (
         <div className="menu bell-menu" role="menu">
-          <div className="bell-head"><strong>Notifications</strong>{data.unread > 0 && <button className="link-button" onClick={() => void api.readNotifications().then(load)}>Mark all read</button>}</div>
-          {data.items.length === 0 && <p className="muted">Nothing yet.</p>}
+          <div className="bell-head"><strong>{tr("Notifications")}</strong>{data.unread > 0 && <button className="link-button" onClick={() => void api.readNotifications().then(load)}>{tr("Mark all read")}</button>}</div>
+          {data.items.length === 0 && <p className="muted">{tr("Nothing yet.")}</p>}
           {data.items.map((n) => (
             <button key={n.id} role="menuitem" className={n.readAt ? 'read' : 'unread'} onClick={() => go(n)}>
               <strong>{n.title}</strong>
@@ -320,7 +321,7 @@ const BAND_STATUS: Record<string, string> = { healthy: 'compliant', watch: 'need
 export function HealthBadge({ clientId }: { clientId: string }) {
   const h = useLoad(() => api.clientsHealth(), []).data?.find((x) => x.clientId === clientId);
   if (!h) return null;
-  return <span title={h.factors.join(' · ') || 'No risk factors'}><StatusBadge status={BAND_STATUS[h.band]} label={`Health ${h.score} · ${BAND[h.band]}`} /></span>;
+  return <span title={h.factors.join(' · ') || tr("No risk factors")}><StatusBadge status={BAND_STATUS[h.band]} label={`Health ${h.score} · ${BAND[h.band]}`} /></span>;
 }
 
 export function HealthView() {
@@ -328,17 +329,17 @@ export function HealthView() {
   const clientFilter = useClientFilter();
   const rows = (list.data ?? []).filter((r) => matchesClient(clientFilter, r.clientId)).sort((a, b) => a.score - b.score);
   return (
-    <ViewFrame title="Account health" subtitle="Score 0–100 per client from credit, overdue invoices, churn risk, open exceptions and client activity" crumbs={[{ label: 'Symphony', href: '#/symphony' }, { label: 'Account health' }]}>
+    <ViewFrame title={tr("Account health")} subtitle={tr("Score 0–100 per client from credit, overdue invoices, churn risk, open exceptions and client activity")} crumbs={[{ label: tr("Symphony"), href: '#/symphony' }, { label: tr("Account health") }]}>
       {!list.data && <Loading error={list.error} />}
       {list.data && (
         <>
           <div className="kpi-grid">
-            <div className="kpi kpi-emerald"><span>Healthy</span><strong>{rows.filter((r) => r.band === 'healthy').length}</strong></div>
-            <div className="kpi kpi-blue"><span>Watch</span><strong>{rows.filter((r) => r.band === 'watch').length}</strong></div>
-            <div className="kpi kpi-purple"><span>At risk</span><strong>{rows.filter((r) => r.band === 'at_risk').length}</strong></div>
+            <div className="kpi kpi-emerald"><span>{tr("Healthy")}</span><strong>{rows.filter((r) => r.band === 'healthy').length}</strong></div>
+            <div className="kpi kpi-blue"><span>{tr("Watch")}</span><strong>{rows.filter((r) => r.band === 'watch').length}</strong></div>
+            <div className="kpi kpi-purple"><span>{tr("At risk")}</span><strong>{rows.filter((r) => r.band === 'at_risk').length}</strong></div>
           </div>
           <table className="grid">
-            <thead><tr><th>Client</th><th className="num">Health</th><th>Band</th><th className="num">Engagement (30 days)</th><th>Why</th></tr></thead>
+            <thead><tr><th>{tr("Client")}</th><th className="num">{tr("Health")}</th><th>{tr("Band")}</th><th className="num">{tr("Engagement (30 days)")}</th><th>{tr("Why")}</th></tr></thead>
             <tbody>
               {rows.map((r) => (
                 <tr key={r.clientId}>
@@ -346,12 +347,12 @@ export function HealthView() {
                   <td className="num"><strong>{r.score}</strong></td>
                   <td><StatusBadge status={BAND_STATUS[r.band]} label={BAND[r.band]} /></td>
                   <td className="num">{r.engagementScore}</td>
-                  <td className="small">{r.factors.join(' · ') || 'No risk factors'}</td>
+                  <td className="small">{r.factors.join(' · ') || tr("No risk factors")}</td>
                 </tr>
               ))}
             </tbody>
           </table>
-          <p className="muted small">Score: 100 minus 40 for a credit lock (15 under review), 10 per overdue invoice (max 30), 15 for churn risk on an active agreement, 10 per open exception (max 20), 15 when active rooms had no client activity in 30 days. Engagement: opened 5, viewed 3, download 10, comment 10, terms accepted 30 points (max 100).</p>
+          <p className="muted small">{tr("Score: 100 minus 40 for a credit lock (15 under review), 10 per overdue invoice (max 30), 15 for churn risk on an active agreement, 10 per open exception (max 20), 15 when active rooms had no client activity in 30 days. Engagement: opened 5, viewed 3, download 10, comment 10, terms accepted 30 points (max 100).")}</p>
         </>
       )}
     </ViewFrame>

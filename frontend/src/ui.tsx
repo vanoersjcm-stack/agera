@@ -1,4 +1,4 @@
-import { t } from './i18n';
+import { t, t as tr } from './i18n';
 import { cloneElement, isValidElement, type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
 
 /** Loads data on mount and whenever `deps` change; `reload` re-runs the loader. */
@@ -44,7 +44,7 @@ export function useAction() {
 }
 
 export function Loading({ error }: { error?: string | null }) {
-  return error ? <p className="error" role="alert">{error}</p> : <p className="muted">Loading…</p>;
+  return error ? <p className="error" role="alert">{error}</p> : <p className="muted">{tr("Loading…")}</p>;
 }
 
 export function ErrorText({ error }: { error: string | null }) {
@@ -83,7 +83,7 @@ export interface Chip {
 /** Filter chips bound to a value (typically a URL query parameter). */
 export function FilterChips({ chips, value, onChange }: { chips: Chip[]; value: string; onChange: (value: string) => void }) {
   return (
-    <div className="chips" role="group" aria-label="Filter">
+    <div className="chips" role="group" aria-label={tr("Filter")}>
       {chips.map((c) => (
         <button key={c.value} className={`chip${c.value === value ? ' selected' : ''}`} aria-pressed={c.value === value} onClick={() => onChange(c.value)}>
           {c.label}
@@ -112,7 +112,7 @@ export function Drawer({ title, onClose, children }: { title: string; onClose: (
       <aside className="drawer" role="dialog" aria-modal="true" aria-label={title}>
         <header className="drawer-header">
           <h2>{title}</h2>
-          <button className="icon-button" onClick={onClose} aria-label="Close">×</button>
+          <button className="icon-button" onClick={onClose} aria-label={tr("Close")}>×</button>
         </header>
         <div className="drawer-body">{children}</div>
       </aside>

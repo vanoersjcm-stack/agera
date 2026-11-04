@@ -3,6 +3,7 @@ import { formatAmount } from '../format';
 import { ViewFrame } from '../Layout';
 import { useShell } from '../shell';
 import { Loading, useLoad } from '../ui';
+import { t as tr } from '../i18n';
 
 function Tile({ href, value, label, tone }: { href: string; value: string; label: string; tone?: string }) {
   return (
@@ -27,22 +28,22 @@ export function NexusOverview() {
   const alertCount = alerts.data?.anomalies.length;
   return (
     <ViewFrame
-      title="Nexus overview"
-      crumbs={[{ label: 'Nexus' }]}
+      title={tr("Nexus overview")}
+      crumbs={[{ label: tr("Nexus") }]}
       actions={
         <>
-          <button className="secondary" onClick={() => openNew('client_room')}>+ New client room</button>
-          <button className="primary" onClick={() => openNew('agreement')}>+ New agreement</button>
+          <button className="secondary" onClick={() => openNew('client_room')}>{tr("+ New client room")}</button>
+          <button className="primary" onClick={() => openNew('agreement')}>{tr("+ New agreement")}</button>
         </>
       }
     >
       {error && <Loading error={error} />}
       <div className="tiles">
-        <Tile href="#/nexus/profit-loss" value={revenue ? formatAmount(revenue.projected, revenue.currency) : '—'} label="Planned revenue (approved plans)" />
-        <Tile href="#/nexus/agreements?status=pending_approval" value={awaiting === undefined ? '—' : String(awaiting)} label="Agreements awaiting approval" tone={awaiting ? 'warn' : undefined} />
-        <Tile href="#/nexus/client-rooms" value={activeRooms === undefined ? '—' : String(activeRooms)} label="Active client rooms" />
+        <Tile href="#/nexus/profit-loss" value={revenue ? formatAmount(revenue.projected, revenue.currency) : '—'} label={tr("Planned revenue (approved plans)")} />
+        <Tile href="#/nexus/agreements?status=pending_approval" value={awaiting === undefined ? '—' : String(awaiting)} label={tr("Agreements awaiting approval")} tone={awaiting ? 'warn' : undefined} />
+        <Tile href="#/nexus/client-rooms" value={activeRooms === undefined ? '—' : String(activeRooms)} label={tr("Active client rooms")} />
         <Tile href="#/nexus/client-rooms" value={engagement.data ? String(engagement.data.summary.stakeholders) : '—'} label={`Client contacts active (last ${engagement.data?.windowDays ?? 30} days)`} />
-        <Tile href="#/nexus/alerts" value={alertCount === undefined ? '—' : String(alertCount)} label="Open alerts" tone={alertCount ? 'bad' : undefined} />
+        <Tile href="#/nexus/alerts" value={alertCount === undefined ? '—' : String(alertCount)} label={tr("Open alerts")} tone={alertCount ? 'bad' : undefined} />
       </div>
     </ViewFrame>
   );

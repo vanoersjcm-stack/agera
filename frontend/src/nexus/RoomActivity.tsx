@@ -4,6 +4,7 @@ import { keycloak } from '../auth';
 import { ACTIVITY_TYPE, formatDateTime } from '../labels';
 import { useShell } from '../shell';
 import { ErrorText, Loading, useAction, useLoad } from '../ui';
+import { t } from '../i18n';
 
 export function myEmail(): string {
   return ((keycloak.tokenParsed?.email as string | undefined) ?? '').toLowerCase();
@@ -43,24 +44,24 @@ export function RoomActivityPanel({ roomId, canComment }: { roomId: string; canC
     const message = text.trim();
     if (!message) return;
     void run(() => api.recordActivity({ dsrId: roomId, stakeholderEmail: myEmail(), activityType: 'comment', details: { text: message } })).then(
-      (r) => r && (setText(''), notify('Comment posted'), reload()),
+      (r) => r && (setText(''), notify(t("Comment posted")), reload()),
     );
   };
   return (
     <div className="card-panel">
-      <h2>Comments and activity</h2>
+      <h2>{t("Comments and activity")}</h2>
       {canComment && (
         <form onSubmit={send} className="comment-form">
-          <label className="field-label" htmlFor={`comment-${roomId}`}>Add a comment</label>
-          <textarea id={`comment-${roomId}`} rows={3} maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} placeholder="Ask a question or share feedback…" />
+          <label className="field-label" htmlFor={`comment-${roomId}`}>{t("Add a comment")}</label>
+          <textarea id={`comment-${roomId}`} rows={3} maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} placeholder={t("Ask a question or share feedback…")} />
           <div className="form-actions start">
-            <button type="submit" className="primary" disabled={busy || !text.trim()}>{busy ? 'Posting…' : 'Post comment'}</button>
+            <button type="submit" className="primary" disabled={busy || !text.trim()}>{busy ? t("Posting…") : t("Post comment")}</button>
           </div>
           <ErrorText error={sendError} />
         </form>
       )}
       {!data && <Loading error={error} />}
-      {data?.length === 0 && <p className="muted">No activity yet.</p>}
+      {data?.length === 0 && <p className="muted">{t("No activity yet.")}</p>}
       {data && data.length > 0 && (
         <ol className="timeline">
           {data.map((a) => (

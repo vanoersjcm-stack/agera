@@ -6,8 +6,9 @@ import { navigate, type Route, withParams } from '../router';
 import { editionName } from '../suites';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, Loading, useAction, useLoad } from '../ui';
+import { t as tr } from '../i18n';
 
-const SUITE_CRUMB = { label: 'Symphony', href: '#/symphony' };
+const SUITE_CRUMB = { label: tr("Symphony"), href: '#/symphony' };
 
 function Tile({ href, value, label, tone }: { href: string; value: string; label: string; tone?: string }) {
   return (
@@ -28,16 +29,16 @@ export function SymphonyOverview() {
   const n = (v: number | undefined) => (v === undefined ? '—' : String(v));
   const alertCount = alerts.data?.anomalies.length;
   return (
-    <ViewFrame title="Overview" crumbs={[{ label: 'Symphony' }]} subtitle="Key figures across Nexus and RetailPower">
+    <ViewFrame title={tr("Overview")} crumbs={[{ label: tr("Symphony") }]} subtitle={tr("Key figures across Nexus and RetailPower")}>
       <div className="tiles">
-        <Tile href="#/nexus/alerts" value={n(alertCount)} label="Open alerts" tone={alertCount ? 'bad' : undefined} />
-        <Tile href="#/nexus/agreements?status=pending_approval" value={n(agreements.data?.filter((a) => a.status === 'pending_approval').length)} label="Agreements awaiting approval" />
-        <Tile href="#/retailpower/work-orders" value={n(workOrders.data?.items.filter((w) => w.status === 'PENDING' || w.status === 'IN_PROGRESS').length)} label="Open work orders" />
-        <Tile href="#/retailpower/store-visits" value={n(visits.data?.items.filter((v) => v.status === 'PLANNED' || v.status === 'IN_PROGRESS').length)} label="Planned and ongoing store visits" />
+        <Tile href="#/nexus/alerts" value={n(alertCount)} label={tr("Open alerts")} tone={alertCount ? 'bad' : undefined} />
+        <Tile href="#/nexus/agreements?status=pending_approval" value={n(agreements.data?.filter((a) => a.status === 'pending_approval').length)} label={tr("Agreements awaiting approval")} />
+        <Tile href="#/retailpower/work-orders" value={n(workOrders.data?.items.filter((w) => w.status === 'PENDING' || w.status === 'IN_PROGRESS').length)} label={tr("Open work orders")} />
+        <Tile href="#/retailpower/store-visits" value={n(visits.data?.items.filter((v) => v.status === 'PLANNED' || v.status === 'IN_PROGRESS').length)} label={tr("Planned and ongoing store visits")} />
       </div>
       <div className="section-head">
-        <h2 className="section-title">Recent activity</h2>
-        <a href="#/symphony/activity">View full activity log</a>
+        <h2 className="section-title">{tr("Recent activity")}</h2>
+        <a href="#/symphony/activity">{tr("View full activity log")}</a>
       </div>
       {!activity.data && <Loading error={activity.error} />}
       {activity.data && (
@@ -63,17 +64,17 @@ export function ActivityLogView({ route }: { route: Route }) {
   const { data, error } = useLoad(() => api.auditLogs(page, PAGE_SIZE), [page]);
   const pages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
   return (
-    <ViewFrame title="Activity log" crumbs={[SUITE_CRUMB, { label: 'Activity log' }]} subtitle="Every change in this organisation, newest first">
+    <ViewFrame title={tr("Activity log")} crumbs={[SUITE_CRUMB, { label: tr("Activity log") }]} subtitle={tr("Every change in this organisation, newest first")}>
       {!data && <Loading error={error} />}
-      {data?.items.length === 0 && <EmptyState title="No activity recorded yet" />}
+      {data?.items.length === 0 && <EmptyState title={tr("No activity recorded yet")} />}
       {data && data.items.length > 0 && (
         <>
           <table className="grid">
             <thead>
               <tr>
-                <th>When</th>
-                <th>Who</th>
-                <th>What</th>
+                <th>{tr("When")}</th>
+                <th>{tr("Who")}</th>
+                <th>{tr("What")}</th>
               </tr>
             </thead>
             <tbody>
@@ -87,9 +88,9 @@ export function ActivityLogView({ route }: { route: Route }) {
             </tbody>
           </table>
           <div className="pager">
-            <button className="secondary" disabled={page <= 1} onClick={() => navigate(withParams(route, { page: page > 2 ? String(page - 1) : null }))}>← Newer</button>
-            <span>Page {page} of {pages}</span>
-            <button className="secondary" disabled={page >= pages} onClick={() => navigate(withParams(route, { page: String(page + 1) }))}>Older →</button>
+            <button className="secondary" disabled={page <= 1} onClick={() => navigate(withParams(route, { page: page > 2 ? String(page - 1) : null }))}>{tr("← Newer")}</button>
+            <span>{tr("Page")} {page}  {tr("of")} {pages}</span>
+            <button className="secondary" disabled={page >= pages} onClick={() => navigate(withParams(route, { page: String(page + 1) }))}>{tr("Older →")}</button>
           </div>
         </>
       )}
@@ -103,9 +104,9 @@ export function OrganisationsView({ route }: { route: Route }) {
   const all = useLoad(() => api.tenants(), []);
   const created = route.params.get('created');
   return (
-    <ViewFrame title="Organisations" crumbs={[SUITE_CRUMB, { label: 'Organisations' }]} actions={<button className="primary" onClick={() => openNew('organisation')}>+ New organisation</button>}>
-      {created && <p className="callout good">Organisation “{created}” was created. Its users get access when they sign in with an e-mail address at its domain.</p>}
-      <h2 className="section-title">Your organisation</h2>
+    <ViewFrame title={tr("Organisations")} crumbs={[SUITE_CRUMB, { label: tr("Organisations") }]} actions={<button className="primary" onClick={() => openNew('organisation')}>{tr("+ New organisation")}</button>}>
+      {created && <p className="callout good">{tr("Organisation “")}{created}{tr("” was created. Its users get access when they sign in with an e-mail address at its domain.")}</p>}
+      <h2 className="section-title">{tr("Your organisation")}</h2>
       {!data && <Loading error={error} />}
       {data && (
         <DetailList
@@ -118,8 +119,8 @@ export function OrganisationsView({ route }: { route: Route }) {
           ]}
         />
       )}
-      <h2 className="section-title">Editions</h2>
-      <p className="muted">Vanguard is the mid-market edition (up to 50 seats); Symphony is the Enterprise edition. Changing the edition re-brands the interface and applies its limits immediately, without moving any data.</p>
+      <h2 className="section-title">{tr("Editions")}</h2>
+      <p className="muted">{tr("Vanguard is the mid-market edition (up to 50 seats); Symphony is the Enterprise edition. Changing the edition re-brands the interface and applies its limits immediately, without moving any data.")}</p>
       {all.data && <EditionTable tenants={all.data} currentId={data?.id} onChanged={all.reload} />}
     </ViewFrame>
   );
@@ -140,16 +141,16 @@ function EditionTable({ tenants, currentId, onChanged }: { tenants: Tenant[]; cu
     <>
       <ErrorText error={error} />
       <table className="grid">
-        <thead><tr><th>Organisation</th><th>Edition</th><th>Seat limit</th><th /></tr></thead>
+        <thead><tr><th>{tr("Organisation")}</th><th>{tr("Edition")}</th><th>{tr("Seat limit")}</th><th /></tr></thead>
         <tbody>
           {tenants.map((t) => (
             <tr key={t.id}>
               <td>{t.name}<div className="muted small">{t.domain}</div></td>
-              <td>{t.licenseTier === 'vanguard' ? 'Vanguard' : 'Symphony (Enterprise)'}</td>
-              <td>{t.maxSeats ?? 'Unlimited'}</td>
+              <td>{t.licenseTier === 'vanguard' ? tr("Vanguard") : tr("Symphony (Enterprise)")}</td>
+              <td>{t.maxSeats ?? tr("Unlimited")}</td>
               <td>
                 <button className="secondary small" disabled={busy} onClick={() => change(t, t.licenseTier === 'vanguard' ? 'symphony' : 'vanguard')}>
-                  {t.licenseTier === 'vanguard' ? 'Upgrade to Symphony' : 'Switch to Vanguard'}
+                  {t.licenseTier === 'vanguard' ? tr("Upgrade to Symphony") : tr("Switch to Vanguard")}
                 </button>
               </td>
             </tr>
@@ -172,9 +173,9 @@ function KeyRow({ apiKey, onRevoked }: { apiKey: ApiKey; onRevoked: () => void }
       <td>{apiKey.name}</td>
       <td><code>{apiKey.keyPrefix}…</code></td>
       <td>{formatDate(apiKey.createdAt)}</td>
-      <td>{apiKey.expiresAt ? <span className={expired ? 'bad' : undefined}>{formatDate(apiKey.expiresAt)}{expired ? ' (expired)' : ''}</span> : 'No expiry'}</td>
+      <td>{apiKey.expiresAt ? <span className={expired ? 'bad' : undefined}>{formatDate(apiKey.expiresAt)}{expired ? tr(" (expired)") : ''}</span> : tr("No expiry")}</td>
       <td>
-        <button className="secondary danger small" disabled={busy} onClick={revoke}>Revoke</button>
+        <button className="secondary danger small" disabled={busy} onClick={revoke}>{tr("Revoke")}</button>
         {error && <span className="error">{error}</span>}
       </td>
     </tr>
@@ -187,25 +188,24 @@ export function IntegrationsView({ route }: { route: Route }) {
   const { data, error, reload } = useLoad(() => api.apiKeys(), [created]);
   return (
     <ViewFrame
-      title="Integrations"
-      crumbs={[SUITE_CRUMB, { label: 'Integrations' }]}
-      subtitle="Integration keys let external portals read work orders, store visits and reports of this organisation"
-      actions={<button className="primary" onClick={() => openNew('integration_key')}>+ New integration key</button>}
+      title={tr("Integrations")}
+      crumbs={[SUITE_CRUMB, { label: tr("Integrations") }]}
+      subtitle={tr("Integration keys let external portals read work orders, store visits and reports of this organisation")}
+      actions={<button className="primary" onClick={() => openNew('integration_key')}>{tr("+ New integration key")}</button>}
     >
       {!data && <Loading error={error} />}
       {data?.items.length === 0 && (
-        <EmptyState title="No integration keys yet" action={<button className="primary" onClick={() => openNew('integration_key')}>+ New integration key</button>}>
-          Create a key for each external portal or system that needs read access.
-        </EmptyState>
+        <EmptyState title={tr("No integration keys yet")} action={<button className="primary" onClick={() => openNew('integration_key')}>{tr("+ New integration key")}</button>}>
+          {tr("Create a key for each external portal or system that needs read access.")}</EmptyState>
       )}
       {data && data.items.length > 0 && (
         <table className="grid">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Key starts with</th>
-              <th>Created</th>
-              <th>Expires</th>
+              <th>{tr("Name")}</th>
+              <th>{tr("Key starts with")}</th>
+              <th>{tr("Created")}</th>
+              <th>{tr("Expires")}</th>
               <th />
             </tr>
           </thead>

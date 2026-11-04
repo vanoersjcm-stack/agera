@@ -6,6 +6,7 @@ import { formatDate, ROLE } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { Drawer, ErrorText, Field, FilterChips, FormActions, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
+import { t } from '../i18n';
 
 const ROLE_LABEL: Record<AccountRole, string> = { ...ROLE, External_Client: 'Client contact' };
 
@@ -29,26 +30,26 @@ function InviteDrawer({ canGrantPlatformAdmin, onClose, onInvited }: { canGrantP
   };
   const roles = (Object.keys(ROLE_LABEL) as AccountRole[]).filter((r) => r !== 'platform-admin' || canGrantPlatformAdmin);
   return (
-    <Drawer title="Invite a person" onClose={onClose}>
+    <Drawer title={t("Invite a person")} onClose={onClose}>
       <form onSubmit={submit}>
-        <Field label="First name"><input required maxLength={100} value={form.firstName} onChange={set('firstName')} autoFocus /></Field>
-        <Field label="Last name"><input required maxLength={100} value={form.lastName} onChange={set('lastName')} /></Field>
-        <Field label="E-mail" hint="This is also the sign-in name"><input type="email" required maxLength={255} value={form.email} onChange={set('email')} /></Field>
-        <Field label="Role">
+        <Field label={t("First name")}><input required maxLength={100} value={form.firstName} onChange={set('firstName')} autoFocus /></Field>
+        <Field label={t("Last name")}><input required maxLength={100} value={form.lastName} onChange={set('lastName')} /></Field>
+        <Field label={t("E-mail")} hint={t("This is also the sign-in name")}><input type="email" required maxLength={255} value={form.email} onChange={set('email')} /></Field>
+        <Field label={t("Role")}>
           <select value={form.role} onChange={set('role')}>
             {roles.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
           </select>
         </Field>
         {external && (
-          <Field label="Client company" hint="Client contacts only see this client's rooms and agreements">
+          <Field label={t("Client company")} hint={t("Client contacts only see this client's rooms and agreements")}>
             <select required value={form.clientId} onChange={set('clientId')}>
-              <option value="">Choose a client…</option>
+              <option value="">{t("Choose a client…")}</option>
               {clients.map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
             </select>
           </Field>
         )}
         <ErrorText error={error} />
-        <FormActions busy={busy} submitLabel="Send invitation" onCancel={onClose} />
+        <FormActions busy={busy} submitLabel={t("Send invitation")} onCancel={onClose} />
       </form>
     </Drawer>
   );
@@ -65,10 +66,10 @@ function ProfileDrawer({ account, onClose, onSaved }: { account: UserAccount; on
   return (
     <Drawer title={`Job title and region · ${account.name}`} onClose={onClose}>
       <form onSubmit={submit}>
-        <Field label="Job title" hint="Shown in the profile menu, e.g. Key account manager"><input maxLength={150} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></Field>
-        <Field label="Region / zone" hint="e.g. Noord-Holland or Benelux"><input maxLength={100} value={zone} onChange={(e) => setZone(e.target.value)} /></Field>
+        <Field label={t("Job title")} hint={t("Shown in the profile menu, e.g. Key account manager")}><input maxLength={150} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></Field>
+        <Field label={t("Region / zone")} hint={t("e.g. Noord-Holland or Benelux")}><input maxLength={100} value={zone} onChange={(e) => setZone(e.target.value)} /></Field>
         <ErrorText error={error} />
-        <FormActions busy={busy} submitLabel="Save" onCancel={onClose} />
+        <FormActions busy={busy} submitLabel={t("Save")} onCancel={onClose} />
       </form>
     </Drawer>
   );
@@ -87,7 +88,7 @@ function AccountRow({ account, self, canGrantPlatformAdmin, onChanged }: { accou
   };
   return (
     <tr>
-      <td>{account.name}{self && <span className="muted"> (you)</span>}<div className="muted small">{account.email}</div><ErrorText error={error} /></td>
+      <td>{account.name}{self && <span className="muted">  {t("(you)")}</span>}<div className="muted small">{account.email}</div><ErrorText error={error} /></td>
       <td>
         <select aria-label={`Role of ${account.name}`} value={account.role} disabled={locked || busy || external} onChange={(e) => changeRole(e.target.value as AccountRole)}>
           {roles.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
@@ -95,12 +96,12 @@ function AccountRow({ account, self, canGrantPlatformAdmin, onChanged }: { accou
       </td>
       <td>
         {[account.title, account.zone].filter(Boolean).join(' · ') || <span className="muted">—</span>}{' '}
-        <button className="link-button" onClick={() => setEditing(true)} aria-label={`Edit job title of ${account.name}`}>Edit</button>
+        <button className="link-button" onClick={() => setEditing(true)} aria-label={`Edit job title of ${account.name}`}>{t("Edit")}</button>
         {editing && <ProfileDrawer account={account} onClose={() => setEditing(false)} onSaved={() => (setEditing(false), onChanged(`${account.name} updated`))} />}
       </td>
-      <td><StatusBadge status={account.isActive ? 'active' : 'archived'} label={account.isActive ? 'Active' : 'Deactivated'} /></td>
+      <td><StatusBadge status={account.isActive ? 'active' : 'archived'} label={account.isActive ? t("Active") : t("Deactivated")} /></td>
       <td>{formatDate(account.createdAt)}</td>
-      <td>{!locked && <button className={account.isActive ? 'link-button danger' : 'link-button'} disabled={busy} onClick={toggle}>{account.isActive ? 'Deactivate' : 'Reactivate'}</button>}</td>
+      <td>{!locked && <button className={account.isActive ? 'link-button danger' : 'link-button'} disabled={busy} onClick={toggle}>{account.isActive ? t("Deactivate") : t("Reactivate")}</button>}</td>
     </tr>
   );
 }
@@ -122,22 +123,20 @@ export function PeopleView({ route, user }: { route: Route; user: UserContext })
   const pages = data ? Math.max(1, Math.ceil(data.total / data.limit)) : 1;
   return (
     <ViewFrame
-      title="People & access"
-      crumbs={[{ label: 'Symphony', href: '#/symphony' }, { label: 'People & access' }]}
-      actions={<button className="primary" disabled={!available} onClick={() => setInviting(true)}>+ Invite person</button>}
+      title={t("People & access")}
+      crumbs={[{ label: t("Symphony"), href: '#/symphony' }, { label: t("People & access") }]}
+      actions={<button className="primary" disabled={!available} onClick={() => setInviting(true)}>{t("+ Invite person")}</button>}
     >
       {org.data?.maxSeats != null && (
         <p className={`callout${seatsFull ? ' bad' : ''}`}>
-          {org.data.activeSeats ?? 0} of {org.data.maxSeats} seats in use on your Agera Vanguard licence.
-          {seatsFull && ' All seats are taken: deactivate a colleague or upgrade to Agera Symphony (Enterprise) to invite more people. Client users do not use a seat.'}
+          {org.data.activeSeats ?? 0}  {t("of")} {org.data.maxSeats}  {t("seats in use on your Agera Vanguard licence.")}{seatsFull && t(" All seats are taken: deactivate a colleague or upgrade to Agera Symphony (Enterprise) to invite more people. Client users do not use a seat.")}
         </p>
       )}
-      {!available && <p className="callout bad">User management is not connected to the sign-in service yet. Ask your system administrator to run the latest update.</p>}
+      {!available && <p className="callout bad">{t("User management is not connected to the sign-in service yet. Ask your system administrator to run the latest update.")}</p>}
       {invited && (
         <div className="callout">
-          <strong>Invitation created for {invited.email}.</strong> Share this one-time password with them securely; they choose their own password at first sign-in:
-          <code className="secret">{invited.password}</code>
-          <button className="link-button" onClick={() => setInvited(null)}>Done</button>
+          <strong>{t("Invitation created for")} {invited.email}.</strong>  {t("Share this one-time password with them securely; they choose their own password at first sign-in:")}<code className="secret">{invited.password}</code>
+          <button className="link-button" onClick={() => setInvited(null)}>{t("Done")}</button>
         </div>
       )}
       {message && <p className="callout">{message}</p>}
@@ -146,22 +145,22 @@ export function PeopleView({ route, user }: { route: Route; user: UserContext })
           value={status}
           onChange={(v) => navigate(withParams(route, { status: v === 'active' ? null : v, page: null }))}
           chips={[
-            { value: 'active', label: 'Active' },
-            { value: 'inactive', label: 'Deactivated' },
-            { value: 'all', label: 'All' },
+            { value: 'active', label: t("Active") },
+            { value: 'inactive', label: t("Deactivated") },
+            { value: 'all', label: t("All") },
           ]}
         />
-        <select aria-label="Filter by role" value={role} onChange={(e) => navigate(withParams(route, { role: e.target.value || null, page: null }))}>
-          <option value="">All roles</option>
+        <select aria-label={t("Filter by role")} value={role} onChange={(e) => navigate(withParams(route, { role: e.target.value || null, page: null }))}>
+          <option value="">{t("All roles")}</option>
           {(Object.keys(ROLE_LABEL) as AccountRole[]).map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
         </select>
-        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v, page: null }))} placeholder="Search by name or e-mail" />
+        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v, page: null }))} placeholder={t("Search by name or e-mail")} />
       </div>
       {!data && <Loading error={error} />}
-      {data && data.items.length === 0 && <EmptyState title="Nobody matches this filter" />}
+      {data && data.items.length === 0 && <EmptyState title={t("Nobody matches this filter")} />}
       {data && data.items.length > 0 && (
         <table className="grid">
-          <thead><tr><th>Person</th><th>Role</th><th>Job title · region</th><th>Status</th><th>Added</th><th /></tr></thead>
+          <thead><tr><th>{t("Person")}</th><th>{t("Role")}</th><th>{t("Job title · region")}</th><th>{t("Status")}</th><th>{t("Added")}</th><th /></tr></thead>
           <tbody>
             {data.items.map((a) => (
               <AccountRow key={`${a.id}-${a.role}-${a.isActive}-${a.title}-${a.zone}`} account={a} self={a.id === me.data?.id} canGrantPlatformAdmin={canGrant} onChanged={(m) => (setMessage(m), reload())} />
@@ -171,9 +170,9 @@ export function PeopleView({ route, user }: { route: Route; user: UserContext })
       )}
       {pages > 1 && (
         <div className="pager">
-          <button className="secondary" disabled={page <= 1} onClick={() => navigate(withParams(route, { page: String(page - 1) }))}>Previous</button>
-          <span>Page {page} of {pages}</span>
-          <button className="secondary" disabled={page >= pages} onClick={() => navigate(withParams(route, { page: String(page + 1) }))}>Next</button>
+          <button className="secondary" disabled={page <= 1} onClick={() => navigate(withParams(route, { page: String(page - 1) }))}>{t("Previous")}</button>
+          <span>{t("Page")} {page}  {t("of")} {pages}</span>
+          <button className="secondary" disabled={page >= pages} onClick={() => navigate(withParams(route, { page: String(page + 1) }))}>{t("Next")}</button>
         </div>
       )}
       {inviting && <InviteDrawer canGrantPlatformAdmin={canGrant} onClose={() => setInviting(false)} onInvited={(email, password) => (setInviting(false), setInvited({ email, password }), reload())} />}

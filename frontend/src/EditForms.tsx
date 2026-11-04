@@ -4,6 +4,7 @@ import { useUsers } from './directory';
 import { STORE_STATUS, WORK_ORDER_PRIORITY } from './labels';
 import { activeClients, useClients } from './directory';
 import { Drawer, ErrorText, Field, FormActions, useAction } from './ui';
+import { t } from './i18n';
 
 type Change = { target: { value: string } };
 const opt = (v: string) => v.trim() || null;
@@ -50,27 +51,27 @@ export function EditStoreDrawer({ record, onClose, onSaved }: EditProps<Store>) 
     ).then((r) => r && onSaved(r));
   };
   return (
-    <Drawer title="Edit store" onClose={onClose}>
+    <Drawer title={t("Edit store")} onClose={onClose}>
       <form onSubmit={submit}>
-        <Field label="Store name"><input required maxLength={200} value={form.name} onChange={set('name')} autoFocus /></Field>
-        <Field label="Store code" hint="Must be unique"><input required maxLength={50} value={form.storeCode} onChange={set('storeCode')} /></Field>
-        <Field label="Street and number"><input maxLength={255} value={form.address} onChange={set('address')} /></Field>
-        <Field label="Postal code"><input maxLength={20} value={form.postalCode} onChange={set('postalCode')} /></Field>
-        <Field label="City"><input maxLength={100} value={form.city} onChange={set('city')} /></Field>
-        <Field label="Country"><input maxLength={100} value={form.country} onChange={set('country')} /></Field>
-        <Field label="Client" hint="The brand or client whose products this store carries">
+        <Field label={t("Store name")}><input required maxLength={200} value={form.name} onChange={set('name')} autoFocus /></Field>
+        <Field label={t("Store code")} hint={t("Must be unique")}><input required maxLength={50} value={form.storeCode} onChange={set('storeCode')} /></Field>
+        <Field label={t("Street and number")}><input maxLength={255} value={form.address} onChange={set('address')} /></Field>
+        <Field label={t("Postal code")}><input maxLength={20} value={form.postalCode} onChange={set('postalCode')} /></Field>
+        <Field label={t("City")}><input maxLength={100} value={form.city} onChange={set('city')} /></Field>
+        <Field label={t("Country")}><input maxLength={100} value={form.country} onChange={set('country')} /></Field>
+        <Field label={t("Client")} hint={t("The brand or client whose products this store carries")}>
           <select value={form.clientId} onChange={set('clientId')}>
-            <option value="">No client</option>
+            <option value="">{t("No client")}</option>
             {activeClients(storeClients).concat(storeClients.filter((c) => c.clientId === record.clientId && !activeClients(storeClients).includes(c))).map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
           </select>
         </Field>
-        <Field label="Status">
+        <Field label={t("Status")}>
           <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value as StoreStatus })}>
             {Object.entries(STORE_STATUS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </Field>
         <ErrorText error={error} />
-        <FormActions busy={busy} submitLabel="Save changes" onCancel={onClose} />
+        <FormActions busy={busy} submitLabel={t("Save changes")} onCancel={onClose} />
       </form>
     </Drawer>
   );
@@ -86,17 +87,17 @@ export function EditWorkOrderDrawer({ record, onClose, onSaved }: EditProps<Work
     void run(() => api.updateWorkOrder(record.id, { title: title.trim(), description: opt(description), priority })).then((r) => r && onSaved(r));
   };
   return (
-    <Drawer title="Edit work order" onClose={onClose}>
+    <Drawer title={t("Edit work order")} onClose={onClose}>
       <form onSubmit={submit}>
-        <Field label="Title"><input required maxLength={255} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></Field>
-        <Field label="Description"><textarea rows={5} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
-        <Field label="Priority">
+        <Field label={t("Title")}><input required maxLength={255} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></Field>
+        <Field label={t("Description")}><textarea rows={5} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
+        <Field label={t("Priority")}>
           <select value={priority} onChange={(e) => setPriority(e.target.value as WorkOrderPriority)}>
             {Object.entries(WORK_ORDER_PRIORITY).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </Field>
         <ErrorText error={error} />
-        <FormActions busy={busy} submitLabel="Save changes" onCancel={onClose} />
+        <FormActions busy={busy} submitLabel={t("Save changes")} onCancel={onClose} />
       </form>
     </Drawer>
   );
@@ -113,18 +114,18 @@ export function EditVisitDrawer({ record, onClose, onSaved }: EditProps<Visit>) 
     void run(() => api.updateVisit(record.id, { visitDate: new Date(visitDate).toISOString(), fieldRepId, notes: opt(notes) })).then((r) => r && onSaved(r));
   };
   return (
-    <Drawer title="Edit store visit" onClose={onClose}>
+    <Drawer title={t("Edit store visit")} onClose={onClose}>
       <form onSubmit={submit}>
-        <Field label="Date and time"><input type="datetime-local" required value={visitDate} onChange={(e) => setVisitDate(e.target.value)} autoFocus /></Field>
-        <Field label="Field representative">
+        <Field label={t("Date and time")}><input type="datetime-local" required value={visitDate} onChange={(e) => setVisitDate(e.target.value)} autoFocus /></Field>
+        <Field label={t("Field representative")}>
           <select value={fieldRepId} onChange={(e) => setFieldRepId(e.target.value)}>
-            {!users.some((u) => u.id === fieldRepId) && <option value={fieldRepId}>Current representative</option>}
+            {!users.some((u) => u.id === fieldRepId) && <option value={fieldRepId}>{t("Current representative")}</option>}
             {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
           </select>
         </Field>
-        <Field label="Notes"><textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
+        <Field label={t("Notes")}><textarea rows={4} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
         <ErrorText error={error} />
-        <FormActions busy={busy} submitLabel="Save changes" onCancel={onClose} />
+        <FormActions busy={busy} submitLabel={t("Save changes")} onCancel={onClose} />
       </form>
     </Drawer>
   );
@@ -148,19 +149,19 @@ export function EditAgreementDrawer({ record, onClose, onSaved }: EditProps<Agre
     ).then((r) => r && onSaved(r));
   };
   return (
-    <Drawer title="Edit agreement" onClose={onClose}>
+    <Drawer title={t("Edit agreement")} onClose={onClose}>
       <form onSubmit={submit}>
-        <Field label="Title"><input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></Field>
-        <Field label="Link to the agreement document" hint="A web address starting with https://">
+        <Field label={t("Title")}><input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></Field>
+        <Field label={t("Link to the agreement document")} hint={t("A web address starting with https://")}>
           <input type="url" required maxLength={500} value={documentUrl} onChange={(e) => setDocumentUrl(e.target.value)} />
         </Field>
         <div className="field-row">
-          <Field label="Annual value (EUR)"><input type="number" min={0} step="0.01" value={runRate.annualValue} onChange={(e) => setRunRate({ ...runRate, annualValue: e.target.value })} /></Field>
-          <Field label="Churn risk (EUR)" hint="Part that may not renew"><input type="number" min={0} step="0.01" value={runRate.churnRisk} onChange={(e) => setRunRate({ ...runRate, churnRisk: e.target.value })} /></Field>
+          <Field label={t("Annual value (EUR)")}><input type="number" min={0} step="0.01" value={runRate.annualValue} onChange={(e) => setRunRate({ ...runRate, annualValue: e.target.value })} /></Field>
+          <Field label={t("Churn risk (EUR)")} hint={t("Part that may not renew")}><input type="number" min={0} step="0.01" value={runRate.churnRisk} onChange={(e) => setRunRate({ ...runRate, churnRisk: e.target.value })} /></Field>
         </div>
-        <Field label="End date"><input type="date" value={runRate.endDate} onChange={(e) => setRunRate({ ...runRate, endDate: e.target.value })} /></Field>
+        <Field label={t("End date")}><input type="date" value={runRate.endDate} onChange={(e) => setRunRate({ ...runRate, endDate: e.target.value })} /></Field>
         <ErrorText error={error} />
-        <FormActions busy={busy} submitLabel="Save changes" onCancel={onClose} />
+        <FormActions busy={busy} submitLabel={t("Save changes")} onCancel={onClose} />
       </form>
     </Drawer>
   );
