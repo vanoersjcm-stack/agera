@@ -1,3 +1,4 @@
+import { t } from './i18n';
 import { cloneElement, isValidElement, type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
 
 /** Loads data on mount and whenever `deps` change; `reload` re-runs the loader. */
@@ -137,8 +138,8 @@ export function Field({ label, hint, children }: { label: string; hint?: string;
 export function FormActions({ busy, submitLabel, onCancel }: { busy: boolean; submitLabel: string; onCancel: () => void }) {
   return (
     <div className="form-actions">
-      <button type="button" className="secondary" onClick={onCancel}>Cancel</button>
-      <button type="submit" className="primary" disabled={busy}>{busy ? 'Saving…' : submitLabel}</button>
+      <button type="button" className="secondary" onClick={onCancel}>{t('Cancel')}</button>
+      <button type="submit" className="primary" disabled={busy}>{busy ? t('Saving…') : t(submitLabel)}</button>
     </div>
   );
 }

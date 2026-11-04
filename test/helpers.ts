@@ -148,3 +148,22 @@ export async function send<T>(token: string | null, method: string, path: string
   const text = await response.text();
   return { status: response.status, body: text === '' ? null : (JSON.parse(text) as T) };
 }
+
+/**
+ * Test files run in parallel against one dev database; tests that switch a tenant's edition hold this
+ * cross-process lock so they don't flip each other's tenant mid-test. Returns the release function.
+ */
+export async function tierLock(tenantId: string): Promise<() => void> {
+  const { openSync, closeSync, statSync, unlinkSync } = await import('node:fs');
+  const path = `/tmp/agera-tier-${tenantId}.lock`;
+  for (let i = 0; i < 600; i++) {
+    try {
+      closeSync(openSync(path, 'wx'));
+      return () => { try { unlinkSync(path); } catch { /* already gone */ } };
+    } catch {
+      try { if (Date.now() - statSync(path).mtimeMs > 60_000) unlinkSync(path); } catch { /* raced */ }
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+  throw new Error(`Timed out waiting for ${path}`);
+}

@@ -548,3 +548,14 @@ body { -webkit-font-smoothing: antialiased; color: #1e293b; }
 .report-builder { display: grid; gap: 0.75rem; }
 .builder-label { display: block; font-size: 0.8rem; font-weight: 600; color: #475569; margin-bottom: 0.3rem; }
 .placeholder-chips .chip.on { background: #4338ca; color: #fff; border-color: #4338ca; }
+.integration-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
+.integration p { margin: 0.4rem 0; font-size: 0.88rem; }
+.not-connected { font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; background: #f1f5f9; color: #475569; border: 1px dashed #94a3b8; white-space: nowrap; }
+.tour-card { position: fixed; right: 1.25rem; bottom: 1.25rem; width: 340px; z-index: 60; background: #0f172a; color: #e2e8f0; border-radius: 14px; padding: 1rem 1.1rem; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.35); }
+.tour-card h3 { margin: 0.2rem 0 0.4rem; font-size: 1rem; color: #fff; }
+.tour-card p { margin: 0 0 0.75rem; font-size: 0.85rem; line-height: 1.45; }
+.tour-card .tour-step { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #fbbf24; }
+.tour-card .tour-actions { display: flex; gap: 0.5rem; justify-content: space-between; align-items: center; }
+.tour-card button { font: inherit; font-size: 0.8rem; border-radius: 8px; padding: 0.35rem 0.75rem; cursor: pointer; border: 1px solid #334155; background: #1e293b; color: #e2e8f0; }
+.tour-card button.primary { background: #fbbf24; border-color: #fbbf24; color: #0f172a; font-weight: 600; }
+.tour-card .tour-missing { color: #fca5a5; font-size: 0.78rem; }

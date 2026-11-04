@@ -30,6 +30,9 @@ import { setClientFilter, useClientFilter } from './clientFilter';
 import { PriceListDossier, PriceListsView, TemplatesView } from './nexus/Commercial';
 import { AutomationDossier, AutomationsView } from './symphony/Automations';
 import { ReportBuilderView, ReportsView } from './symphony/Reports';
+import { IntegrationsView as ExternalSystemsView } from './symphony/Integrations';
+import { GoldenThreadTour, startTour } from './tour';
+import { getLanguage, setLanguage, t, useLanguage } from './i18n';
 import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
 import { ActivityLogView, IntegrationsView, OrganisationsView, SymphonyOverview } from './symphony/SymphonyViews';
 
@@ -59,6 +62,8 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return <ReportsView />;
     case 'symphony/report-builder':
       return <ReportBuilderView />;
+    case 'symphony/connections':
+      return <ExternalSystemsView />;
     case 'nexus/price-lists':
       return id ? <PriceListDossier id={id} /> : <PriceListsView route={route} />;
     case 'nexus/templates':
@@ -355,8 +360,10 @@ function UserMenu({ user, tenant, tier, tipsOn, onToggleTips }: { user: UserCont
             </button>
           )}
           {user.isPlatformAdmin && previewTier() && <button role="menuitem" onClick={() => setPreviewTier(null)}>Stop edition preview</button>}
-          <button role="menuitem" onClick={onToggleTips}>{tipsOn ? 'Hide page tips' : 'Show page tips'}</button>
-          <button role="menuitem" onClick={() => void keycloak.logout({ redirectUri: window.location.origin + '/' })}>Log out</button>
+          <button role="menuitem" onClick={() => (setOpen(false), startTour())}>{t('Take the Golden Thread tour')}</button>
+          <button role="menuitem" onClick={() => setLanguage(getLanguage() === 'nl' ? 'en' : 'nl')}>{getLanguage() === 'nl' ? 'Language: Nederlands → English' : 'Language: English → Nederlands'}</button>
+          <button role="menuitem" onClick={onToggleTips}>{t(tipsOn ? 'Hide page tips' : 'Show page tips')}</button>
+          <button role="menuitem" onClick={() => void keycloak.logout({ redirectUri: window.location.origin + '/' })}>{t('Log out')}</button>
         </div>
       )}
     </div>
@@ -369,6 +376,7 @@ function initials(name: string): string {
 }
 
 function SideNav({ items, path, heading }: { items: NavItem[]; path: string; heading: string }) {
+  useLanguage();
   const active = items
     .filter((i) => path === i.path || path.startsWith(`${i.path}/`))
     .sort((a, b) => b.path.length - a.path.length)[0];
@@ -377,7 +385,7 @@ function SideNav({ items, path, heading }: { items: NavItem[]; path: string; hea
       <span className="sidenav-heading">{heading}</span>
       {items.map((i) => (
         <a key={i.path} href={`#${i.path}`} className={i === active ? 'active' : undefined} title={i.description} aria-current={i === active ? 'page' : undefined}>
-          {i.label}
+          {t(i.label)}
         </a>
       ))}
     </nav>
@@ -569,6 +577,7 @@ export function App() {
           {!external && <SearchPalette user={user} tier={tier} />}
           {!external && <CreditPill user={user} />}
           {!external && <NotificationBell />}
+          {!external && <GoldenThreadTour />}
           <UserMenu user={user} tenant={tenant} tier={tier} tipsOn={assistant.enabled} onToggleTips={assistant.toggle} />
         </header>
         <div className="actionbar">

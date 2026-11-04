@@ -43,6 +43,7 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
           ? [
               { path: '/symphony/organisations', label: 'Organisations', description: 'Your organisation and new organisations' },
               { path: '/symphony/integrations', label: 'Integrations', description: 'Integration keys for external portals' },
+              { path: '/symphony/connections', label: 'External systems', description: 'ERP, e-mail, OCR, voice and e-signature: not connected yet' },
             ]
           : []),
       ];

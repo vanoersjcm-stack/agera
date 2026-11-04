@@ -1,7 +1,7 @@
 /** Wave 5 (audit G42/G43): KPI dashboard and CSV for every edition; custom report builder for Enterprise only. */
 import assert from 'node:assert/strict';
 import { after, before, describe, it } from 'node:test';
-import { API_URL, api, getToken } from './helpers.ts';
+import { API_URL, api, getToken, tierLock } from './helpers.ts';
 
 let admin: string;
 let alice: string;
@@ -48,6 +48,7 @@ describe('/v1/reports', () => {
     const saved = await api<{ id: string; pinned: boolean }>(alice, 'POST', '/v1/reports/saved', { name: `Active clients ${Date.now()}`, definition: def, pinned: true });
     assert.equal(saved.status, 201, JSON.stringify(saved.body));
     assert.equal((await api<{ pinned: boolean }>(alice, 'PATCH', `/v1/reports/saved/${saved.body.id}`, { pinned: false })).body.pinned, false);
+    const release = await tierLock(tenantId);
     try {
       await api(admin, 'PATCH', `/tenants/${tenantId}/license`, { licenseTier: 'vanguard' });
       const locked = await api<{ message: string }>(alice, 'POST', '/v1/reports/run', def);
@@ -59,6 +60,7 @@ describe('/v1/reports', () => {
       assert.equal((await api<{ licenseTier: string }>(alice, 'GET', '/users/me')).body.licenseTier, 'vanguard');
     } finally {
       await api(admin, 'PATCH', `/tenants/${tenantId}/license`, { licenseTier: 'symphony' });
+      release();
     }
     assert.equal((await api(alice, 'DELETE', `/v1/reports/saved/${saved.body.id}`)).status, 204);
   });
