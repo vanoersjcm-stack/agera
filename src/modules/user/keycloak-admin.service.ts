@@ -106,6 +106,13 @@ export class KeycloakAdminService {
     return (await this.call<{ id: string; enabled: boolean; attributes?: Record<string, string[]> }>('GET', `/users/${id}`)).data;
   }
 
+  /** Sets one user attribute, keeping the others (Keycloak replaces the whole attribute map on update). */
+  async setAttribute(id: string, name: string, value: string): Promise<void> {
+    const user = (await this.call<Record<string, unknown> & { attributes?: Record<string, string[]> }>('GET', `/users/${id}`)).data;
+    if (user.attributes?.[name]?.[0] === value) return;
+    await this.call('PUT', `/users/${id}`, { ...user, attributes: { ...(user.attributes ?? {}), [name]: [value] } });
+  }
+
   async setEnabled(id: string, enabled: boolean): Promise<void> {
     await this.call('PUT', `/users/${id}`, { enabled });
   }

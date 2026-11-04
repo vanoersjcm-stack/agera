@@ -208,6 +208,8 @@ kc config credentials --server http://localhost:8080/auth --realm master \
 kc add-roles -r agera --uusername service-account-agera-backend --cclientid realm-management \
   --rolename manage-users --rolename view-users --rolename query-users
 KCADM
+  info "Adding the edition claim (tenant_license_tier) to Keycloak tokens"
+  compose exec -T keycloak bash -s < docker/keycloak/license-tier-claim.sh || info "warning: could not add the edition claim; the backend falls back to the database"
   compose logs --no-color --since "$started" migrate | sed -n 's/^.*migrate: /    migrate: /p'
   local url=${ENV[PUBLIC_URL]}
   info "Agera Symphony is running"

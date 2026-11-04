@@ -5,6 +5,7 @@ import type { ApiKeyPrincipal, AuthenticatedUser } from '../../auth/authenticate
 import { Tenant } from '../entities/index.js';
 import { EXTERNAL_CLIENT_ROLE, PLATFORM_ADMIN_ROLE } from '../../auth/roles.decorator.js';
 import type { ActiveTenant } from './tenant-context.service.js';
+import { claimedTier } from './license.js';
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -22,7 +23,9 @@ export class TenantResolver {
 
   /** `requested` (X-Agera-Organisation header) lets platform admins view another organisation read-only. */
   async resolve(user: AuthenticatedUser, requested?: string): Promise<ActiveTenant> {
-    const home = await this.resolveHome(user);
+    const resolved = await this.resolveHome(user);
+    const tier = claimedTier(resolved.id, user.licenseTierClaim, user.issuedAtMs);
+    const home: ActiveTenant = tier ? { ...resolved, licenseTier: tier } : resolved;
     if (!requested || requested.toLowerCase() === home.id.toLowerCase()) {
       return home;
     }

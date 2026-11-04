@@ -13,6 +13,7 @@ interface KeycloakTokenPayload extends JWTPayload {
   family_name?: string;
   tenant_id?: unknown;
   client_id?: unknown;
+  tenant_license_tier?: unknown;
   realm_access?: { roles?: string[] };
   resource_access?: Record<string, { roles?: string[] }>;
 }
@@ -95,6 +96,8 @@ export class KeycloakAuthGuard implements CanActivate {
       roles: [...new Set([...realmRoles, ...clientRoles])],
       tenantIdClaim: typeof payload.tenant_id === 'string' && payload.tenant_id !== '' ? payload.tenant_id : null,
       clientIdClaim: typeof payload.client_id === 'string' && payload.client_id !== '' ? payload.client_id : null,
+      licenseTierClaim: payload.tenant_license_tier === 'vanguard' || payload.tenant_license_tier === 'symphony' ? payload.tenant_license_tier : null,
+      issuedAtMs: typeof payload.iat === 'number' ? payload.iat * 1000 : null,
     };
   }
 }

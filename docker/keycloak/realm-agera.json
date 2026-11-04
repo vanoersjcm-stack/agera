@@ -66,6 +66,21 @@
           }
         },
         {
+          "name": "tenant_license_tier",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_license_tier",
+            "claim.name": "tenant_license_tier",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
           "name": "client_id",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-attribute-mapper",
@@ -130,6 +145,21 @@
           }
         },
         {
+          "name": "tenant_license_tier",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-attribute-mapper",
+          "consentRequired": false,
+          "config": {
+            "user.attribute": "tenant_license_tier",
+            "claim.name": "tenant_license_tier",
+            "jsonType.label": "String",
+            "access.token.claim": "true",
+            "id.token.claim": "false",
+            "userinfo.token.claim": "false",
+            "introspection.token.claim": "true"
+          }
+        },
+        {
           "name": "client_id",
           "protocol": "openid-connect",
           "protocolMapper": "oidc-usermodel-attribute-mapper",
@@ -148,7 +178,18 @@
     }
   ],
   "users": [
-    {"username": "service-account-agera-backend", "enabled": true, "serviceAccountClientId": "agera-backend", "clientRoles": {"realm-management": ["manage-users", "view-users", "query-users"]}},
+    {
+      "username": "service-account-agera-backend",
+      "enabled": true,
+      "serviceAccountClientId": "agera-backend",
+      "clientRoles": {
+        "realm-management": [
+          "manage-users",
+          "view-users",
+          "query-users"
+        ]
+      }
+    },
     {
       "username": "dev.admin",
       "email": "dev.admin@agera.local",
@@ -449,5 +490,6 @@
         }
       }
     ]
-  }
+  },
+  "attributes": {}
 }

@@ -1,14 +1,22 @@
 import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { InjectRepository } from '@nestjs/typeorm';
 import { QueryFailedError, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../../auth/authenticated-user.js';
 import { AuditService } from '../audit/audit.service.js';
 import { Tenant, User } from '../entities/index.js';
 import { type LicenseTier, VANGUARD_DEFAULT_SEATS } from '../entities/tenant.entity.js';
+import { markTierChanged } from '../tenancy/license.js';
 import { TenantContext } from '../tenancy/tenant-context.service.js';
 import { TenantRepository } from '../tenancy/tenant-repository.js';
 
 const PG_UNIQUE_VIOLATION = '23505';
+
+export const TENANT_LICENSE_CHANGED_EVENT = 'tenant.license_changed';
+export interface TenantLicenseChangedEvent {
+  tenantId: string;
+  licenseTier: LicenseTier;
+}
 
 export interface CreateTenantInput {
   name: string;
@@ -26,6 +34,7 @@ export class TenantsService {
     @InjectRepository(User) users: Repository<User>,
     private readonly context: TenantContext,
     private readonly audit: AuditService,
+    private readonly events: EventEmitter2,
   ) {
     this.users = new TenantRepository(users, context);
   }
@@ -50,6 +59,8 @@ export class TenantsService {
     tenant.licenseTier = licenseTier;
     tenant.maxSeats = maxSeats !== undefined ? maxSeats : licenseTier === 'vanguard' ? VANGUARD_DEFAULT_SEATS : null;
     await this.tenants.save(tenant);
+    markTierChanged(id);
+    this.events.emit(TENANT_LICENSE_CHANGED_EVENT, { tenantId: id, licenseTier: tenant.licenseTier } satisfies TenantLicenseChangedEvent);
     const actorRecord = await this.users.findOneBy({ keycloakId: actor.keycloakId });
     this.audit.logAction(this.context.tenantId, actorRecord?.id ?? null, 'tenant.license_changed', {
       tenantId: id,

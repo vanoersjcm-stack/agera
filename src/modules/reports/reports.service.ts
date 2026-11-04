@@ -188,7 +188,7 @@ export class ReportsService {
       );
       const dealsByStage = await m.query('SELECT stage, count(*)::int AS count, COALESCE(sum(value), 0)::text AS value FROM deals WHERE tenant_id = $1 GROUP BY stage', [this.t]);
       const invoicesByStatus = await m.query('SELECT status, count(*)::int AS count, COALESCE(sum(amount_excl_vat), 0)::text AS value FROM invoices WHERE tenant_id = $1 GROUP BY status', [this.t]);
-      return { ...row, dealsByStage, invoicesByStatus, tier: await licenseTier(m, this.t) };
+      return { ...row, dealsByStage, invoicesByStatus, tier: await licenseTier(m, this.context.tenant) };
     });
   }
 
@@ -205,7 +205,7 @@ export class ReportsService {
   /** Custom report builder (Enterprise only). */
   async run(def: ReportDefinition): Promise<ReportResult> {
     return this.tx.run(async (m) => {
-      await assertEnterprise(m, this.t, 'The custom report builder');
+      await assertEnterprise(m, this.context.tenant, 'The custom report builder');
       return this.query(m, def);
     });
   }
@@ -267,7 +267,7 @@ export class ReportsService {
 
   async saved(): Promise<unknown[]> {
     return this.tx.run(async (m) => {
-      await assertEnterprise(m, this.t, 'Saved reports and cockpits');
+      await assertEnterprise(m, this.context.tenant, 'Saved reports and cockpits');
       return m.query(`${SAVED_SQL} WHERE tenant_id = $1 ORDER BY pinned DESC, name`, [this.t]);
     });
   }
@@ -276,7 +276,7 @@ export class ReportsService {
     this.validate(def);
     const actor = await this.userService.resolveActor(identity);
     const row = await this.tx.run(async (m) => {
-      await assertEnterprise(m, this.t, 'Saved reports and cockpits');
+      await assertEnterprise(m, this.context.tenant, 'Saved reports and cockpits');
       const [r] = await m.query(`INSERT INTO saved_reports (tenant_id, name, definition, pinned, created_by) VALUES ($1,$2,$3::jsonb,$4,$5) RETURNING id`, [this.t, name, JSON.stringify(def), pinned, actor.id]);
       return (await m.query(`${SAVED_SQL} WHERE id = $1`, [r.id]))[0];
     });
@@ -287,7 +287,7 @@ export class ReportsService {
   async updateSaved(id: string, changes: { name?: string; definition?: ReportDefinition; pinned?: boolean }): Promise<unknown> {
     if (changes.definition) this.validate(changes.definition);
     return this.tx.run(async (m) => {
-      await assertEnterprise(m, this.t, 'Saved reports and cockpits');
+      await assertEnterprise(m, this.context.tenant, 'Saved reports and cockpits');
       const [r] = await m.query(
         `UPDATE saved_reports SET name = COALESCE($3, name), definition = COALESCE($4::jsonb, definition), pinned = COALESCE($5, pinned) WHERE tenant_id = $1 AND id = $2 RETURNING id`,
         [this.t, id, changes.name ?? null, changes.definition ? JSON.stringify(changes.definition) : null, changes.pinned ?? null],
@@ -299,7 +299,7 @@ export class ReportsService {
 
   async removeSaved(id: string): Promise<void> {
     await this.tx.run(async (m) => {
-      await assertEnterprise(m, this.t, 'Saved reports and cockpits');
+      await assertEnterprise(m, this.context.tenant, 'Saved reports and cockpits');
       const [r] = await m.query('DELETE FROM saved_reports WHERE tenant_id = $1 AND id = $2 RETURNING id', [this.t, id]);
       if (!r) throw new NotFoundException('Report not found');
     });

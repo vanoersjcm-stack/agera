@@ -95,7 +95,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
 
   async list(): Promise<{ tier: string; maxActive: number | null; activeCount: number; items: unknown[] }> {
     return this.tx.run(async (m) => {
-      const tier = await licenseTier(m, this.t);
+      const tier = await licenseTier(m, this.context.tenant);
       const items = await m.query(`${SQL} WHERE a.tenant_id = $1 ORDER BY a.active DESC, a.name`, [this.t]);
       return { tier, maxActive: tier === 'vanguard' ? VANGUARD_MAX_ACTIVE : null, activeCount: items.filter((a: { active: boolean }) => a.active).length, items };
     });
@@ -120,7 +120,7 @@ export class AutomationService implements OnModuleInit, OnModuleDestroy {
 
   /** Vanguard: linear automations only, at most 5 active. */
   private async checkEdition(m: EntityManager, steps: Step[] | undefined, willBeActive: boolean, exceptId: string | null): Promise<void> {
-    if ((await licenseTier(m, this.t)) !== 'vanguard') return;
+    if ((await licenseTier(m, this.context.tenant)) !== 'vanguard') return;
     if (steps && !isLinear(steps)) throw enterpriseRequired('Multi-step, branching and delayed automations');
     if (!willBeActive) return;
     const [{ n }] = await m.query('SELECT count(*)::int AS n FROM automations WHERE tenant_id = $1 AND active AND id IS DISTINCT FROM $2', [this.t, exceptId]);

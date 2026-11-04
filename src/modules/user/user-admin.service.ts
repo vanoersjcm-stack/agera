@@ -88,7 +88,8 @@ export class UserAdminService {
     if (await this.users.findOneBy({ email: input.email })) {
       throw new ConflictException('A user with this e-mail address already exists');
     }
-    const attributes: Record<string, string[]> = { tenant_id: [this.context.tenantId] };
+    const [tierRow]: { license_tier: string }[] = await this.dataSource.query('SELECT license_tier FROM tenants WHERE id = $1', [this.context.tenantId]);
+    const attributes: Record<string, string[]> = { tenant_id: [this.context.tenantId], tenant_license_tier: [tierRow?.license_tier ?? 'symphony'] };
     if (external && input.clientId) attributes.client_id = [input.clientId];
     const temporaryPassword = `${randomBytes(9).toString('base64url')}-Ag1`;
 

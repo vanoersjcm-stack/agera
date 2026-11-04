@@ -14,6 +14,8 @@ export interface ActiveTenant {
   access: TenantAccess;
   /** Set when a platform admin views another organisation; all writes are rejected. */
   readOnly?: boolean;
+  /** Edition from the token's `tenant_license_tier` claim (home organisation only, when fresh). */
+  licenseTier?: 'vanguard' | 'symphony';
 }
 
 @Injectable()
