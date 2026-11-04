@@ -56,6 +56,36 @@ export interface AgreementSignature {
   signedAt: string;
 }
 
+export interface AutomationStep {
+  condition: { field: string; op: 'equals' | 'not_equals' | 'contains' | 'exists'; value: string | null } | null;
+  action: 'notify_user' | 'create_exception';
+  config: { userId?: string | null; title: string; message?: string | null; severity?: 'low' | 'medium' | 'high' };
+  delayMinutes: number;
+}
+export interface AutomationRun { id: string; stepIndex: number; status: 'scheduled' | 'done' | 'skipped' | 'failed'; runAt: string; detail: string | null; createdAt: string }
+export interface Automation { id: string; name: string; trigger: string; steps: AutomationStep[]; active: boolean; runCount: number; lastRunAt: string | null; createdAt: string; runs?: AutomationRun[] }
+export interface AutomationList { tier: LicenseTier; maxActive: number | null; activeCount: number; items: Automation[] }
+export interface AutomationCatalog { triggers: { value: string; label: string }[]; operators: string[]; actions: string[] }
+export interface AutomationBody { name?: string; trigger?: string; steps?: AutomationStep[]; active?: boolean }
+export interface ReportColumn { key: string; label: string; type: 'text' | 'number' | 'date' }
+export interface ReportDataset { key: string; label: string; columns: ReportColumn[] }
+export interface ReportDefinition {
+  dataset: string;
+  columns: string[];
+  filters: { column: string; op: 'equals' | 'not_equals' | 'contains' | 'gt' | 'lt'; value: string }[];
+  groupBy: string | null;
+  aggregate: { fn: 'count' | 'sum' | 'avg' | 'min' | 'max'; column: string | null } | null;
+  sort: { column: string; direction: 'asc' | 'desc' } | null;
+  limit: number;
+}
+export interface ReportResult { columns: ReportColumn[]; rows: Record<string, unknown>[] }
+export interface SavedReport { id: string; name: string; definition: ReportDefinition; pinned: boolean; createdAt: string; updatedAt: string }
+export interface Kpis {
+  activeClients: number; activeAgreementValue: string; openDeals: number; pipelineValue: string; overdueInvoices: number; overdueAmount: string;
+  openExceptions: number; openWorkOrders: number; visitsCompletedThisMonth: number; visitsThisMonth: number;
+  dealsByStage: { stage: string; count: number; value: string }[]; invoicesByStatus: { status: string; count: number; value: string }[]; tier: LicenseTier;
+}
+
 /** Fetches an authenticated file and hands it to the browser as a download. */
 export async function downloadFile(path: string, fileName: string): Promise<void> {
   const response = await fetch(`/api${path}`, { headers: { Authorization: `Bearer ${await accessToken()}`, ...organisationHeader() } });
@@ -171,6 +201,7 @@ export interface Tenant {
 }
 
 export interface UserProfile {
+  licenseTier?: LicenseTier;
   id: string;
   email: string;
   firstName: string | null;
@@ -602,6 +633,20 @@ export const api = {
   createTenant: (body: { name: string; domain: string }) => request<Tenant>('POST', '/tenants', body),
   setLicense: (id: string, body: { licenseTier: LicenseTier; maxSeats?: number | null }) => request<Tenant>('PATCH', `/tenants/${id}/license`, body),
   me: () => request<UserProfile>('GET', '/users/me'),
+  automationCatalog: () => request<AutomationCatalog>('GET', '/v1/automations/catalog'),
+  automations: () => request<AutomationList>('GET', '/v1/automations'),
+  automation: (id: string) => request<Automation>('GET', `/v1/automations/${id}`),
+  createAutomation: (body: AutomationBody) => request<Automation>('POST', '/v1/automations', body),
+  updateAutomation: (id: string, body: AutomationBody) => request<Automation>('PATCH', `/v1/automations/${id}`, body),
+  deleteAutomation: (id: string) => request<void>('DELETE', `/v1/automations/${id}`),
+  reportDatasets: () => request<ReportDataset[]>('GET', '/v1/reports/datasets'),
+  kpis: () => request<Kpis>('GET', '/v1/reports/kpis'),
+  exportDataset: (key: string) => downloadFile(`/v1/reports/datasets/${key}/export`, `agera-${key}-${new Date().toISOString().slice(0, 10)}.csv`),
+  runReport: (def: ReportDefinition) => request<ReportResult>('POST', '/v1/reports/run', def),
+  savedReports: () => request<SavedReport[]>('GET', '/v1/reports/saved'),
+  saveReport: (name: string, definition: ReportDefinition, pinned: boolean) => request<SavedReport>('POST', '/v1/reports/saved', { name, definition, pinned }),
+  updateSavedReport: (id: string, body: { name?: string; definition?: ReportDefinition; pinned?: boolean }) => request<SavedReport>('PATCH', `/v1/reports/saved/${id}`, body),
+  deleteSavedReport: (id: string) => request<void>('DELETE', `/v1/reports/saved/${id}`),
   users: () => request<UserSummary[]>('GET', '/users'),
   auditLogs: (page: number, limit = 50) => request<Page<AuditLog>>('GET', `/audit-logs${query({ page, limit })}`),
   apiKeys: () => request<Page<ApiKey>>('GET', '/api-keys?limit=100'),

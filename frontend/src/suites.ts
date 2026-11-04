@@ -32,6 +32,8 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/symphony/credit-control', label: 'Credit control', description: 'Emergency credit locks per client or organisation-wide' },
         { path: '/symphony/approvals', label: 'Approvals', description: 'Approval chains waiting for you and all requests' },
         { path: '/symphony/health', label: 'Account health', description: 'Health score and engagement per client' },
+        { path: '/symphony/automations', label: 'Automations', description: 'When something happens, notify someone or open an exception' },
+        { path: '/symphony/reports', label: 'Reports', description: 'KPI dashboard, CSV exports and the report builder' },
         { path: '/symphony/clients', label: 'Client dossiers', description: 'Open360: master data, contacts, contracts and stores per client' },
         { path: '/symphony/activity', label: 'Activity log', description: 'Who did what, and when' },
         ...(user.role === 'admin' || user.isPlatformAdmin
@@ -137,3 +139,8 @@ export const LEGACY_ROUTES: Record<string, { internal: string; external: string 
   '/rooms': { internal: '/nexus/client-rooms', external: '/portal/rooms' },
   '/anomalies': { internal: '/nexus/alerts', external: '/portal' },
 };
+
+/** Edition the screens are currently showing (the organisation's, or the platform-admin preview). */
+export function currentTier(): LicenseTier {
+  return activeTier;
+}

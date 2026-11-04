@@ -28,6 +28,8 @@ import { PeopleView } from './symphony/People';
 import { PrognosisView } from './symphony/Prognosis';
 import { setClientFilter, useClientFilter } from './clientFilter';
 import { PriceListDossier, PriceListsView, TemplatesView } from './nexus/Commercial';
+import { AutomationDossier, AutomationsView } from './symphony/Automations';
+import { ReportBuilderView, ReportsView } from './symphony/Reports';
 import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
 import { ActivityLogView, IntegrationsView, OrganisationsView, SymphonyOverview } from './symphony/SymphonyViews';
 
@@ -51,6 +53,12 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return id ? <ApprovalDossier id={id} /> : <ApprovalsView route={route} />;
     case 'symphony/health':
       return <HealthView />;
+    case 'symphony/automations':
+      return id ? <AutomationDossier id={id} /> : <AutomationsView />;
+    case 'symphony/reports':
+      return <ReportsView />;
+    case 'symphony/report-builder':
+      return <ReportBuilderView />;
     case 'nexus/price-lists':
       return id ? <PriceListDossier id={id} /> : <PriceListsView route={route} />;
     case 'nexus/templates':
