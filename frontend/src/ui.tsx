@@ -148,7 +148,7 @@ export function Tabs({ tabs, active, onChange }: { tabs: { id: string; label: st
   return (
     <div className="tabs" role="tablist">
       {tabs.map((t) => (
-        <button key={t.id} role="tab" aria-selected={t.id === active} className={t.id === active ? 'tab active' : 'tab'} onClick={() => onChange(t.id)}>
+        <button key={t.id} type="button" role="tab" aria-selected={t.id === active} className={t.id === active ? 'tab active' : 'tab'} onClick={() => onChange(t.id)}>
           {t.label}
         </button>
       ))}

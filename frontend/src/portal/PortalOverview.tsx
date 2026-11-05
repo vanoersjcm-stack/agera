@@ -3,6 +3,7 @@ import { AGREEMENT_STATUS } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { Loading, StatusBadge, useLoad } from '../ui';
 import { t } from '../i18n';
+import { PortalSurveyCards } from '../nexus/Surveys';
 
 export function PortalOverview() {
   const rooms = useLoad(() => api.rooms());
@@ -17,6 +18,7 @@ export function PortalOverview() {
   const empty = rooms.data.length === 0 && agreements.data.length === 0;
   return (
     <ViewFrame title={t("Overview")} crumbs={[{ label: t("Client portal") }]}>
+      <PortalSurveyCards />
       {empty ? (
         <EmptyState title={t("Nothing shared with you yet")}>{t("As soon as Agera opens a client room or shares an agreement with your organisation, it appears here.")}</EmptyState>
       ) : (

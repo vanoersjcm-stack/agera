@@ -33,6 +33,7 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/symphony/credit-control', label: t("Credit control"), description: t("Emergency credit locks per client or organisation-wide") },
         { path: '/symphony/approvals', label: t("Approvals"), description: t("Approval chains waiting for you and all requests") },
         { path: '/symphony/health', label: t("Account health"), description: t("Health score and engagement per client") },
+        { path: '/symphony/feedback', label: t("Customer feedback"), description: t("Client NPS and survey results across all accounts") },
         { path: '/symphony/automations', label: t("Automations"), description: t("When something happens, notify someone or open an exception") },
         { path: '/symphony/reports', label: t("Reports"), description: t("KPI dashboard, CSV exports and the report builder") },
         { path: '/symphony/clients', label: t("Client dossiers"), description: t("Open360: master data, contacts, contracts and stores per client") },
@@ -62,6 +63,7 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/nexus/templates', label: t("Document templates"), description: t("Proposals and letters filled with client data") },
         { path: '/nexus/exceptions', label: t("Exceptions"), description: t("Issues with an owner, severity and resolution") },
         { path: '/nexus/alerts', label: t("Alerts"), description: t("Plan deviations, inactive rooms, non-compliant stores") },
+        { path: '/nexus/surveys', label: t("Surveys & feedback"), description: t("Design surveys, send them to clients and see the answers") },
       ];
     case 'retailpower':
       return [
@@ -82,6 +84,7 @@ export const PORTAL_NAV: NavItem[] = [
   { path: '/portal', label: t("Overview"), description: t("What Agera shares with you") },
   { path: '/portal/rooms', label: t("My client rooms"), description: t("Rooms Agera opened for your organisation") },
   { path: '/portal/agreements', label: t("My agreements"), description: t("Agreements and their status") },
+  { path: '/portal/surveys', label: t("Surveys"), description: t("Questions from Agera about our service") },
 ];
 
 const SUITE_KEY = 'agera.suite';

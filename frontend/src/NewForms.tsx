@@ -1,4 +1,5 @@
 import { NewPriceListForm, NewTemplateForm } from './nexus/Commercial';
+import { NewSurveyForm } from './nexus/Surveys';
 import { NewExceptionForm } from './symphony/Workflow';
 import { NewAuditRoundForm, NewFieldOrderForm, NewPlanogramForm, NewProductForm } from './retailpower/Field';
 import { type FormEvent, useEffect, useState } from 'react';
@@ -26,6 +27,7 @@ export const NEW_ITEMS: NewItem[] = [
   { kind: 'price_list', label: tr("Price list"), group: 'Nexus' },
   { kind: 'document_template', label: tr("Document template"), group: 'Nexus' },
   { kind: 'financial_plan', label: tr("Financial plan"), group: 'Nexus' },
+  { kind: 'survey', label: tr("Survey"), group: 'Nexus' },
   { kind: 'work_order', label: tr("Work order"), group: 'RetailPower' },
   { kind: 'store_visit', label: tr("Store visit"), group: 'RetailPower' },
   { kind: 'store', label: tr("Store"), group: 'RetailPower' },
@@ -676,6 +678,7 @@ const TITLES: Record<NewKind, string> = {
   client: 'New client',
   contact: 'New contact',
   financial_plan: 'New financial plan',
+  survey: 'New survey',
   organisation: 'New organisation',
   integration_key: 'New integration key',
 };
@@ -711,6 +714,7 @@ export function NewDrawer({
       {kind === 'client' && <ClientForm {...props} />}
       {kind === 'contact' && <ContactForm {...props} onSwitch={onSwitch} />}
       {kind === 'financial_plan' && <FinancialPlanForm {...props} />}
+      {kind === 'survey' && <NewSurveyForm {...props} />}
       {kind === 'organisation' && <OrganisationForm {...props} />}
       {kind === 'integration_key' && <IntegrationKeyForm {...props} />}
       {kind === 'product' && <NewProductForm {...props} />}

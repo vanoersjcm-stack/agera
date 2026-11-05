@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react';
 
 export type NewKind =
+  | 'survey'
   | 'price_list'
   | 'document_template'
   | 'exception'

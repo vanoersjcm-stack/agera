@@ -1,4 +1,5 @@
 import { matchesClient, useClientFilter } from '../clientFilter';
+import { PortalSurveyCards } from './Surveys';
 import { type FormEvent, useState } from 'react';
 import { api, type EngagementStatus, type Milestone, type MilestoneOwnerSide, type RoomEngagement, type RoomStatus } from '../api';
 import { clientName, useClients } from '../directory';
@@ -238,6 +239,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
       }
     >
       <ErrorText error={action.error} />
+      {external && <PortalSurveyCards roomId={r.id} />}
       <Tabs
         tabs={[
           { id: 'details', label: tr("Details") },

@@ -7,6 +7,7 @@ import { EmptyState, ViewFrame } from './Layout';
 import { NEW_ITEMS, NewDrawer } from './NewForms';
 import { AgreementDossier, AgreementsView } from './nexus/Agreements';
 import { AlertsView } from './nexus/Alerts';
+import { FeedbackView, PortalSurveysView, SurveyDossier, SurveysView } from './nexus/Surveys';
 import { ClientRoomDossier, ClientRoomsView } from './nexus/ClientRooms';
 import { ClientDossier, ClientsView } from './nexus/Clients';
 import { FinancialPlansView, PlanDossier } from './nexus/FinancialPlans';
@@ -56,6 +57,8 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return id ? <ApprovalDossier id={id} /> : <ApprovalsView route={route} />;
     case 'symphony/health':
       return <HealthView />;
+    case 'symphony/feedback':
+      return <FeedbackView />;
     case 'symphony/automations':
       return id ? <AutomationDossier id={id} /> : <AutomationsView />;
     case 'symphony/reports':
@@ -104,6 +107,8 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return <ProfitLossView route={route} />;
     case 'nexus/alerts':
       return <AlertsView route={route} />;
+    case 'nexus/surveys':
+      return id ? <SurveyDossier id={id} route={route} /> : <SurveysView route={route} />;
     case 'retailpower/':
       return <RetailOverview />;
     case 'retailpower/work-orders':
@@ -136,6 +141,8 @@ function PortalView({ route }: { route: Route }) {
       return id ? <ClientRoomDossier id={id} route={route} external /> : <ClientRoomsView route={route} external />;
     case 'agreements':
       return id ? <AgreementDossier id={id} external /> : <AgreementsView route={route} external />;
+    case 'surveys':
+      return <PortalSurveysView id={id} />;
     default:
       return <NotAvailable path={route.path} />;
   }

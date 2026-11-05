@@ -56,6 +56,24 @@ export interface AgreementSignature {
   signedAt: string;
 }
 
+export type SurveyQuestionType = 'nps' | 'csat' | 'rating' | 'single_choice' | 'multi_choice' | 'text';
+export type SurveyStatus = 'draft' | 'active' | 'closed' | 'archived';
+export interface SurveyQuestion { id: string; type: SurveyQuestionType; label: string; required: boolean; options?: string[]; minRating?: number; maxRating?: number; showIf?: { questionId: string; equals: string } | null }
+export interface SurveyDispatch { id: string; targetType: 'single_client' | 'client_cohort' | 'client_room'; clientId: string | null; clientName: string | null; clientRoomId: string | null; clientRoomName: string | null; filterCriteria: Record<string, unknown> | null; totalTargeted: number; totalContacts: number; totalResponded: number; dispatchedByName: string | null; createdAt: string }
+export interface Survey { id: string; title: string; description: string | null; status: SurveyStatus; questions: SurveyQuestion[]; createdByName: string | null; responseCount: number; targetedClients: number; dispatchCount: number; nps: number | null; createdAt: string; updatedAt: string; dispatches?: SurveyDispatch[] }
+export interface SurveyList { tier: LicenseTier; maxActive: number | null; activeCount: number; questionTypes: SurveyQuestionType[]; items: Survey[] }
+export interface SurveyAudience { targetType: 'single_client' | 'client_cohort' | 'client_room'; clientId?: string | null; clientRoomId?: string | null; all?: boolean; sector?: string | null; minArr?: number | null; maxArr?: number | null; accountManagerId?: string | null; maxHealthScore?: number | null }
+export interface NpsResult { score: number | null; promoters: number; passives: number; detractors: number; count: number }
+export interface SurveyAnalytics {
+  surveyId: string; title: string; status: SurveyStatus; totalResponses: number; targetedClients: number; respondedClients: number; responseRate: number | null; nps: NpsResult;
+  questions: { id: string; label: string; type: SurveyQuestionType; answered: number; skipped: number; distribution?: Record<string, number>; average?: number | null; texts?: string[]; nps?: NpsResult }[];
+  bySector: { name: string; responses: number; nps: number | null }[]; byAccountManager: { name: string; responses: number; nps: number | null }[];
+  respondents: { id: string; clientId: string | null; clientName: string | null; sector: string | null; accountManagerName: string | null; respondentEmail: string | null; contactName: string | null; npsScore: number | null; submittedAt: string }[];
+}
+export interface FeedbackSummary { responses: number; nps: NpsResult; clients: { clientId: string; name: string; responses: number; lastAt: string; nps: number | null; averageScore: number | null }[]; surveys: Survey[] }
+export interface PortalSurvey { id: string; title: string; description: string | null; questions: SurveyQuestion[]; answered: boolean; clientRoomIds: string[] }
+export type SurveyAnswers = Record<string, string | number | string[]>;
+
 export interface AutomationStep {
   condition: { field: string; op: 'equals' | 'not_equals' | 'contains' | 'exists'; value: string | null } | null;
   action: 'notify_user' | 'create_exception';
@@ -182,7 +200,7 @@ export interface ExceptionRecord {
 export interface AppNotification { id: string; title: string; body: string | null; link: string | null; readAt: string | null; createdAt: string }
 export interface ClientHealth {
   clientId: string; name: string; creditStatus: string; overdueInvoices: number; atRiskAgreements: number; openExceptions: number; activeRooms: number;
-  engagementScore: number; score: number; band: 'healthy' | 'watch' | 'at_risk'; factors: string[];
+  engagementScore: number; score: number; band: 'healthy' | 'watch' | 'at_risk'; factors: string[]; surveyNps: number | null;
 }
 
 /* ---------- Symphony ---------- */
@@ -633,6 +651,18 @@ export const api = {
   createTenant: (body: { name: string; domain: string }) => request<Tenant>('POST', '/tenants', body),
   setLicense: (id: string, body: { licenseTier: LicenseTier; maxSeats?: number | null }) => request<Tenant>('PATCH', `/tenants/${id}/license`, body),
   me: () => request<UserProfile>('GET', '/users/me'),
+  surveys: () => request<SurveyList>('GET', '/v1/surveys'),
+  survey: (id: string) => request<Survey>('GET', `/v1/surveys/${id}`),
+  createSurvey: (body: { title: string; description?: string | null; questions: SurveyQuestion[] }) => request<Survey>('POST', '/v1/surveys', body),
+  updateSurvey: (id: string, body: { title?: string; description?: string | null; questions?: SurveyQuestion[] }) => request<Survey>('PATCH', `/v1/surveys/${id}`, body),
+  setSurveyStatus: (id: string, status: SurveyStatus) => request<Survey>('PATCH', `/v1/surveys/${id}/status`, { status }),
+  surveyAudience: (body: SurveyAudience) => request<{ clients: number; contacts: number; sectors: string[] }>('POST', '/v1/surveys/audience', body),
+  dispatchSurvey: (id: string, body: SurveyAudience) => request<{ id: string; totalTargeted: number; totalContacts: number }>('POST', `/v1/surveys/${id}/dispatch`, body),
+  surveyAnalytics: (id: string, filter: { sector?: string; accountManagerId?: string } = {}) => request<SurveyAnalytics>('GET', `/v1/surveys/${id}/analytics${query(filter)}`),
+  exportSurvey: (id: string, title: string) => downloadFile(`/v1/surveys/${id}/export`, `${title.replace(/[^\w-]+/g, '-')}-${new Date().toISOString().slice(0, 10)}.csv`),
+  feedbackSummary: () => request<FeedbackSummary>('GET', '/v1/surveys/summary'),
+  portalSurveys: () => request<PortalSurvey[]>('GET', '/v1/portal/surveys'),
+  respondSurvey: (id: string, answers: SurveyAnswers) => request<{ id: string }>('POST', `/v1/portal/surveys/${id}/respond`, { answers }),
   automationCatalog: () => request<AutomationCatalog>('GET', '/v1/automations/catalog'),
   automations: () => request<AutomationList>('GET', '/v1/automations'),
   automation: (id: string) => request<Automation>('GET', `/v1/automations/${id}`),
