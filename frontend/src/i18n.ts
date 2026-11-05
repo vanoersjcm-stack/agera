@@ -631,6 +631,15 @@ const NL: Record<string, string> = {
   "New document": "Nieuw document",
   "New spreadsheet": "Nieuwe spreadsheet",
   "New e-mail": "Nieuwe e-mail",
+  'Appearance: dark → light': 'Weergave: donker → licht', 'Appearance: light → dark': 'Weergave: licht → donker',
+  "Credit locked": "Krediet geblokkeerd",
+  "Credit under review": "Krediet in beoordeling",
+  "Churn risk on an active agreement": "Opzegrisico op een actieve overeenkomst",
+  "No client activity in 30 days": "Geen klantactiviteit in 30 dagen",
+  "{n} overdue invoice(s)": "{n} achterstallige factuur/facturen",
+  "{n} open exception(s)": "{n} open uitzondering(en)",
+  "Survey NPS {n}": "Enquête-NPS {n}",
+  Withdrawn: 'Ingetrokken',
 };
 export function getLanguage(): Language {
   const stored = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
@@ -647,6 +656,11 @@ export function setLanguage(language: Language): void {
 }
 
 /** Translate a fixed interface text; unknown texts (and record names) are returned unchanged. */
+/** Locale for dates and numbers, following the interface language. */
+export function locale(): string {
+  return getLanguage() === 'nl' ? 'nl-NL' : 'en-GB';
+}
+
 export function t(text: string): string {
   return getLanguage() === 'nl' ? (NL[text] ?? text) : text;
 }

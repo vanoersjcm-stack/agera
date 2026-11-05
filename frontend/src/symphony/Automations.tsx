@@ -10,7 +10,7 @@ import { t as tr, tf } from '../i18n';
 
 const SUITE = { label: tr("Symphony"), href: '#/symphony' };
 const OPS: Record<string, string> = { equals: 'equals', not_equals: 'does not equal', contains: 'contains', exists: 'is filled in' };
-const ACTIONS: Record<string, string> = { notify_user: 'Send a notification to', create_exception: 'Open an exception for' };
+const ACTIONS: Record<string, string> = { notify_user: tr("Send a notification to"), create_exception: tr("Open an exception for") };
 const blankStep = (): AutomationStep => ({ condition: null, action: 'notify_user', config: { userId: null, title: '', message: null, severity: 'medium' }, delayMinutes: 0 });
 
 export function EnterpriseBadge() {

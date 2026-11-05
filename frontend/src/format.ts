@@ -1,3 +1,4 @@
+import { locale } from './i18n';
 import type { Category } from './api';
 
 /** Above plan is good for income, bad for costs. */
@@ -7,7 +8,7 @@ export function formatAmount(value: string | null, currency: string): string {
   if (value === null) {
     return '–';
   }
-  return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(Number(value));
+  return new Intl.NumberFormat(locale(), { style: 'currency', currency }).format(Number(value));
 }
 
 export function varianceTone(category: Category, variance: string | null): 'good' | 'bad' | 'neutral' {

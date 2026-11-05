@@ -8,7 +8,7 @@ import { money } from '../nexus/Clients';
 import { navigate, type Route, withParams } from '../router';
 import { type NewDefaults, useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
-import { t, tf } from '../i18n';
+import { t, tf, locale } from '../i18n';
 
 const SUITE = { label: t("RetailPower"), href: '#/retailpower' };
 
@@ -586,7 +586,7 @@ export function FieldCalendarView({ route }: { route: Route }) {
         <div className="calendar">
           <div className="cal-row cal-head">
             <div>{t("Field rep")}</div>
-            {days.map((d) => <div key={key(d)}>{d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</div>)}
+            {days.map((d) => <div key={key(d)}>{d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'short' })}</div>)}
           </div>
           {reps.map((rep) => (
             <div key={rep} className="cal-row">
@@ -598,7 +598,7 @@ export function FieldCalendarView({ route }: { route: Route }) {
                     {cell.length > MAX_VISITS_PER_DAY && <span className="cal-warn">{t("Over capacity (")}{cell.length})</span>}
                     {cell.map((v) => (
                       <a key={v.id} href={`#/retailpower/store-visits/${v.id}`} className={`cal-visit st-${v.status.toLowerCase()}`}>
-                        {new Date(v.visitDate).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })} {storeName(v.storeId)}
+                        {new Date(v.visitDate).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })} {storeName(v.storeId)}
                       </a>
                     ))}
                   </div>

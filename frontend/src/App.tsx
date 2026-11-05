@@ -34,6 +34,7 @@ import { AutomationDossier, AutomationsView } from './symphony/Automations';
 import { ReportBuilderView, ReportsView } from './symphony/Reports';
 import { IntegrationsView as ExternalSystemsView } from './symphony/Integrations';
 import { GoldenThreadTour, startTour } from './tour';
+import { getTheme, setTheme } from './theme';
 import { getLanguage, setLanguage, t, useLanguage, t as tr, tf } from './i18n';
 import { startOfflineSync, useOfflineQueue } from './offlineQueue';
 import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
@@ -295,12 +296,12 @@ function SearchPalette({ user, tier }: { user: UserContext; tier: LicenseTier })
 }
 
 const SEARCH_TYPE: Record<string, string> = {
-  client: 'Client',
-  store: 'Store',
-  work_order: 'Work order',
-  agreement: 'Agreement',
-  client_room: 'Client room',
-  digital_sales_room: 'Client room',
+  client: tr("Client"),
+  store: tr("Store"),
+  work_order: tr("Work order"),
+  agreement: tr("Agreement"),
+  client_room: tr("Client room"),
+  digital_sales_room: tr("Client room"),
 };
 
 function NewMenu({ suite, user, tier, onPick }: { suite: SuiteId; user: UserContext; tier: LicenseTier; onPick: (kind: NewKind) => void }) {
@@ -371,6 +372,7 @@ function UserMenu({ user, tenant, tier, tipsOn, onToggleTips }: { user: UserCont
           )}
           {user.isPlatformAdmin && previewTier() && <button role="menuitem" onClick={() => setPreviewTier(null)}>{tr("Stop edition preview")}</button>}
           <button role="menuitem" onClick={() => (setOpen(false), startTour())}>{t('Take the Golden Thread tour')}</button>
+          <button role="menuitem" onClick={() => (setOpen(false), setTheme(getTheme() === 'dark' ? 'light' : 'dark'))}>{getTheme() === 'dark' ? tr("Appearance: dark → light") : tr("Appearance: light → dark")}</button>
           <button role="menuitem" onClick={() => setLanguage(getLanguage() === 'nl' ? 'en' : 'nl')}>{getLanguage() === 'nl' ? tr("Language: Nederlands → English") : tr("Language: English → Nederlands")}</button>
           <button role="menuitem" onClick={onToggleTips}>{t(tipsOn ? 'Hide page tips' : 'Show page tips')}</button>
           <button role="menuitem" onClick={() => void keycloak.logout({ redirectUri: window.location.origin + '/' })}>{t('Log out')}</button>

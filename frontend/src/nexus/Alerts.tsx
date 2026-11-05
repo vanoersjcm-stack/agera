@@ -6,7 +6,7 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { FilterChips, Loading, useLoad } from '../ui';
 import { periodLabel } from './FinancialPlans';
-import { t as tr, tf } from '../i18n';
+import { t as tr, tf, locale } from '../i18n';
 
 const POLL_MS = 60_000;
 
@@ -86,7 +86,7 @@ export function AlertsView({ route }: { route: Route }) {
           </tbody>
         </table>
       )}
-      {data && <p className="muted">{tr("Updated")} {new Date(data.generatedAt).toLocaleTimeString()}  {tr("· refreshes every minute")}</p>}
+      {data && <p className="muted">{tr("Updated")} {new Date(data.generatedAt).toLocaleTimeString(locale())}  {tr("· refreshes every minute")}</p>}
     </ViewFrame>
   );
 }

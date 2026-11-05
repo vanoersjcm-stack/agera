@@ -7,7 +7,7 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, Field, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
-import { t as tr } from '../i18n';
+import { t as tr, locale } from '../i18n';
 
 const SUITE_CRUMB = { label: tr("Nexus"), href: '#/nexus' };
 const LIST_CRUMB = { label: tr("Financial plans"), href: '#/nexus/financial-plans' };
@@ -77,7 +77,7 @@ const PERIODS = (year: number) => [
   ...[1, 2, 3, 4].map((q) => ({ value: `${year}-Q${q}`, label: `Q${q} ${year}` })),
   ...Array.from({ length: 12 }, (_, i) => ({
     value: `${year}-${String(i + 1).padStart(2, '0')}`,
-    label: new Date(year, i, 1).toLocaleDateString(undefined, { month: 'long', year: 'numeric' }),
+    label: new Date(year, i, 1).toLocaleDateString(locale(), { month: 'long', year: 'numeric' }),
   })),
 ];
 
@@ -85,7 +85,7 @@ function periodLabel(code: string): string {
   const q = /^(\d{4})-Q([1-4])$/.exec(code);
   if (q) return `Q${q[2]} ${q[1]}`;
   const m = /^(\d{4})-(\d{2})$/.exec(code);
-  return m ? new Date(Number(m[1]), Number(m[2]) - 1, 1).toLocaleDateString(undefined, { month: 'short', year: 'numeric' }) : code;
+  return m ? new Date(Number(m[1]), Number(m[2]) - 1, 1).toLocaleDateString(locale(), { month: 'short', year: 'numeric' }) : code;
 }
 
 /** Accepts "1.234,56", "1,234.56" or "1234.56" and returns a plain decimal string. */

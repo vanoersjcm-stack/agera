@@ -9,7 +9,7 @@ import { type NewDefaults, useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, Loading, StatusBadge, useAction, useLoad } from '../ui';
 import { t as tr, tf } from '../i18n';
 
-const APPROVAL_STATUS: Record<string, string> = { pending: 'Pending', approved: 'Approved', rejected: 'Rejected', cancelled: 'Withdrawn' };
+const APPROVAL_STATUS: Record<string, string> = { pending: tr("Pending"), approved: tr("Approved"), rejected: tr("Rejected"), cancelled: tr("Withdrawn") };
 const SEVERITY: Record<ExceptionSeverity, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 const EXC_STATUS: Record<ExceptionStatus, string> = { open: 'Open', in_progress: 'In progress', resolved: 'Resolved' };
 const ENTITY: Record<ApprovalEntity, string> = { financial_plan: 'Financial plan', agreement: 'Agreement' };
@@ -316,12 +316,19 @@ export function NotificationBell() {
 /* ---------- Health ---------- */
 
 const BAND: Record<string, string> = { healthy: 'Healthy', watch: 'Watch', at_risk: 'At risk' };
+/** Health factors arrive from the server in English; show them in the interface language. */
+function factorText(f: string): string {
+  const m = /^(\d+) (overdue invoice|open exception)\(s\)$/.exec(f) ?? /^(Survey NPS) (-?\d+)$/.exec(f);
+  if (!m) return tr(f);
+  if (m[1] === 'Survey NPS') return tf("Survey NPS {n}", { n: m[2] });
+  return tf(m[2] === 'overdue invoice' ? "{n} overdue invoice(s)" : "{n} open exception(s)", { n: m[1] });
+}
 const BAND_STATUS: Record<string, string> = { healthy: 'compliant', watch: 'needs_follow_up', at_risk: 'not_compliant' };
 
 export function HealthBadge({ clientId }: { clientId: string }) {
   const h = useLoad(() => api.clientsHealth(), []).data?.find((x) => x.clientId === clientId);
   if (!h) return null;
-  return <span title={h.factors.join(' · ') || tr("No risk factors")}><StatusBadge status={BAND_STATUS[h.band]} label={tf("Health {score} · {band}", { score: h.score, band: BAND[h.band] })} /></span>;
+  return <span title={h.factors.map(factorText).join(' · ') || tr("No risk factors")}><StatusBadge status={BAND_STATUS[h.band]} label={tf("Health {score} · {band}", { score: h.score, band: tr(BAND[h.band]) })} /></span>;
 }
 
 export function HealthView() {
@@ -345,9 +352,9 @@ export function HealthView() {
                 <tr key={r.clientId}>
                   <td><a href={`#/nexus/clients/${r.clientId}`}>{r.name}</a></td>
                   <td className="num"><strong>{r.score}</strong></td>
-                  <td><StatusBadge status={BAND_STATUS[r.band]} label={BAND[r.band]} /></td>
+                  <td><StatusBadge status={BAND_STATUS[r.band]} label={tr(BAND[r.band])} /></td>
                   <td className="num">{r.engagementScore}</td>
-                  <td className="small">{r.factors.join(' · ') || tr("No risk factors")}</td>
+                  <td className="small">{r.factors.map(factorText).join(' · ') || tr("No risk factors")}</td>
                 </tr>
               ))}
             </tbody>

@@ -1,5 +1,5 @@
 import type { AgreementStatus, AlertType, Category, PlanStatus, RoomStatus, UserRole, VisitStatus, WorkOrderStatus } from './api';
-import { t } from './i18n';
+import { t, locale } from './i18n';
 
 /** Single source of business-facing names (audit §9). */
 export const WORK_ORDER_STATUS: Record<WorkOrderStatus, string> = {
@@ -115,12 +115,12 @@ export function auditActionLabel(action: string): string {
 }
 
 export function formatDate(value: string | null | undefined): string {
-  return value ? new Date(value).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  return value ? new Date(value).toLocaleDateString(locale(), { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 }
 
 export function formatDateTime(value: string | null | undefined): string {
   return value
-    ? new Date(value).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    ? new Date(value).toLocaleString(locale(), { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : '—';
 }
 

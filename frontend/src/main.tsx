@@ -3,7 +3,10 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App';
 import { initAuth } from './auth';
 import { t } from './i18n';
+import { applyTheme } from './theme';
 import './styles.css';
+
+applyTheme();
 
 const root = createRoot(document.getElementById('root')!);
 initAuth().then(
