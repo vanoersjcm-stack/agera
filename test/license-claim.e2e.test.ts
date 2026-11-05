@@ -10,7 +10,7 @@ const claim = (token: string): unknown =>
 
 async function claimAfterSync(expected: string): Promise<unknown> {
   let value: unknown;
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 40; i++) {
     value = claim(await getToken('dev.admin', 'devadmin'));
     if (value === expected) break;
     await new Promise((r) => setTimeout(r, 250));
@@ -21,8 +21,8 @@ async function claimAfterSync(expected: string): Promise<unknown> {
 describe('tenant_license_tier token claim', () => {
   it('carries the edition and follows an upgrade/downgrade, while the old token falls back to the database', async () => {
     const admin = await getToken('dev.admin', 'devadmin');
+    const release = await tierLock((await api<Me>(admin, 'GET', '/tenants/me')).body.id);
     const home = (await api<Me>(admin, 'GET', '/tenants/me')).body;
-    const release = await tierLock(home.id);
     try {
       assert.equal(await claimAfterSync(home.licenseTier), home.licenseTier);
       const stale = await getToken('dev.admin', 'devadmin');

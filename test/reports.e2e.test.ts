@@ -15,7 +15,12 @@ before(async () => {
 });
 
 after(async () => {
-  await api(admin, 'PATCH', `/tenants/${tenantId}/license`, { licenseTier: 'symphony' });
+  const release = await tierLock(tenantId);
+  try {
+    await api(admin, 'PATCH', `/tenants/${tenantId}/license`, { licenseTier: 'symphony' });
+  } finally {
+    release();
+  }
 });
 
 describe('/v1/reports', () => {
