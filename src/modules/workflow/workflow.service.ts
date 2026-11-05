@@ -273,7 +273,7 @@ export class WorkflowService {
   /**
    * Account health 0–100 per client, from 100 minus: credit locked 40 / under review 15; 10 per overdue invoice (max 30);
    * 15 when an active agreement carries churn risk; 10 per unresolved exception (max 20); 15 when there was no client
-   * activity in its active rooms in the last 30 days. Engagement 0–100 per room over 30 days (opened 5, view 3, download 10,
+   * activity in its active rooms in the last 30 days; 15 when the survey NPS (180 days) is negative, 5 when below 30. Engagement 0–100 per room over 30 days (opened 5, view 3, download 10,
    * comment 10, terms accepted 30).
    */
   health(): Promise<unknown[]> {
@@ -286,7 +286,9 @@ export class WorkflowService {
                 (SELECT count(*)::int FROM digital_sales_rooms d WHERE d.tenant_id = c.tenant_id AND d.client_id = c.id AND d.status = 'active') AS "activeRooms",
                 (SELECT COALESCE(sum(CASE a.activity_type WHEN 'opened' THEN 5 WHEN 'view' THEN 3 WHEN 'download' THEN 10 WHEN 'comment' THEN 10 WHEN 'terms_accepted' THEN 30 ELSE 1 END), 0)::int
                    FROM dsr_activities a JOIN digital_sales_rooms d ON d.id = a.dsr_id
-                  WHERE d.tenant_id = c.tenant_id AND d.client_id = c.id AND a.created_at > NOW() - INTERVAL '30 days') AS "engagementPoints"
+                  WHERE d.tenant_id = c.tenant_id AND d.client_id = c.id AND a.created_at > NOW() - INTERVAL '30 days') AS "engagementPoints",
+                (SELECT round(100.0 * (count(*) FILTER (WHERE r.nps_score >= 9) - count(*) FILTER (WHERE r.nps_score <= 6)) / NULLIF(count(r.nps_score), 0))::int
+                   FROM survey_responses r WHERE r.tenant_id = c.tenant_id AND r.client_id = c.id AND r.submitted_at > NOW() - INTERVAL '180 days') AS "surveyNps"
            FROM clients c WHERE c.tenant_id = $1 AND c.status = 'active' ORDER BY c.name`,
         [this.t],
       );
@@ -301,6 +303,7 @@ export class WorkflowService {
         minus((r.atRiskAgreements as number) > 0 ? 15 : 0, 'Churn risk on an active agreement');
         minus(Math.min(20, 10 * (r.openExceptions as number)), `${r.openExceptions} open exception(s)`);
         minus((r.activeRooms as number) > 0 && (r.engagementPoints as number) === 0 ? 15 : 0, 'No client activity in 30 days');
+        minus(r.surveyNps === null ? 0 : (r.surveyNps as number) < 0 ? 15 : (r.surveyNps as number) < 30 ? 5 : 0, `Survey NPS ${r.surveyNps}`);
         score = Math.max(0, score);
         return { ...r, engagementScore: Math.min(100, r.engagementPoints as number), score, band: score >= 80 ? 'healthy' : score >= 55 ? 'watch' : 'at_risk', factors };
       });
