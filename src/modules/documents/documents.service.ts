@@ -17,6 +17,9 @@ export const DOCUMENT_TYPES: Record<string, string> = {
   docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
   pptx: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  odt: 'application/vnd.oasis.opendocument.text',
+  ods: 'application/vnd.oasis.opendocument.spreadsheet',
+  odp: 'application/vnd.oasis.opendocument.presentation',
   doc: 'application/msword',
   xls: 'application/vnd.ms-excel',
   csv: 'text/csv',
@@ -74,7 +77,7 @@ export function documentType(fileName: string): string | null {
   return DOCUMENT_TYPES[ext] ?? null;
 }
 
-function safeName(fileName: string): string {
+export function safeName(fileName: string): string {
   return fileName.replace(/[^\p{L}\p{N}._ -]/gu, '_').slice(-200) || 'document';
 }
 
@@ -134,11 +137,12 @@ export class DocumentsService {
           );
           if (!doc) throw new NotFoundException('Document not found');
           version = doc.current_version + 1;
-          await manager.query('UPDATE room_documents SET current_version = $2 WHERE id = $1', [docId, version]);
+          await manager.query('UPDATE room_documents SET current_version = $2, last_modified_by = $3, file_format = $4 WHERE id = $1', [docId, version, actor.id, fileName.toLowerCase().split('.').pop()]);
         } else {
           const [doc] = await manager.query(
-            'INSERT INTO room_documents (tenant_id, client_room_id, title, created_by) VALUES ($1, $2, $3, $4) RETURNING id',
-            [this.context.tenantId, roomId, title ?? fileName.replace(/\.[^.]+$/, ''), actor.id],
+            `INSERT INTO room_documents (tenant_id, client_room_id, client_id, title, file_format, created_by, last_modified_by)
+             SELECT $1, r.id, r.client_id, $3, $5, $4, $4 FROM digital_sales_rooms r WHERE r.tenant_id = $1 AND r.id = $2 RETURNING id`,
+            [this.context.tenantId, roomId, title ?? fileName.replace(/\.[^.]+$/, ''), actor.id, fileName.toLowerCase().split('.').pop()],
           );
           docId = doc.id as string;
         }

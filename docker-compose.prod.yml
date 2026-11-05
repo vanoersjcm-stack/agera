@@ -113,6 +113,11 @@ services:
       KEYCLOAK_JWKS_URL: http://keycloak:8080/auth/realms/agera/protocol/openid-connect/certs
       KEYCLOAK_CLIENT_ID: agera-backend
       KEYCLOAK_CLIENT_SECRET: ${KEYCLOAK_CLIENT_SECRET:?Set KEYCLOAK_CLIENT_SECRET in .env.production}
+      # Collabora Online (LibreOffice) for in-browser office editing; it reads and saves files through
+      # the backend's WOPI endpoints on the internal network.
+      COLLABORA_URL: http://collabora:9980
+      WOPI_HOST_URL: http://backend:3000/api
+      PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env.production}
     volumes:
       - uploads:/uploads
     healthcheck:
@@ -152,6 +157,34 @@ services:
         condition: service_healthy
       keycloak:
         condition: service_healthy
+      collabora:
+        condition: service_started
+    logging: *logging
+
+  # Collabora Online Development Edition: LibreOffice in the browser for .docx/.xlsx/.pptx. Runs on this
+  # server only; the proxy publishes its editor paths (/browser, /hosting, /cool) on the same HTTPS address.
+  # Pinned to a tested release; update deliberately.
+  collabora:
+    image: collabora/code:25.04.10.3.1
+    restart: unless-stopped
+    cap_add:
+      - MKNOD
+    environment:
+      aliasgroup1: http://backend:3000
+      DONT_GEN_SSL_CERT: "true"
+      dictionaries: nl_NL en_US en_GB
+      extra_params: >-
+        --o:ssl.enable=false --o:ssl.termination=true
+        --o:net.frame_ancestors=${PUBLIC_URL:?Set PUBLIC_URL in .env.production}
+        --o:net.post_allow.host[0]=.+
+        --o:welcome.enable=false
+        --o:logging.level=warning
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:9980/hosting/discovery >/dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 40s
     logging: *logging
 
   # Placeholder for local voice-to-action processing (open-source Whisper, runs fully on this server;

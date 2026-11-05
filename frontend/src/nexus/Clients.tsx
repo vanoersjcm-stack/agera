@@ -1,3 +1,4 @@
+import { ClientOfficeDocuments } from '../office';
 import { type FormEvent, type ReactNode, useState } from 'react';
 import { api, type Client, type ClientRecord, type Invoice, type Contact, type CreditStatus, type RoomActivity } from '../api';
 import { invalidateDirectory, useUsers } from '../directory';
@@ -326,6 +327,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
           { id: 'contacts', label: `${tr("Contacts")} (${contacts.length})` },
           { id: 'agreements', label: `${tr("Agreements")} (${agreements.length})` },
           { id: 'rooms', label: `${tr("Client rooms")} (${rooms.length})` },
+          { id: 'documents', label: tr("Office documents") },
           { id: 'financials', label: `${tr("Financial plans")} (${plans.length})` },
           { id: 'stores', label: `${tr("Stores")} (${stores.length})` },
           { id: 'invoices', label: tr("Financials & run-rate") },
@@ -446,6 +448,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
           )}
         </div>
       )}
+      {tab === 'documents' && <ClientOfficeDocuments clientId={id} canCreate={client.status === 'active'} openNew={openNew} />}
       {tab === 'financials' && (
         <div className="card-panel">
           <div className="panel-head">

@@ -25,6 +25,15 @@ export interface StorageConfig {
   localDir: string;
 }
 
+export interface OfficeConfig {
+  /** Internal URL of Collabora Online (e.g. http://collabora:9980); null = office editing not connected. */
+  collaboraUrl: string | null;
+  /** How Collabora reaches this backend's WOPI endpoints, including the API prefix. */
+  wopiHostUrl: string;
+  /** Origin of the web app that embeds the editor (postMessage target). */
+  publicOrigin: string;
+}
+
 export interface AppConfig {
   port: number;
   /** Path prefix for all API routes, e.g. `api` behind the production reverse proxy; empty = none. */
@@ -34,6 +43,7 @@ export interface AppConfig {
   storage: StorageConfig;
   db: DatabaseConfig;
   keycloak: KeycloakConfig;
+  office: OfficeConfig;
 }
 
 function required(name: string): string {
@@ -61,6 +71,17 @@ function keycloakConfig(): KeycloakConfig {
   };
 }
 
+function officeConfig(): OfficeConfig {
+  const port = Number(process.env.PORT ?? 3000);
+  const prefix = (process.env.API_PREFIX ?? '').replace(/^\/+|\/+$/g, '');
+  const realm = process.env.KEYCLOAK_REALM_URL;
+  return {
+    collaboraUrl: (process.env.COLLABORA_URL || '').replace(/\/+$/, '') || null,
+    wopiHostUrl: (process.env.WOPI_HOST_URL || `http://localhost:${port}${prefix ? `/${prefix}` : ''}`).replace(/\/+$/, ''),
+    publicOrigin: process.env.PUBLIC_URL ? new URL(process.env.PUBLIC_URL).origin : realm ? new URL(realm).origin : `http://localhost:${port}`,
+  };
+}
+
 export default (): AppConfig => ({
   port: Number(process.env.PORT ?? 3000),
   apiPrefix: (process.env.API_PREFIX ?? '').replace(/^\/+|\/+$/g, ''),
@@ -79,4 +100,5 @@ export default (): AppConfig => ({
     name: required('DB_NAME'),
   },
   keycloak: keycloakConfig(),
+  office: officeConfig(),
 });

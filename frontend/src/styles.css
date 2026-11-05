@@ -686,3 +686,54 @@ button.wide { width: 100%; }
 :root[data-theme='dark'] .flow-node.wait.delayed { background: var(--tint-blue); border-color: #1e5f86; }
 :root[data-theme='dark'] .tour-card button.primary { color: #1d2433; }
 :root[data-theme='dark'] .sheet-wrap { scrollbar-color: #3a4763 var(--surface); }
+
+/* Office editor (Collabora Online / LibreOffice) */
+.office-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  background: rgba(2, 6, 23, 0.8);
+}
+.office-bar {
+  height: 52px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 0 16px;
+  background: var(--topbar);
+  color: #f1f5f9;
+  border-bottom: 1px solid #1e293b;
+}
+.office-title,
+.office-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.office-title strong {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.office-pill {
+  padding: 2px 10px;
+  border-radius: 999px;
+  border: 1px solid #334155;
+  background: #1e293b;
+  color: #a5b4fc;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.office-pill.muted-pill { color: #cbd5e1; }
+.office-saved { font-size: 12px; color: #94a3b8; white-space: nowrap; }
+.office-frame { flex: 1; width: 100%; border: 0; background: #fff; }
+.office-form { display: none; }
+.office-error { margin: 15vh auto; max-width: 440px; }
+.history-row > td { background: var(--surface-2); }
+.grid.compact td, .grid.compact th { padding: 4px 8px; font-size: 12px; }
+.doc-icon-slides { color: #d97706; }

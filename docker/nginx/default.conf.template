@@ -2,6 +2,7 @@
 # substitutes ${PUBLIC_URL}; nginx variables ($host, ...) are left untouched.
 #   /api/       -> NestJS backend (REST API, Swagger UI at /api/docs)
 #   /auth/      -> Keycloak (login, tokens, admin console)
+#   /browser, /hosting, /cool -> Collabora Online editor (LibreOffice in the browser)
 #   /           -> Agera Nexus web app (static files built into the proxy image)
 
 server_tokens off;
@@ -60,6 +61,26 @@ server {
         proxy_buffer_size 128k;
         proxy_buffers 4 256k;
         proxy_busy_buffers_size 256k;
+    }
+
+    # Collabora Online: editor assets, discovery, and the editing WebSocket. Conversion and admin
+    # endpoints are not published; the backend reaches those on the internal network.
+    location ^~ /browser/ {
+        set $collabora http://collabora:9980;
+        proxy_pass $collabora;
+    }
+
+    location ~ ^/hosting/(discovery|capabilities)$ {
+        set $collabora http://collabora:9980;
+        proxy_pass $collabora;
+    }
+
+    location ~ ^/cool/.+/ws$ {
+        set $collabora http://collabora:9980;
+        proxy_pass $collabora;
+        proxy_set_header Upgrade    $http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_read_timeout 36000s;
     }
 
     # To limit the Keycloak admin console to the admin network, uncomment and adjust:

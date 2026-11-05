@@ -10,6 +10,7 @@ import { DocumentsModule } from './modules/documents/documents.module.js';
 import { FieldModule } from './modules/field/field.module.js';
 import { WorkflowModule } from './modules/workflow/workflow.module.js';
 import { CommercialModule } from './modules/commercial/commercial.module.js';
+import { OfficeModule } from './modules/office/office.module.js';
 import { AutomationModule } from './modules/automation/automation.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { SurveysModule } from './modules/surveys/surveys.module.js';
@@ -42,6 +43,7 @@ import { WorkOrdersModule } from './modules/work-orders/work-orders.module.js';
     FieldModule,
     WorkflowModule,
     CommercialModule,
+    OfficeModule,
     AutomationModule,
     ReportsModule,
     SurveysModule,

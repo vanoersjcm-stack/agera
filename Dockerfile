@@ -14,6 +14,7 @@ COPY --from=build /app/package.json ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/dist ./dist
 COPY seed ./seed
+COPY assets ./assets
 # A fresh named volume mounted here inherits this ownership, so the app can write uploads.
 RUN mkdir -p /uploads && chown node:node /uploads
 USER node

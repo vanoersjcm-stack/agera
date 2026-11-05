@@ -14,13 +14,16 @@ interface FormProps {
 
 type Grid = string[][];
 
-const ICON_PATHS: Record<'text' | 'sheet' | 'mail', ReactNode> = {
+export type DocIconKind = 'text' | 'sheet' | 'mail' | 'slides';
+
+const ICON_PATHS: Record<DocIconKind, ReactNode> = {
   text: <><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5M9 13h6M9 17h6M9 9h2" /></>,
   sheet: <><path d="M14 3H6a1 1 0 0 0-1 1v16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V8z" /><path d="M14 3v5h5M8 12h8M8 16h8M12 12v6" /></>,
   mail: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" /></>,
+  slides: <><rect x="3" y="4" width="18" height="13" rx="1" /><path d="M12 17v4M8 21h8M7 13l3-3 2 2 4-4" /></>,
 };
 
-export function DocIcon({ kind }: { kind: 'text' | 'sheet' | 'mail' }) {
+export function DocIcon({ kind }: { kind: DocIconKind }) {
   return (
     <svg className={`doc-icon doc-icon-${kind}`} viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       {ICON_PATHS[kind]}
@@ -28,11 +31,11 @@ export function DocIcon({ kind }: { kind: 'text' | 'sheet' | 'mail' }) {
   );
 }
 
-function initialClient(defaults: NewDefaults): string {
+export function initialClient(defaults: NewDefaults): string {
   return defaults.clientId ?? getClientFilter()?.id ?? '';
 }
 
-function useClientRecord(clientId: string): ClientRecord | null {
+export function useClientRecord(clientId: string): ClientRecord | null {
   const [record, setRecord] = useState<ClientRecord | null>(null);
   useEffect(() => {
     setRecord(null);
@@ -41,7 +44,7 @@ function useClientRecord(clientId: string): ClientRecord | null {
   return record;
 }
 
-function ClientSelect({ value, onChange, optional }: { value: string; onChange: (id: string) => void; optional?: boolean }) {
+export function ClientSelect({ value, onChange, optional }: { value: string; onChange: (id: string) => void; optional?: boolean }) {
   const clients = activeClients(useClients());
   return (
     <Field label={tr("Client")} hint={optional ? tr("Optional; fills the client's details into the template") : undefined}>
@@ -53,12 +56,12 @@ function ClientSelect({ value, onChange, optional }: { value: string; onChange: 
   );
 }
 
-function RoomSelect({ record, value, onChange }: { record: ClientRecord | null; value: string; onChange: (id: string) => void }) {
+export function RoomSelect({ record, value, onChange, optionalLabel }: { record: ClientRecord | null; value: string; onChange: (id: string) => void; optionalLabel?: string }) {
   const rooms = record?.rooms ?? [];
   return (
-    <Field label={tr("Save into client room")} hint={record && rooms.length === 0 ? tr("This client has no client room yet; you can still download the file.") : tr("Stored with version history in the room's Documents tab")}>
+    <Field label={optionalLabel ? tr("Also share in client room") : tr("Save into client room")} hint={optionalLabel ? tr("Optional; shared documents are visible to the client in the portal") : record && rooms.length === 0 ? tr("This client has no client room yet; you can still download the file.") : tr("Stored with version history in the room's Documents tab")}>
       <select value={value} onChange={(e) => onChange(e.target.value)} disabled={rooms.length === 0}>
-        <option value="">{tr("Don't save, download only")}</option>
+        <option value="">{optionalLabel ?? tr("Don't save, download only")}</option>
         {rooms.map((r) => <option key={r.id} value={r.id}>{r.roomName}</option>)}
       </select>
     </Field>
@@ -152,7 +155,7 @@ function blankGrid(): Grid {
   return [[tr("Column A"), tr("Column B"), tr("Column C"), tr("Column D")], ...Array.from({ length: 5 }, () => ['', '', '', ''])];
 }
 
-function tiersGrid(products: Product[]): Grid {
+export function tiersGrid(products: Product[]): Grid {
   const money = (n: number) => n.toFixed(2);
   return [
     [tr("SKU"), tr("Product"), tr("Base price (EUR)"), tr("From 10 units (-5%)"), tr("From 50 units (-10%)")],
@@ -163,7 +166,7 @@ function tiersGrid(products: Product[]): Grid {
   ];
 }
 
-function scheduleGrid(record: ClientRecord | null): Grid {
+export function scheduleGrid(record: ClientRecord | null): Grid {
   const annual = (record?.agreements ?? []).filter((a) => a.status === 'active').reduce((sum, a) => sum + Number(a.annualValue || 0), 0);
   const start = new Date();
   return [
@@ -175,7 +178,7 @@ function scheduleGrid(record: ClientRecord | null): Grid {
   ];
 }
 
-function csvOf(grid: Grid): string {
+export function csvOf(grid: Grid): string {
   return grid.map((row) => row.map((c) => (/[",;\n]/.test(c) ? `"${c.replace(/"/g, '""')}"` : c)).join(',')).join('\r\n');
 }
 

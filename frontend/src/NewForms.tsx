@@ -1,6 +1,7 @@
 import { NewPriceListForm, NewTemplateForm } from './nexus/Commercial';
 import { NewSurveyForm } from './nexus/Surveys';
-import { NewMailForm, NewSpreadsheetForm, NewTextDocumentForm } from './DocumentCreate';
+import { type DocIconKind, NewMailForm, NewSpreadsheetForm, NewTextDocumentForm } from './DocumentCreate';
+import { OfficeOrSimple } from './office';
 import { NewExceptionForm } from './symphony/Workflow';
 import { NewAuditRoundForm, NewFieldOrderForm, NewPlanogramForm, NewProductForm } from './retailpower/Field';
 import { type FormEvent, useEffect, useState } from 'react';
@@ -18,14 +19,15 @@ export interface NewItem {
   /** Extra suites whose menu also lists this item. */
   also?: ('Nexus' | 'RetailPower' | 'Symphony')[];
   hint?: string;
-  icon?: 'text' | 'sheet' | 'mail';
+  icon?: DocIconKind;
   platformAdminOnly?: boolean;
   adminOnly?: boolean;
 }
 
 export const NEW_ITEMS: NewItem[] = [
-  { kind: 'doc_text', label: tr("Word / text document"), hint: tr("Blank or from a template, filled with client data"), icon: 'text', group: 'Document' },
-  { kind: 'doc_sheet', label: tr("Spreadsheet"), hint: tr("Price tiers, payment schedules or a blank grid"), icon: 'sheet', group: 'Document' },
+  { kind: 'doc_text', label: tr("Word document (.docx)"), hint: tr("Blank or from a template, filled with client data; opens in LibreOffice"), icon: 'text', group: 'Document' },
+  { kind: 'doc_sheet', label: tr("Spreadsheet (.xlsx)"), hint: tr("Blank, price tiers or a payment schedule; opens in LibreOffice"), icon: 'sheet', group: 'Document' },
+  { kind: 'doc_slides', label: tr("Presentation (.pptx)"), hint: tr("Blank 16:9 presentation; opens in LibreOffice"), icon: 'slides', group: 'Document' },
   { kind: 'doc_mail', label: tr("E-mail"), hint: tr("Compose from a template; opens in your e-mail program"), icon: 'mail', group: 'Document' },
   { kind: 'deal', label: tr("Deal"), group: 'Nexus' },
   { kind: 'client', label: tr("Client"), group: 'Nexus' },
@@ -692,6 +694,7 @@ const TITLES: Record<NewKind, string> = {
   survey: 'New survey',
   doc_text: 'New document',
   doc_sheet: 'New spreadsheet',
+  doc_slides: 'New presentation',
   doc_mail: 'New e-mail',
   automation: 'New automation',
   user_invite: 'Invite a person',
@@ -731,8 +734,9 @@ export function NewDrawer({
       {kind === 'contact' && <ContactForm {...props} onSwitch={onSwitch} />}
       {kind === 'financial_plan' && <FinancialPlanForm {...props} />}
       {kind === 'survey' && <NewSurveyForm {...props} />}
-      {kind === 'doc_text' && <NewTextDocumentForm {...props} />}
-      {kind === 'doc_sheet' && <NewSpreadsheetForm {...props} />}
+      {kind === 'doc_text' && <OfficeOrSimple format="docx" {...props} simple={<NewTextDocumentForm {...props} />} />}
+      {kind === 'doc_sheet' && <OfficeOrSimple format="xlsx" {...props} simple={<NewSpreadsheetForm {...props} />} />}
+      {kind === 'doc_slides' && <OfficeOrSimple format="pptx" {...props} simple={null} />}
       {kind === 'doc_mail' && <NewMailForm {...props} />}
       {kind === 'organisation' && <OrganisationForm {...props} />}
       {kind === 'integration_key' && <IntegrationKeyForm {...props} />}

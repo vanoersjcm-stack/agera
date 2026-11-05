@@ -9,5 +9,6 @@ import { CommercialService } from './commercial.service.js';
   imports: [CoreModule, UserModule, DocumentsModule],
   controllers: [PriceListsController, DocumentTemplatesController, RoomTemplateDocumentsController],
   providers: [CommercialService],
+  exports: [CommercialService],
 })
 export class CommercialModule {}

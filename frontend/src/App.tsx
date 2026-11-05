@@ -36,6 +36,7 @@ import { IntegrationsView as ExternalSystemsView } from './symphony/Integrations
 import { GoldenThreadTour, startTour } from './tour';
 import { getTheme, setTheme } from './theme';
 import { getLanguage, setLanguage, t, useLanguage, t as tr, tf } from './i18n';
+import { OfficeEditorHost } from './office';
 import { startOfflineSync, useOfflineQueue } from './offlineQueue';
 import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
 import { ActivityLogView, IntegrationsView, OrganisationsView, SymphonyOverview } from './symphony/SymphonyViews';
@@ -656,6 +657,7 @@ export function App() {
             notify={setToast}
           />
         )}
+        {!external && <OfficeEditorHost />}
         {toast && <div className="toast" role="status">{toast}</div>}
       </div>
     </ShellContext.Provider>

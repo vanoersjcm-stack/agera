@@ -836,6 +836,12 @@ export const api = {
     if (fields.documentId) form.append('documentId', fields.documentId);
     return send<RoomDocument>('POST', `/v1/nexus/client-rooms/${roomId}/documents`, form);
   },
+  editorStatus: () => request<{ connected: boolean; editor: string }>('GET', '/v1/documents/editor-status'),
+  officeDocuments: (clientId: string) => request<OfficeDocument[]>('GET', `/v1/documents?clientId=${clientId}`),
+  createOfficeDocument: (body: NewOfficeDocument) => request<OfficeDocument>('POST', '/v1/documents', body),
+  officeVersions: (id: string) => request<OfficeVersion[]>('GET', `/v1/documents/${id}/versions`),
+  officeSession: (id: string) => request<EditorSession>('POST', `/v1/documents/${id}/session`),
+  downloadOfficeDocument: (id: string, fileName: string, version?: number) => downloadFile(`/v1/documents/${id}/download${version ? `?version=${version}` : ''}`, fileName),
   renameRoomDocument: (roomId: string, id: string, title: string) => request<RoomDocument>('PATCH', `/v1/nexus/client-rooms/${roomId}/documents/${id}`, { title }),
   deleteRoomDocument: (roomId: string, id: string) => request<null>('DELETE', `/v1/nexus/client-rooms/${roomId}/documents/${id}`),
   downloadRoomDocument: (roomId: string, id: string, fileName: string, version?: number) =>
@@ -855,3 +861,57 @@ export const api = {
   createAgreement: (body: { clientId: string; title: string; documentUrl: string; annualValue?: string; churnRisk?: string; endDate?: string | null }) => request<Agreement>('POST', '/v1/agreements', body),
   setAgreementStatus: (id: string, status: AgreementStatus) => request<Agreement>('PATCH', `/v1/agreements/${id}/status`, { status }),
 };
+
+export interface OfficeDocument {
+  id: string;
+  title: string;
+  clientId: string;
+  clientName: string | null;
+  clientRoomId: string | null;
+  roomName: string | null;
+  contactId: string | null;
+  contactName: string | null;
+  dealId: string | null;
+  dealName: string | null;
+  fileFormat: string | null;
+  fileName: string;
+  mimeType: string;
+  sizeBytes: number;
+  sha256: string;
+  currentVersion: number;
+  editable: boolean;
+  lastModifiedByName: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OfficeVersion {
+  id: string;
+  version: number;
+  fileName: string;
+  sizeBytes: number;
+  sha256: string;
+  uploadedByName: string | null;
+  createdAt: string;
+}
+
+export interface NewOfficeDocument {
+  clientId: string;
+  contactId?: string | null;
+  clientRoomId?: string | null;
+  title: string;
+  format: 'docx' | 'xlsx' | 'pptx';
+  templateId?: string | null;
+  starterCsv?: string | null;
+}
+
+export interface EditorSession {
+  documentId: string;
+  editorUrl: string;
+  accessToken: string;
+  accessTokenTtl: number;
+  documentTitle: string;
+  clientName: string | null;
+  contactName: string | null;
+  fileFormat: string;
+}

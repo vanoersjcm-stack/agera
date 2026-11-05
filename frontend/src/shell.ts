@@ -3,6 +3,7 @@ import { createContext, useContext } from 'react';
 export type NewKind =
   | 'doc_text'
   | 'doc_sheet'
+  | 'doc_slides'
   | 'doc_mail'
   | 'automation'
   | 'user_invite'
