@@ -258,14 +258,14 @@ export class OfficeService {
   }
 
   private async convert(data: Buffer, name: string, to: string): Promise<Buffer> {
-    if (!this.office.collaboraUrl) throw new ServiceUnavailableException('The office editor (Collabora Online) is not connected');
+    if (!this.office.collaboraUrl) throw new ServiceUnavailableException('Agera Office is not connected');
     const form = new FormData();
     form.append('data', new Blob([new Uint8Array(data)]), name);
     let res: Response;
     try {
       res = await fetch(`${this.office.collaboraUrl}/cool/convert-to/${to}`, { method: 'POST', body: form, signal: AbortSignal.timeout(30000) });
     } catch {
-      throw new ServiceUnavailableException('The office editor (Collabora Online) is not reachable');
+      throw new ServiceUnavailableException('Agera Office is not reachable');
     }
     if (!res.ok) throw new ServiceUnavailableException(`Document conversion failed (${res.status})`);
     return Buffer.from(await res.arrayBuffer());
@@ -299,7 +299,7 @@ export class OfficeService {
 
   async session(id: string, identity: AuthenticatedUser): Promise<EditorSession> {
     const urls = await this.editorUrls();
-    if (!urls) throw new ServiceUnavailableException('The office editor (Collabora Online) is not connected');
+    if (!urls) throw new ServiceUnavailableException('Agera Office is not connected');
     const actor = await this.userService.resolveActor(identity);
     const { doc, name } = await this.tx.run(async (manager) => {
       const doc = await this.view(manager, id);

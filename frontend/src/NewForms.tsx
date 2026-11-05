@@ -25,9 +25,9 @@ export interface NewItem {
 }
 
 export const NEW_ITEMS: NewItem[] = [
-  { kind: 'doc_text', label: tr("Word document (.docx)"), hint: tr("Blank or from a template, filled with client data; opens in LibreOffice"), icon: 'text', group: 'Document' },
-  { kind: 'doc_sheet', label: tr("Spreadsheet (.xlsx)"), hint: tr("Blank, price tiers or a payment schedule; opens in LibreOffice"), icon: 'sheet', group: 'Document' },
-  { kind: 'doc_slides', label: tr("Presentation (.pptx)"), hint: tr("Blank 16:9 presentation; opens in LibreOffice"), icon: 'slides', group: 'Document' },
+  { kind: 'doc_text', label: tr("Word document (.docx)"), hint: tr("Blank or from a template, filled with client data; opens in Agera Office"), icon: 'text', group: 'Document' },
+  { kind: 'doc_sheet', label: tr("Spreadsheet (.xlsx)"), hint: tr("Blank, price tiers or a payment schedule; opens in Agera Office"), icon: 'sheet', group: 'Document' },
+  { kind: 'doc_slides', label: tr("Presentation (.pptx)"), hint: tr("Blank 16:9 presentation; opens in Agera Office"), icon: 'slides', group: 'Document' },
   { kind: 'doc_mail', label: tr("E-mail"), hint: tr("Compose from a template; opens in your e-mail program"), icon: 'mail', group: 'Document' },
   { kind: 'deal', label: tr("Deal"), group: 'Nexus' },
   { kind: 'client', label: tr("Client"), group: 'Nexus' },

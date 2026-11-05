@@ -46,7 +46,7 @@ export function OfficeEditorHost() {
   };
   if (error) {
     return (
-      <div className="office-overlay" role="alertdialog" aria-label={tr("Office editor")}>
+      <div className="office-overlay" role="alertdialog" aria-label={tr("Agera Office")}>
         <div className="office-error card-panel">
           <p>{tr("The document could not be opened in the editor.")}</p>
           <ErrorText error={error} />
@@ -107,7 +107,7 @@ function OfficeEditor({ session, onClose }: { session: EditorSession; onClose: (
         <input type="hidden" name="access_token" value={session.accessToken} />
         <input type="hidden" name="access_token_ttl" value={String(session.accessTokenTtl)} />
       </form>
-      <iframe ref={frameRef} name={frameName} title={tf("Office editor: {title}", { title: session.documentTitle })} className="office-frame" allow="clipboard-read; clipboard-write; fullscreen" />
+      <iframe ref={frameRef} name={frameName} title={tf("Agera Office: {title}", { title: session.documentTitle })} className="office-frame" allow="clipboard-read; clipboard-write; fullscreen" />
     </div>
   );
 }
@@ -121,13 +121,13 @@ interface FormProps {
 /** "+ New" document entries: LibreOffice when Collabora is connected, otherwise the simple built-in editor. */
 export function OfficeOrSimple({ format, simple, ...props }: FormProps & { format: Format; simple: ReactNode }) {
   const connected = useEditorConnected();
-  if (connected === null) return <p className="muted">{tr("Checking the office editor…")}</p>;
+  if (connected === null) return <p className="muted">{tr("Checking Agera Office…")}</p>;
   if (connected) return <NewOfficeDocumentForm format={format} {...props} />;
   return (
     <>
       <div className="assistant-tip">
-        <strong>{tr("Office editor not connected")}</strong>
-        <p>{simple ? tr("The LibreOffice editor (Collabora Online) is not reachable, so this opens the simple editor instead.") : tr("Presentations need the LibreOffice editor (Collabora Online), which is not reachable right now.")}</p>
+        <strong>{tr("Agera Office not connected")}</strong>
+        <p>{simple ? tr("Agera Office is not reachable, so this opens the simple editor instead.") : tr("Presentations need Agera Office, which is not reachable right now.")}</p>
       </div>
       {simple}
     </>
@@ -207,11 +207,11 @@ function NewOfficeDocumentForm({ format, defaults, onDone, onCancel }: FormProps
       )}
       <Field label={tr("Title")}><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={docTitle} /></Field>
       {clientId && <RoomSelect record={record} value={roomId} onChange={setRoomId} optionalLabel={tr("Client dossier only")} />}
-      <p className="hint">{tr("The document is stored in the client dossier with version history and opens in the LibreOffice editor.")}</p>
+      <p className="hint">{tr("The document is stored in the client dossier with version history and opens in Agera Office.")}</p>
       <ErrorText error={error} />
       <div className="form-actions">
         <button type="button" className="secondary" onClick={onCancel}>{tr("Cancel")}</button>
-        <button type="submit" className="primary" disabled={busy || !clientId}>{tr("Open in LibreOffice")}</button>
+        <button type="submit" className="primary" disabled={busy || !clientId}>{tr("Open in Agera Office")}</button>
       </div>
     </form>
   );
@@ -260,8 +260,8 @@ export function ClientOfficeDocuments({ clientId, canCreate, openNew }: { client
       </div>
       {connected === false && (
         <div className="assistant-tip">
-          <strong>{tr("Office editor not connected")}</strong>
-          <p>{tr("The LibreOffice editor (Collabora Online) is not reachable. You can still download files and see their history.")}</p>
+          <strong>{tr("Agera Office not connected")}</strong>
+          <p>{tr("Agera Office is not reachable. You can still download files and see their history.")}</p>
         </div>
       )}
       <Tabs tabs={GROUPS.filter((g) => g.id !== 'other' || count('other') > 0).map((g) => ({ id: g.id, label: `${tr(g.label)} (${count(g.id)})` }))} active={group} onChange={setGroup} />
