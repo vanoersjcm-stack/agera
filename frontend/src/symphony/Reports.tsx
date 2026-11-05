@@ -7,7 +7,7 @@ import { useShell } from '../shell';
 import { currentTier } from '../suites';
 import { ErrorText, Loading, useAction, useLoad } from '../ui';
 import { EnterpriseBadge } from './Automations';
-import { t } from '../i18n';
+import { t, tf } from '../i18n';
 
 const SUITE = { label: t("Symphony"), href: '#/symphony' };
 
@@ -61,7 +61,7 @@ export function ReportsView() {
         {!datasets.data && <Loading error={datasets.error} />}
         <div className="export-grid">
           {datasets.data?.map((d) => (
-            <button key={d.key} className="secondary" disabled={action.busy} onClick={() => void action.run(() => api.exportDataset(d.key)).then(() => notify(`${d.label} exported`))}>⭳ {d.label}</button>
+            <button key={d.key} className="secondary" disabled={action.busy} onClick={() => void action.run(() => api.exportDataset(d.key)).then(() => notify(tf("{name} exported", { name: d.label })))}>⭳ {d.label}</button>
           ))}
         </div>
       </div>
@@ -217,7 +217,7 @@ export function ReportBuilderView() {
                       <td className="row-actions">
                         <button className="link-button" onClick={() => (setDef(s.definition), setName(s.name), setResult(null))}>{t("Open")}</button>
                         <button className="link-button" onClick={() => void action.run(() => api.updateSavedReport(s.id, { pinned: !s.pinned })).then((r) => r && saved.reload())}>{s.pinned ? t("Unpin") : t("Pin as tab")}</button>
-                        <button className="link-button danger" onClick={() => window.confirm(`Delete ${s.name}?`) && void action.run(() => api.deleteSavedReport(s.id)).then((r) => r !== undefined && saved.reload())}>{t("Delete")}</button>
+                        <button className="link-button danger" onClick={() => window.confirm(tf("Delete {name}?", { name: s.name })) && void action.run(() => api.deleteSavedReport(s.id)).then((r) => r !== undefined && saved.reload())}>{t("Delete")}</button>
                       </td>
                     </tr>
                   ))}

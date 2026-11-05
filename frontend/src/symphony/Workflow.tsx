@@ -7,7 +7,7 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { type NewDefaults, useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, Loading, StatusBadge, useAction, useLoad } from '../ui';
-import { t as tr } from '../i18n';
+import { t as tr, tf } from '../i18n';
 
 const APPROVAL_STATUS: Record<string, string> = { pending: 'Pending', approved: 'Approved', rejected: 'Rejected', cancelled: 'Withdrawn' };
 const SEVERITY: Record<ExceptionSeverity, string> = { low: 'Low', medium: 'Medium', high: 'High' };
@@ -34,7 +34,7 @@ function RequestApprovalDrawer({ entityType, entityId, onClose, onDone }: { enti
     <Drawer title={tr("Send for approval")} onClose={onClose}>
       <form onSubmit={submit}>
         <p className="muted">{tr("Approvers decide one after another. The last approval")} {entityType === 'agreement' ? tr("activates the agreement") : tr("approves the plan")}  {tr("automatically.")}</p>
-        <Field label={`Approval chain (${chain.length} of max. 5)`}>
+        <Field label={tf("Approval chain ({n} of max. 5)", { n: chain.length })}>
           <ol className="chain">
             {chain.map((id, i) => (
               <li key={id}>
@@ -321,7 +321,7 @@ const BAND_STATUS: Record<string, string> = { healthy: 'compliant', watch: 'need
 export function HealthBadge({ clientId }: { clientId: string }) {
   const h = useLoad(() => api.clientsHealth(), []).data?.find((x) => x.clientId === clientId);
   if (!h) return null;
-  return <span title={h.factors.join(' · ') || tr("No risk factors")}><StatusBadge status={BAND_STATUS[h.band]} label={`Health ${h.score} · ${BAND[h.band]}`} /></span>;
+  return <span title={h.factors.join(' · ') || tr("No risk factors")}><StatusBadge status={BAND_STATUS[h.band]} label={tf("Health {score} · {band}", { score: h.score, band: BAND[h.band] })} /></span>;
 }
 
 export function HealthView() {

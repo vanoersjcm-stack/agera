@@ -6,7 +6,7 @@ import { navigate, type Route, withParams } from '../router';
 import { editionName } from '../suites';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, Loading, useAction, useLoad } from '../ui';
-import { t as tr } from '../i18n';
+import { t as tr, tf } from '../i18n';
 
 const SUITE_CRUMB = { label: tr("Symphony"), href: '#/symphony' };
 
@@ -130,11 +130,11 @@ function EditionTable({ tenants, currentId, onChanged }: { tenants: Tenant[]; cu
   const { notify } = useShell();
   const { busy, error, run } = useAction();
   const change = (t: Tenant, licenseTier: LicenseTier) => {
-    if (!window.confirm(`Switch ${t.name} to ${editionName(licenseTier)}?`)) return;
+    if (!window.confirm(tf("Switch {name} to {edition}?", { name: t.name, edition: editionName(licenseTier) }))) return;
     void run(() => api.setLicense(t.id, { licenseTier })).then((r) => {
       if (!r) return;
       if (t.id === currentId) window.location.reload();
-      else (notify(`${t.name} is now on ${editionName(licenseTier)}`), onChanged());
+      else (notify(tf("{name} is now on {edition}", { name: t.name, edition: editionName(licenseTier) })), onChanged());
     });
   };
   return (
@@ -166,8 +166,8 @@ function KeyRow({ apiKey, onRevoked }: { apiKey: ApiKey; onRevoked: () => void }
   const { busy, error, run } = useAction();
   const expired = apiKey.expiresAt !== null && new Date(apiKey.expiresAt) < new Date();
   const revoke = () =>
-    window.confirm(`Revoke “${apiKey.name}”? Systems using this key lose access immediately.`) &&
-    void run(() => api.revokeApiKey(apiKey.id)).then((r) => r !== undefined && (notify(`Integration key “${apiKey.name}” revoked`), onRevoked()));
+    window.confirm(tf("Revoke “{name}”? Systems using this key lose access immediately.", { name: apiKey.name })) &&
+    void run(() => api.revokeApiKey(apiKey.id)).then((r) => r !== undefined && (notify(tf("Integration key “{name}” revoked", { name: apiKey.name })), onRevoked()));
   return (
     <tr>
       <td>{apiKey.name}</td>

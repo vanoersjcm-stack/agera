@@ -7,7 +7,7 @@ import { navigate, type Route, withParams } from '../router';
 import { type NewDefaults, useShell } from '../shell';
 import { Drawer, ErrorText, Field, FilterChips, FormActions, Loading, StatusBadge, useAction, useLoad } from '../ui';
 import { money } from './Clients';
-import { t as tr } from '../i18n';
+import { t as tr, tf } from '../i18n';
 
 const SUITE = { label: tr("Nexus"), href: '#/nexus' };
 export const TEMPLATE_KIND: Record<TemplateKind, string> = { proposal: 'Proposal', agreement: 'Agreement', letter: 'Letter', mail: 'E-mail text' };
@@ -98,7 +98,7 @@ export function PriceListsView({ route }: { route: Route }) {
               <tr key={l.id} onClick={() => navigate(`/nexus/price-lists/${l.id}`)}>
                 <td><a href={`#/nexus/price-lists/${l.id}`}>{l.name}</a></td>
                 <td>{l.clientName ?? tr("General")}</td>
-                <td>{l.validFrom ? formatDate(l.validFrom) : 'always'} – {l.validTo ? formatDate(l.validTo) : 'open'}</td>
+                <td>{l.validFrom ? formatDate(l.validFrom) : tr("always")} – {l.validTo ? formatDate(l.validTo) : 'open'}</td>
                 <td className="num">{l.itemCount}</td>
                 <td>{l.active ? <StatusBadge status="active" label={tr("Active")} /> : <StatusBadge status="archived" label={tr("Inactive")} />}</td>
               </tr>
@@ -119,7 +119,7 @@ export function PriceListDossier({ id }: { id: string }) {
   if (!list.data) return <ViewFrame title={tr("Price list")} crumbs={[...crumbs, { label: tr("Loading…") }]}><Loading error={list.error} /></ViewFrame>;
   const l = list.data;
   return (
-    <ViewFrame title={l.name} subtitle={l.clientName ? `Prices for ${l.clientName}` : tr("General price list")} crumbs={[...crumbs, { label: l.name }]}
+    <ViewFrame title={l.name} subtitle={l.clientName ? tf("Prices for {client}", { client: l.clientName }) : tr("General price list")} crumbs={[...crumbs, { label: l.name }]}
       actions={<>
         <button className="secondary" onClick={() => setEditing(true)}>{tr("Edit")}</button>
         <button className="secondary" disabled={action.busy} onClick={() => void action.run(() => api.updatePriceList(id, { active: !l.active })).then((r) => r && (notify(r.active ? tr("Price list activated") : tr("Price list deactivated")), list.reload()))}>{l.active ? tr("Deactivate") : tr("Activate")}</button>

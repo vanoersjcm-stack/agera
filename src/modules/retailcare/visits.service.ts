@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, type FindOptionsWhere, MoreThan, Repository } from 'typeorm';
+import { DataSource, type FindOptionsWhere, MoreThan, Raw, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { AuditService } from '../core/audit/audit.service.js';
 import { User } from '../core/entities/index.js';
@@ -28,6 +28,8 @@ export interface ListVisitsQuery {
   limit: number;
   storeId: string | null;
   updatedSince: Date | null;
+  /** Only visits to this client's stores. */
+  clientId?: string | null;
 }
 
 export interface VisitPage {
@@ -83,9 +85,12 @@ export class VisitsService {
     return visit;
   }
 
-  async list({ page, limit, storeId, updatedSince }: ListVisitsQuery): Promise<VisitPage> {
+  async list({ page, limit, storeId, updatedSince, clientId = null }: ListVisitsQuery): Promise<VisitPage> {
     const where: FindOptionsWhere<MerchandisingVisit> = {};
-    if (storeId !== null) {
+    if (clientId) {
+      const ofClient = (s: string) => `${s} IN (SELECT id FROM stores WHERE client_id = :clientId)`;
+      where.storeId = Raw((s) => (storeId !== null ? `${s} = :storeId AND ${ofClient(s)}` : ofClient(s)), { storeId, clientId });
+    } else if (storeId !== null) {
       where.storeId = storeId;
     }
     if (updatedSince !== null) {

@@ -112,6 +112,7 @@ export class VisitsController {
   @ApiOperation({ summary: 'List visits of the active tenant (newest first, or oldest first with updatedSince)' })
   @ApiPagination()
   @ApiQuery({ name: 'storeId', required: false, schema: { type: 'string', format: 'uuid' }, description: 'Only visits of this store' })
+  @ApiQuery({ name: 'clientId', required: false, schema: { type: 'string', format: 'uuid' }, description: "Only visits to this client's stores" })
   @ApiUpdatedSince()
   @ApiOkResponse({ type: VisitPageDto })
   @ApiErrors(400)
@@ -120,6 +121,7 @@ export class VisitsController {
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
     @Query('storeId') storeId?: string,
     @Query('updatedSince') updatedSince?: string,
+    @Query('clientId') clientId?: string,
   ): Promise<VisitPageDto> {
     assertPagination(page, limit);
     const result = await this.visits.list({
@@ -127,6 +129,7 @@ export class VisitsController {
       limit,
       storeId: optionalUuid('storeId', storeId),
       updatedSince: parseTimestamp('updatedSince', updatedSince),
+      clientId: optionalUuid('clientId', clientId),
     });
     return { ...result, items: result.items.map(toVisitResponse) };
   }

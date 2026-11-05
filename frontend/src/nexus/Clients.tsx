@@ -8,7 +8,7 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
-import { t as tr } from '../i18n';
+import { t as tr, tf } from '../i18n';
 
 const SUITE = { label: tr("Nexus"), href: '#/nexus' };
 const LIST = { label: tr("Clients"), href: '#/nexus/clients' };
@@ -289,7 +289,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
   };
   const toggleArchive = () => {
     const archive = client.status === 'active';
-    if (archive && !window.confirm(`Archive ${client.name}? It will no longer be offered when creating agreements or client rooms.`)) return;
+    if (archive && !window.confirm(tf("Archive {name}? It will no longer be offered when creating agreements or client rooms.", { name: client.name }))) return;
     void action.run(() => api.updateClient(id, { status: archive ? 'archived' : 'active' })).then((r) => r && saved(archive ? 'Client archived' : 'Client reactivated'));
   };
   return (
@@ -323,11 +323,11 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
       <Tabs
         tabs={[
           { id: 'overview', label: tr("Master data") },
-          { id: 'contacts', label: `Contacts (${contacts.length})` },
-          { id: 'agreements', label: `Agreements (${agreements.length})` },
-          { id: 'rooms', label: `Client rooms (${rooms.length})` },
-          { id: 'financials', label: `Financial plans (${plans.length})` },
-          { id: 'stores', label: `Stores (${stores.length})` },
+          { id: 'contacts', label: `${tr("Contacts")} (${contacts.length})` },
+          { id: 'agreements', label: `${tr("Agreements")} (${agreements.length})` },
+          { id: 'rooms', label: `${tr("Client rooms")} (${rooms.length})` },
+          { id: 'financials', label: `${tr("Financial plans")} (${plans.length})` },
+          { id: 'stores', label: `${tr("Stores")} (${stores.length})` },
           { id: 'invoices', label: tr("Financials & run-rate") },
           { id: 'activity', label: tr("Activity") },
         ]}

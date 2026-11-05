@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api, type VisitMedia, type VisitStatus, type VisitSummary } from '../api';
+import { useClientFilter } from '../clientFilter';
 import { isOffline, queuePhoto, queueReport } from '../offlineQueue';
 import { useUsers, userName } from '../directory';
 import { EditVisitDrawer } from '../EditForms';
@@ -8,7 +9,7 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, Stepper, useAction, useLoad } from '../ui';
-import { t } from '../i18n';
+import { t, tf } from '../i18n';
 
 const SUITE_CRUMB = { label: t("RetailPower"), href: '#/retailpower' };
 const LIST_CRUMB = { label: t("Store visits"), href: '#/retailpower/store-visits' };
@@ -18,7 +19,8 @@ export function StoreVisitsView({ route }: { route: Route }) {
   const users = useUsers();
   const status = route.params.get('status') ?? 'upcoming';
   const q = route.params.get('q') ?? '';
-  const visits = useLoad(() => api.visits());
+  const clientFilter = useClientFilter();
+  const visits = useLoad(() => api.visits(undefined, clientFilter?.id), [clientFilter?.id]);
   const stores = useLoad(() => api.stores());
   const storeName = (id: string) => stores.data?.items.find((s) => s.id === id)?.name ?? '…';
   const items = visits.data?.items ?? [];
@@ -49,8 +51,8 @@ export function StoreVisitsView({ route }: { route: Route }) {
       </div>
       {!visits.data && <Loading error={visits.error} />}
       {visits.data && filtered.length === 0 && (
-        <EmptyState title={items.length === 0 ? t("No store visits yet") : t("No visits match this filter")} action={<button className="primary" onClick={() => openNew('store_visit')}>{t("+ New store visit")}</button>}>
-          {items.length === 0 ? t("Plan a visit to a store; the field representative then writes the report with photos.") : t("Try another status.")}
+        <EmptyState title={items.length === 0 && !clientFilter ? t("No store visits yet") : t("No visits match this filter")} action={<button className="primary" onClick={() => openNew('store_visit')}>{t("+ New store visit")}</button>}>
+          {items.length === 0 && !clientFilter ? t("Plan a visit to a store; the field representative then writes the report with photos.") : clientFilter && items.length === 0 ? tf("No visits to stores of {name}. Clear the client filter in the action bar to see all visits.", { name: clientFilter.name }) : t("Try another status.")}
         </EmptyState>
       )}
       {filtered.length > 0 && (
@@ -162,6 +164,7 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
 
   const upload = (files: FileList | null) => {
     if (!files?.length) return;
+    const count = files.length;
     void photos
       .run(async () => {
         let queued = 0;
@@ -170,11 +173,11 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
           else await api.uploadVisitPhoto(visitId, file).catch((e: unknown) => (isOffline(e) ? queuePhoto(visitId, storeId, file).then(() => void queued++) : Promise.reject(e)));
         }
         if (queued) notify(t("Offline: photos are queued and uploaded automatically when the connection is back"));
-        return queued < files.length;
+        return queued < count;
       })
       .then((ok) => {
         if (fileInput.current) fileInput.current.value = '';
-        if (ok) (notify(files.length > 1 ? `${files.length} photos added` : t("Photo added")), onSaved());
+        if (ok) (notify(count > 1 ? tf("{n} photos added", { n: count }) : t("Photo added")), onSaved());
       });
   };
 
@@ -216,7 +219,7 @@ function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; edi
             {planogramItems.map((i) => (
               <div key={`${i.planogram}-${i.productId}`} className="line-row">
                 <span className="line-name">{i.productName} <span className="muted small">{i.planogram}{i.shelf ? ` · ${i.shelf}` : ''}  {t("· expected")} {i.expectedFacings}</span></span>
-                <input type="number" min={0} max={999} aria-label={`Facings found for ${i.productName}`} value={facings[i.productId] ?? ''} onChange={(e) => setFacings({ ...facings, [i.productId]: e.target.value })} />
+                <input type="number" min={0} max={999} aria-label={tf("Facings found for {product}", { product: i.productName })} value={facings[i.productId] ?? ''} onChange={(e) => setFacings({ ...facings, [i.productId]: e.target.value })} />
               </div>
             ))}
             {typeof audit.planogramScore === 'number' && <span className="field-hint">{t("Saved score:")} {audit.planogramScore}%</span>}

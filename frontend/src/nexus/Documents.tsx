@@ -4,7 +4,7 @@ import { formatDateTime } from '../labels';
 import { useShell } from '../shell';
 import { ErrorText, Loading, useAction, useLoad } from '../ui';
 import { GenerateDocumentDrawer } from './Commercial';
-import { t } from '../i18n';
+import { t, tf } from '../i18n';
 
 const ACCEPT = '.pdf,.docx,.xlsx,.pptx,.doc,.xls,.csv,.txt,.png,.jpg,.jpeg';
 
@@ -50,7 +50,7 @@ export function RoomDocumentsPanel({ roomId, external, active, compact = false }
     void run(() => api.uploadRoomDocument(roomId, file, { documentId })).then((r) => {
       if (fileInput.current) fileInput.current.value = '';
       setVersionOf(null);
-      if (r) (notify(documentId ? `Version ${r.currentVersion} of ${r.title} uploaded` : `${r.title} uploaded`), docs.reload());
+      if (r) (notify(documentId ? tf("Version {v} of {title} uploaded", { v: r.currentVersion, title: r.title }) : tf("{title} uploaded", { title: r.title })), docs.reload());
     });
   };
   const pick = (documentId: string | null) => {
@@ -62,7 +62,7 @@ export function RoomDocumentsPanel({ roomId, external, active, compact = false }
     if (title && title !== d.title) void run(() => api.renameRoomDocument(roomId, d.id, title)).then((r) => r && docs.reload());
   };
   const remove = (d: RoomDocument) =>
-    window.confirm(`Delete ${d.title} and all its versions?`) && void run(() => api.deleteRoomDocument(roomId, d.id)).then((r) => r !== undefined && (notify(t("Document deleted")), docs.reload()));
+    window.confirm(tf("Delete {title} and all its versions?", { title: d.title })) && void run(() => api.deleteRoomDocument(roomId, d.id)).then((r) => r !== undefined && (notify(t("Document deleted")), docs.reload()));
   const list = docs.data ?? [];
   return (
     <div className={compact ? '' : 'card-panel'}>

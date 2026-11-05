@@ -9,7 +9,7 @@ import { useShell } from '../shell';
 import { RoomActivityPanel, useRecordOpened } from './RoomActivity';
 import { RoomDocumentsPanel } from './Documents';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
-import { t as tr } from '../i18n';
+import { t as tr, tf } from '../i18n';
 
 function crumbs(external: boolean) {
   return external
@@ -147,7 +147,7 @@ function ActionPlanPanel({ roomId, external, active }: { roomId: string; externa
       .then((r) => r && (setForm({ title: '', ownerSide: form.ownerSide, dueDate: '' }), notify(tr("Step added")), reload()));
   };
   const remove = (m: Milestone) => {
-    if (!window.confirm(`Remove the step “${m.title}”?`)) return;
+    if (!window.confirm(tf("Remove the step “{title}”?", { title: m.title }))) return;
     void action.run(() => api.deleteMilestone(roomId, m.id)).then((r) => r !== undefined && reload());
   };
   return (
@@ -170,8 +170,8 @@ function ActionPlanPanel({ roomId, external, active }: { roomId: string; externa
                 <span className="plan-title">
                   {m.title}
                   <div className="muted small">
-                    {m.dueDate ? `Due ${formatDate(m.dueDate)}` : tr("No due date")}
-                    {m.completed && m.completedAt ? ` · done ${formatDateTime(m.completedAt)}${m.completedByName ? ` by ${m.completedByName}` : ''}` : ''}
+                    {m.dueDate ? tf("Due {date}", { date: formatDate(m.dueDate) }) : tr("No due date")}
+                    {m.completed && m.completedAt ? ` · ${m.completedByName ? tf("done {when} by {name}", { when: formatDateTime(m.completedAt), name: m.completedByName }) : tf("done {when}", { when: formatDateTime(m.completedAt) })}` : ''}
                   </div>
                 </span>
                 <span className={`plan-side ${m.ownerSide}`}>{m.ownerSide === 'client' ? (external ? tr("Your team") : tr("Client")) : tr("Agera team")}</span>
@@ -243,7 +243,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
           { id: 'details', label: tr("Details") },
           { id: 'documents', label: tr("Documents") },
           { id: 'plan', label: tr("Action plan") },
-          { id: 'engagement', label: `Engagement${stats ? ` (${stats.stakeholderCount})` : ''}` },
+          { id: 'engagement', label: `${tr("Engagement")}${stats ? ` (${stats.stakeholderCount})` : ''}` },
           { id: 'activity', label: tr("Comments & activity") },
         ]}
         active={tab}
@@ -310,7 +310,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
         <>
           {!engagement.data && <Loading error={engagement.error} />}
           {engagement.data && !stats && (
-            <EmptyState title={`No client activity in the last ${engagement.data.windowDays} days`}>
+            <EmptyState title={tf("No client activity in the last {n} days", { n: engagement.data.windowDays })}>
               {tr("Opening the room, viewing sections, watching briefings, downloads, comments and accepting or rejecting terms appear here.")}</EmptyState>
           )}
           {stats && (

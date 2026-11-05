@@ -6,7 +6,7 @@ import { formatDate, ROLE } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { Drawer, ErrorText, Field, FilterChips, FormActions, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
-import { t } from '../i18n';
+import { t, tf } from '../i18n';
 
 const ROLE_LABEL: Record<AccountRole, string> = { ...ROLE, External_Client: 'Client contact' };
 
@@ -64,7 +64,7 @@ function ProfileDrawer({ account, onClose, onSaved }: { account: UserAccount; on
     void run(() => api.setUserProfile(account.id, { title: title.trim() || null, zone: zone.trim() || null })).then((r) => r && onSaved());
   };
   return (
-    <Drawer title={`Job title and region · ${account.name}`} onClose={onClose}>
+    <Drawer title={tf("Job title and region · {name}", { name: account.name })} onClose={onClose}>
       <form onSubmit={submit}>
         <Field label={t("Job title")} hint={t("Shown in the profile menu, e.g. Key account manager")}><input maxLength={150} value={title} onChange={(e) => setTitle(e.target.value)} autoFocus /></Field>
         <Field label={t("Region / zone")} hint={t("e.g. Noord-Holland or Benelux")}><input maxLength={100} value={zone} onChange={(e) => setZone(e.target.value)} /></Field>
@@ -83,14 +83,14 @@ function AccountRow({ account, self, canGrantPlatformAdmin, onChanged }: { accou
   const roles = (external ? ['External_Client'] : ['platform-admin', 'admin', 'user']).filter((r) => r !== 'platform-admin' || canGrantPlatformAdmin || account.role === 'platform-admin') as AccountRole[];
   const changeRole = (role: AccountRole) => void run(() => api.setUserRole(account.id, role)).then((r) => r && onChanged(`${account.name} is now ${ROLE_LABEL[role]}`));
   const toggle = () => {
-    if (account.isActive && !window.confirm(`Deactivate ${account.name}? They can no longer sign in.`)) return;
-    void run(() => api.setUserStatus(account.id, !account.isActive)).then((r) => r && onChanged(account.isActive ? `${account.name} deactivated` : `${account.name} reactivated`));
+    if (account.isActive && !window.confirm(tf("Deactivate {name}? They can no longer sign in.", { name: account.name }))) return;
+    void run(() => api.setUserStatus(account.id, !account.isActive)).then((r) => r && onChanged(account.isActive ? tf("{name} deactivated", { name: account.name }) : tf("{name} reactivated", { name: account.name })));
   };
   return (
     <tr>
       <td>{account.name}{self && <span className="muted">  {t("(you)")}</span>}<div className="muted small">{account.email}</div><ErrorText error={error} /></td>
       <td>
-        <select aria-label={`Role of ${account.name}`} value={account.role} disabled={locked || busy || external} onChange={(e) => changeRole(e.target.value as AccountRole)}>
+        <select aria-label={tf("Role of {name}", { name: account.name })} value={account.role} disabled={locked || busy || external} onChange={(e) => changeRole(e.target.value as AccountRole)}>
           {roles.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
         </select>
       </td>

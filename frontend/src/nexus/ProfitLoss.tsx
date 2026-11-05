@@ -5,7 +5,7 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { Loading, useLoad } from '../ui';
 import { periodLabel } from './FinancialPlans';
-import { t } from '../i18n';
+import { t, tf } from '../i18n';
 
 function Row({ row, label }: { row: PnlAggregate; label: string }) {
   const tone = varianceTone(row.category, row.variance);
@@ -25,7 +25,7 @@ function Row({ row, label }: { row: PnlAggregate; label: string }) {
 function periodOptions(): { value: string; label: string }[] {
   const year = new Date().getFullYear();
   return [year - 1, year, year + 1].flatMap((y) => [
-    { value: String(y), label: `Full year ${y}` },
+    { value: String(y), label: tf("Full year {y}", { y }) },
     ...[1, 2, 3, 4].map((q) => ({ value: `${y}-Q${q}`, label: `Q${q} ${y}` })),
   ]);
 }

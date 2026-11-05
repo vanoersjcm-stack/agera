@@ -17,6 +17,7 @@ import {
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
+  ApiQuery,
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
@@ -121,6 +122,7 @@ export class WorkOrdersController {
   @AllowApiKey()
   @ApiOperation({ summary: 'List work orders of the active tenant (newest first, or oldest first with updatedSince)' })
   @ApiPagination()
+  @ApiQuery({ name: 'clientId', required: false, schema: { type: 'string', format: 'uuid' }, description: "Only work orders with a visit to one of this client's stores" })
   @ApiUpdatedSince()
   @ApiOkResponse({ type: WorkOrderPageDto })
   @ApiErrors(400)
@@ -128,9 +130,10 @@ export class WorkOrdersController {
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
     @Query('updatedSince') updatedSince?: string,
+    @Query('clientId') clientId?: string,
   ): Promise<WorkOrderPageDto> {
     assertPagination(page, limit);
-    const result = await this.workOrders.list({ page, limit, updatedSince: parseTimestamp('updatedSince', updatedSince) });
+    const result = await this.workOrders.list({ page, limit, updatedSince: parseTimestamp('updatedSince', updatedSince), clientId: optionalUuid('clientId', clientId) });
     return { ...result, items: result.items.map(toWorkOrderResponse) };
   }
 

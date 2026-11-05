@@ -7,7 +7,7 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { Drawer, ErrorText, Field, FilterChips, FormActions, Loading, StatusBadge, useAction, useLoad } from '../ui';
-import { t } from '../i18n';
+import { t, tf } from '../i18n';
 
 export const CREDIT_HOLDS_CHANGED = 'agera:credit-holds-changed';
 
@@ -55,7 +55,7 @@ export function CreditControlView({ route, user }: { route: Route; user: UserCon
     reload();
   };
   const release = (id: string, label: string) => {
-    if (!window.confirm(`Release the credit lock for ${label}?`)) return;
+    if (!window.confirm(tf("Release the credit lock for {name}?", { name: label }))) return;
     void action.run(() => api.releaseCreditHold(id)).then((r) => r && changed('Credit lock released'));
   };
   const holds = data ?? [];

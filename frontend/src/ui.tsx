@@ -163,7 +163,7 @@ export function Stepper({ steps, current }: { steps: string[]; current: number }
       {steps.map((s, i) => (
         <li key={s} className={i < current ? 'done' : i === current ? 'current' : undefined} aria-current={i === current ? 'step' : undefined}>
           <span className="step-index">{i + 1}</span>
-          {s}
+          {t(s)}
         </li>
       ))}
     </ol>
@@ -175,8 +175,8 @@ export function DetailList({ items }: { items: [string, ReactNode][] }) {
     <dl className="details">
       {items.map(([k, v]) => (
         <div key={k}>
-          <dt>{k}</dt>
-          <dd>{v}</dd>
+          <dt>{t(k)}</dt>
+          <dd>{typeof v === 'string' ? t(v) : v}</dd>
         </div>
       ))}
     </dl>

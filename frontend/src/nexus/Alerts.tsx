@@ -6,7 +6,7 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { FilterChips, Loading, useLoad } from '../ui';
 import { periodLabel } from './FinancialPlans';
-import { t as tr } from '../i18n';
+import { t as tr, tf } from '../i18n';
 
 const POLL_MS = 60_000;
 
@@ -16,7 +16,7 @@ function describe(a: Alert): string {
     case 'financial_variance':
       return `${CATEGORY[d.category as keyof typeof CATEGORY] ?? String(d.category)} ${periodLabel(String(d.periodCode))}: ${formatAmount(String(d.variance), String(d.currency ?? 'EUR'))} against plan`;
     case 'dsr_stagnation':
-      return `No client activity in “${String(d.roomName ?? 'client room')}” since ${formatDateTime(a.observedAt)}`;
+      return tf("No client activity in “{room}” since {when}", { room: String(d.roomName ?? tr("client room")), when: formatDateTime(a.observedAt) });
     case 'store_compliance':
       return `${String(d.storeName ?? d.storeCode ?? 'Store')}: ${COMPLIANCE[String(d.complianceStatus)] ?? String(d.complianceStatus ?? 'not compliant')}`;
   }

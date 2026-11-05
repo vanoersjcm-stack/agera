@@ -8,7 +8,7 @@ import { money } from '../nexus/Clients';
 import { navigate, type Route, withParams } from '../router';
 import { type NewDefaults, useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
-import { t } from '../i18n';
+import { t, tf } from '../i18n';
 
 const SUITE = { label: t("RetailPower"), href: '#/retailpower' };
 
@@ -39,7 +39,7 @@ export function ProductForm({ product, onDone, onCancel }: { product?: Product; 
     e.preventDefault();
     const body = { sku: sku.trim(), name: name.trim(), brand: brand.trim() || null, category: category.trim() || null, unitPrice: price || 0 };
     void run(() => (product ? api.updateProduct(product.id, body) : api.createProduct(body))).then(
-      (r) => r && onDone('/retailpower/products', product ? 'Product updated' : `${r.name} added to the catalogue`),
+      (r) => r && onDone('/retailpower/products', product ? t("Product updated") : tf("{name} added to the catalogue", { name: r.name })),
     );
   };
   return (
@@ -346,10 +346,10 @@ export function FieldOrderDossier({ id }: { id: string }) {
   const crumbs = [SUITE, { label: t("Field orders"), href: '#/retailpower/orders' }];
   if (!order.data) return <ViewFrame title={t("Field order")} crumbs={[...crumbs, { label: t("Loading…") }]}><Loading error={order.error} /></ViewFrame>;
   const o: FieldOrder = order.data;
-  const title = `Order ${o.storeName} · ${formatDate(o.createdAt)}`;
+  const title = tf("Order {store} · {date}", { store: o.storeName, date: formatDate(o.createdAt) });
   const move = (to: FieldOrderStatus) => {
     if (to === 'cancelled' && !window.confirm(t("Cancel this order?"))) return;
-    void action.run(() => api.setFieldOrderStatus(id, to)).then((r) => r && (notify(`Order ${ORDER_STATUS[to].toLowerCase()}`), order.reload()));
+    void action.run(() => api.setFieldOrderStatus(id, to)).then((r) => r && (notify(tf("Order {status}", { status: ORDER_STATUS[to].toLowerCase() })), order.reload()));
   };
   const saveLines = () => lines && void action.run(() => api.updateFieldOrder(id, { lines })).then((r) => r && (notify(t("Order updated")), setLines(null), order.reload()));
   return (
@@ -424,7 +424,7 @@ export function NewAuditRoundForm({ onDone, onCancel }: FormProps) {
         fieldRepId: rep || null,
         storeIds: selected,
       }),
-    ).then((r) => r && onDone(`/retailpower/audit-rounds/${r.id}`, `Audit round created with ${selected.length} store visit${selected.length === 1 ? '' : 's'}`));
+    ).then((r) => r && onDone(`/retailpower/audit-rounds/${r.id}`, (selected.length === 1 ? t("Audit round created with 1 store visit") : tf("Audit round created with {n} store visits", { n: selected.length }))));
   };
   return (
     <form onSubmit={submit}>
@@ -440,7 +440,7 @@ export function NewAuditRoundForm({ onDone, onCancel }: FormProps) {
           {users.map((u) => <option key={u.id} value={u.id}>{userName(users, u.id)}</option>)}
         </select>
       </Field>
-      <Field label={`Stores (${selected.length} selected)`}>
+      <Field label={tf("Stores ({n} selected)", { n: selected.length })}>
         <input placeholder={t("Filter stores")} value={filter} onChange={(e) => setFilter(e.target.value)} />
         <div className="check-list">
           <label className="check-row"><input type="checkbox" checked={open.length > 0 && open.every((s) => selected.includes(s.id))} onChange={(e) => setSelected(e.target.checked ? [...new Set([...selected, ...open.map((s) => s.id)])] : selected.filter((id) => !open.some((s) => s.id === id)))} /> <strong>{t("Select all shown")}</strong></label>
@@ -571,7 +571,7 @@ export function FieldCalendarView({ route }: { route: Route }) {
   const reps = [...new Set(week.map((v) => v.fieldRepId))];
   const storeName = (id: string) => stores.data?.items.find((s) => s.id === id)?.name ?? '…';
   return (
-    <ViewFrame title={t("Field calendar")} subtitle={`Week of ${formatDate(monday.toISOString())} · capacity ${MAX_VISITS_PER_DAY} visits per rep per day`} crumbs={[SUITE, { label: t("Field calendar") }]}
+    <ViewFrame title={t("Field calendar")} subtitle={tf("Week of {date} · capacity {n} visits per rep per day", { date: formatDate(monday.toISOString()), n: MAX_VISITS_PER_DAY })} crumbs={[SUITE, { label: t("Field calendar") }]}
       actions={
         <>
           <button className="secondary" onClick={() => navigate(withParams(route, { week: String(offset - 1) }))}>{t("‹ Previous week")}</button>

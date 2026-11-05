@@ -8,7 +8,7 @@ import { money } from '../nexus/Clients';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, useAction, useLoad } from '../ui';
-import { t } from '../i18n';
+import { t, tf } from '../i18n';
 
 export const STAGES: DealStage[] = ['lead_ingest', 'proposal_sent', 'contract_negotiation', 'ops_handoff'];
 export const DEAL_STAGE: Record<DealStage, string> = {
@@ -31,7 +31,7 @@ export function PipelineBoard() {
   const action = useAction();
   const move = (deal: Deal, stage: DealStage) => {
     if (deal.stage === stage) return;
-    void action.run(() => api.setDealStage(deal.id, stage)).then((r) => r && (notify(`“${deal.title}” moved to ${DEAL_STAGE[stage]}`), reload()));
+    void action.run(() => api.setDealStage(deal.id, stage)).then((r) => r && (notify(tf("“{title}” moved to {stage}", { title: deal.title, stage: DEAL_STAGE[stage] })), reload()));
   };
   const onDrop = (stage: DealStage) => (e: DragEvent) => {
     e.preventDefault();
@@ -44,7 +44,7 @@ export function PipelineBoard() {
   return (
     <ViewFrame
       title={t("Deal pipeline")}
-      subtitle={data ? `${deals.length} deals · ${money(total)} open pipeline value` : undefined}
+      subtitle={data ? tf("{n} deals · {value} open pipeline value", { n: deals.length, value: money(total) }) : undefined}
       crumbs={[SUITE, { label: t("Pipeline") }]}
       actions={<button className="primary" onClick={() => openNew('deal')}>{t("+ New deal")}</button>}
     >
@@ -78,8 +78,8 @@ export function PipelineBoard() {
                       <span className="deal-value">{money(d.value)}</span>
                       <Priority value={d.priority} />
                       <span className="deal-moves">
-                        <button aria-label={`Move ${d.title} back`} disabled={i === 0 || action.busy} onClick={() => move(d, STAGES[i - 1])}>←</button>
-                        <button aria-label={`Move ${d.title} forward`} disabled={i === STAGES.length - 1 || action.busy} onClick={() => move(d, STAGES[i + 1])}>→</button>
+                        <button aria-label={tf("Move {title} back", { title: d.title })} disabled={i === 0 || action.busy} onClick={() => move(d, STAGES[i - 1])}>←</button>
+                        <button aria-label={tf("Move {title} forward", { title: d.title })} disabled={i === STAGES.length - 1 || action.busy} onClick={() => move(d, STAGES[i + 1])}>→</button>
                       </span>
                     </div>
                   </article>
@@ -210,7 +210,7 @@ export function DealDossier({ id }: { id: string }) {
   }
   const d = data;
   const remove = () => {
-    if (!window.confirm(`Delete the deal “${d.title}”? This cannot be undone.`)) return;
+    if (!window.confirm(tf("Delete the deal “{title}”? This cannot be undone.", { title: d.title }))) return;
     void action.run(() => api.deleteDeal(id)).then((r) => r !== undefined && (notify(t("Deal deleted")), navigate('/nexus/pipeline')));
   };
   return (
@@ -249,7 +249,7 @@ export function DealDossier({ id }: { id: string }) {
         <ul className="timeline">
           {d.history.map((h) => (
             <li key={h.id}>
-              <strong>{h.fromStage ? `${DEAL_STAGE[h.fromStage]} → ${DEAL_STAGE[h.toStage]}` : `Created in ${DEAL_STAGE[h.toStage]}`}</strong>
+              <strong>{h.fromStage ? `${DEAL_STAGE[h.fromStage]} → ${DEAL_STAGE[h.toStage]}` : tf("Created in {stage}", { stage: DEAL_STAGE[h.toStage] })}</strong>
               <span className="muted"> · {h.changedByName ?? t("Unknown")} · {formatDateTime(h.changedAt)}</span>
             </li>
           ))}

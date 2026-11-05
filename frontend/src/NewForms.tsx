@@ -7,7 +7,7 @@ import { activeClients, clientName, invalidateDirectory, useClients, useUsers } 
 import { navigate } from './router';
 import type { NewDefaults, NewKind } from './shell';
 import { Drawer, ErrorText, Field, FormActions, useAction } from './ui';
-import { t as tr } from './i18n';
+import { t as tr, tf } from './i18n';
 
 export interface NewItem {
   kind: NewKind;
@@ -565,7 +565,7 @@ function InvoiceForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onS
             vatAmount: vat,
             status: form.status as 'draft' | 'issued',
           });
-          return { route: `/symphony/clients/${i.clientId}?tab=invoices`, message: `Invoice ${i.invoiceNumber} recorded` };
+          return { route: `/symphony/clients/${i.clientId}?tab=invoices`, message: tf("Invoice {n} recorded", { n: i.invoiceNumber }) };
         })
       }
     >
@@ -583,7 +583,7 @@ function InvoiceForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onS
       </div>
       <div className="field-row">
         <Field label={tr("Amount excl. VAT (EUR)")}><input required type="number" min={0} step="0.01" value={form.amountExclVat} onChange={set('amountExclVat')} /></Field>
-        <Field label={tr("VAT rate")} hint={`VAT: € ${vat}`}>
+        <Field label={tr("VAT rate")} hint={tf("VAT: € {vat}", { vat })}>
           <select value={form.vatRate} onChange={set('vatRate')}>
             <option value="21">21%</option>
             <option value="9">9%</option>

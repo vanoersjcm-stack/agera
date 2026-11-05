@@ -12,7 +12,7 @@ import { ApprovalPanel } from '../symphony/Workflow';
 import { EditAgreementDrawer } from '../EditForms';
 import { money } from './Clients';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
-import { t } from '../i18n';
+import { t, tf } from '../i18n';
 
 const NEXT: Record<AgreementStatus, { status: AgreementStatus; label: string; confirm?: string }[]> = {
   pending_approval: [
@@ -149,7 +149,7 @@ export function AgreementDossier({ id, external }: { id: string; external: boole
   const roomBase = external ? '/portal/rooms' : '/nexus/client-rooms';
   const setStatus = (status: AgreementStatus, label: string, confirm?: string) => {
     if (confirm && !window.confirm(confirm)) return;
-    void action.run(() => api.setAgreementStatus(id, status)).then((r) => r && (notify(`Agreement: ${label.toLowerCase()}`), agreement.reload()));
+    void action.run(() => api.setAgreementStatus(id, status)).then((r) => r && (notify(tf("Agreement: {status}", { status: label.toLowerCase() })), agreement.reload()));
   };
   return (
     <ViewFrame

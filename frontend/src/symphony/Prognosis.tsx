@@ -4,7 +4,7 @@ import { ViewFrame } from '../Layout';
 import { money } from '../nexus/Clients';
 import { navigate, type Route, withParams } from '../router';
 import { Loading, useLoad } from '../ui';
-import { t } from '../i18n';
+import { t, tf } from '../i18n';
 
 interface Bar {
   label: string;
@@ -52,14 +52,14 @@ export function PrognosisView({ route }: { route: Route }) {
     ...(pipelinePct > 0 ? [{ label: t("+ Pipeline won"), hint: `${pipelinePct}% of open deals`, value: pipeline, start: baseline + expansion, kind: 'up' as const, href: '#/nexus/pipeline' }] : []),
     { label: t("− Known churn"), hint: t("Agreements ending within 90 days"), value: churn, start: prognosis, kind: 'down', href: '#/nexus/agreements?status=active' },
     { label: adjusted ? t("Prognosis (what-if)") : t("Live prognosis"), hint: t("Baseline + expansion − churn"), value: prognosis, start: 0, kind: 'total' },
-    { label: t("Invoiced actuals"), hint: `Paid invoices in ${year}, excl. VAT`, value: actuals, start: 0, kind: 'actual', href: '#/symphony/invoices?status=paid' },
+    { label: t("Invoiced actuals"), hint: tf("Paid invoices in {year}, excl. VAT", { year }), value: actuals, start: 0, kind: 'actual', href: '#/symphony/invoices?status=paid' },
   ];
   const max = Math.max(...bars.map((b) => b.start + b.value), 1);
   const pct = (v: number) => `${Math.max(0, (v / max) * 100)}%`;
   return (
     <ViewFrame
       title={t("Run-rate prognosis")}
-      subtitle={`Fiscal year ${year} · all amounts in EUR`}
+      subtitle={tf("Fiscal year {year} · all amounts in EUR", { year })}
       crumbs={crumbs}
       actions={
         <label className="inline-select">
@@ -72,7 +72,7 @@ export function PrognosisView({ route }: { route: Route }) {
     >
       <div className="wf-columns">
         <a className="wf-card" href="#/nexus/financial-plans"><small>{t("Baseline target")}</small><strong>{money(baseline)}</strong><span>{t("Approved financial plans")}</span></a>
-        <a className="wf-card up" href="#/nexus/agreements?status=active"><small>{t("(+) Signed expansion")}</small><strong>{money(expansion)}</strong><span>{pipelinePct > 0 ? `+ ${money(pipeline)} pipeline won` : `Open deal pipeline ${money(data.openPipeline)}`}</span></a>
+        <a className="wf-card up" href="#/nexus/agreements?status=active"><small>{t("(+) Signed expansion")}</small><strong>{money(expansion)}</strong><span>{pipelinePct > 0 ? tf("+ {value} pipeline won", { value: money(pipeline) }) : tf("Open deal pipeline {value}", { value: money(data.openPipeline) })}</span></a>
         <a className="wf-card down" href="#/nexus/agreements?status=active"><small>{t("(−) Known churn")}</small><strong>{money(churn)}</strong><span>{t("Agreements ending within 90 days")}</span></a>
         <div className="wf-card live"><small>{adjusted ? t("Prognosis (what-if)") : t("Live prognosis run-rate")}</small><strong>{money(prognosis)}</strong><span>{t("Baseline + expansion − churn")}</span></div>
         <a className="wf-card" href="#/symphony/invoices?status=paid"><small>{t("Invoiced actuals")}</small><strong>{money(actuals)}</strong><span>{prognosis > 0 ? `${Math.round((actuals / prognosis) * 100)}% of prognosis` : t("Paid invoices")}</span></a>

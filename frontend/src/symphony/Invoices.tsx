@@ -6,7 +6,7 @@ import { money } from '../nexus/Clients';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
-import { t } from '../i18n';
+import { t, tf } from '../i18n';
 
 export const INVOICE_STATUS: Record<InvoiceStatus, string> = { draft: 'Draft', issued: 'Sent', paid: 'Paid', cancelled: 'Cancelled' };
 const NEXT: Record<InvoiceStatus, { status: InvoiceStatus; label: string }[]> = {
@@ -25,8 +25,8 @@ export function InvoiceTable({ invoices, showClient, onChanged }: { invoices: In
   const { notify } = useShell();
   const action = useAction();
   const change = (i: Invoice, status: InvoiceStatus) => {
-    if (status === 'cancelled' && !window.confirm(`Cancel invoice ${i.invoiceNumber}?`)) return;
-    void action.run(() => api.setInvoiceStatus(i.id, status)).then((r) => r && (notify(`Invoice ${i.invoiceNumber}: ${INVOICE_STATUS[status].toLowerCase()}`), onChanged()));
+    if (status === 'cancelled' && !window.confirm(tf("Cancel invoice {n}?", { n: i.invoiceNumber }))) return;
+    void action.run(() => api.setInvoiceStatus(i.id, status)).then((r) => r && (notify(tf("Invoice {n}: {status}", { n: i.invoiceNumber, status: INVOICE_STATUS[status].toLowerCase() })), onChanged()));
   };
   return (
     <>

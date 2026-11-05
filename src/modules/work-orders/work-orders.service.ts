@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, type FindOptionsWhere, MoreThan, Repository } from 'typeorm';
+import { DataSource, type FindOptionsWhere, MoreThan, Raw, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { AuditService } from '../core/audit/audit.service.js';
 import { User } from '../core/entities/index.js';
@@ -24,6 +24,8 @@ export interface ListWorkOrdersQuery {
   page: number;
   limit: number;
   updatedSince: Date | null;
+  /** Only work orders with a visit to one of this client's stores. */
+  clientId?: string | null;
 }
 
 export interface WorkOrderPage {
@@ -77,8 +79,14 @@ export class WorkOrdersService {
     return workOrder;
   }
 
-  async list({ page, limit, updatedSince }: ListWorkOrdersQuery): Promise<WorkOrderPage> {
+  async list({ page, limit, updatedSince, clientId = null }: ListWorkOrdersQuery): Promise<WorkOrderPage> {
     const where: FindOptionsWhere<WorkOrder> = updatedSince ? { updatedAt: MoreThan(updatedSince) } : {};
+    if (clientId) {
+      where.id = Raw(
+        (id) => `${id} IN (SELECT v.work_order_id FROM merchandising_visits v JOIN stores s ON s.id = v.store_id WHERE s.client_id = :clientId)`,
+        { clientId },
+      );
+    }
     const direction = updatedSince ? 'ASC' : 'DESC';
     const [items, total] = await this.workOrders.findAndCount({
       where,

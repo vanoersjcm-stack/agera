@@ -655,7 +655,7 @@ export const api = {
   search: (q: string) => request<SearchHit[]>('GET', `/search${query({ q })}`),
 
   // RetailPower
-  workOrders: () => request<Page<WorkOrder>>('GET', '/work-orders?limit=100'),
+  workOrders: (clientId?: string) => request<Page<WorkOrder>>('GET', `/work-orders${query({ limit: 100, clientId })}`),
   workOrder: (id: string) => request<WorkOrder>('GET', `/work-orders/${id}`),
   workOrderLogs: (id: string) => request<WorkOrderLog[]>('GET', `/work-orders/${id}/logs`),
   userAccounts: (params: { q?: string; role?: string; status?: string; page?: number; limit?: number }) =>
@@ -681,7 +681,7 @@ export const api = {
   stores: () => request<Page<Store>>('GET', '/stores?limit=100'),
   createStore: (body: { storeCode: string; name: string; address?: string; city?: string; postalCode?: string; country?: string; clientId?: string | null }) =>
     request<Store>('POST', '/stores', body),
-  visits: (storeId?: string) => request<Page<Visit>>('GET', `/visits${query({ limit: 100, storeId })}`),
+  visits: (storeId?: string, clientId?: string) => request<Page<Visit>>('GET', `/visits${query({ limit: 100, storeId, clientId })}`),
   visitSummary: (id: string) => request<VisitSummary>('GET', `/visits/${id}/summary`),
   createVisit: (body: { storeId: string; visitDate: string; fieldRepId?: string | null; workOrderId?: string | null; notes?: string }) =>
     request<Visit>('POST', '/visits', body),

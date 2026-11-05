@@ -32,7 +32,7 @@ import { AutomationDossier, AutomationsView } from './symphony/Automations';
 import { ReportBuilderView, ReportsView } from './symphony/Reports';
 import { IntegrationsView as ExternalSystemsView } from './symphony/Integrations';
 import { GoldenThreadTour, startTour } from './tour';
-import { getLanguage, setLanguage, t, useLanguage, t as tr } from './i18n';
+import { getLanguage, setLanguage, t, useLanguage, t as tr, tf } from './i18n';
 import { startOfflineSync, useOfflineQueue } from './offlineQueue';
 import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
 import { ActivityLogView, IntegrationsView, OrganisationsView, SymphonyOverview } from './symphony/SymphonyViews';
@@ -421,7 +421,7 @@ function ClientPill() {
   if (!clients || clients.length === 0) return null;
   return (
     <div className={`client-pill${filter ? ' filtered' : ''}`}>
-      <button aria-haspopup="menu" aria-expanded={open} title={filter ? `Lists filtered on ${filter.name}` : tr("Filter all lists on one client")} onClick={() => setOpen(!open)} onBlur={() => setTimeout(() => setOpen(false), 200)}>
+      <button aria-haspopup="menu" aria-expanded={open} title={filter ? tf("Lists filtered on {name}", { name: filter.name }) : tr("Filter all lists on one client")} onClick={() => setOpen(!open)} onBlur={() => setTimeout(() => setOpen(false), 200)}>
         [{filter ? shortCode(filter.name) : tr("All clients")} ▾]
       </button>
       {open && (

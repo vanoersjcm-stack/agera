@@ -6,7 +6,7 @@ import { navigate } from '../router';
 import { useShell } from '../shell';
 import { currentTier } from '../suites';
 import { Drawer, ErrorText, Field, FormActions, Loading, StatusBadge, useAction, useLoad } from '../ui';
-import { t as tr } from '../i18n';
+import { t as tr, tf } from '../i18n';
 
 const SUITE = { label: tr("Symphony"), href: '#/symphony' };
 const OPS: Record<string, string> = { equals: 'equals', not_equals: 'does not equal', contains: 'contains', exists: 'is filled in' };
@@ -70,7 +70,7 @@ function AutomationEditor({ automation, catalog, onDone, onCancel }: { automatio
     <form onSubmit={submit}>
       <Field label={tr("Name")}><input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("e.g. Tell the account manager about high exceptions")} autoFocus /></Field>
       <Field label={tr("When")} hint={tr("The event that starts this automation")}>
-        <select value={trigger} onChange={(e) => setTrigger(e.target.value)}>{catalog.triggers.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
+        <select value={trigger} onChange={(e) => setTrigger(e.target.value)}>{catalog.triggers.map((t) => <option key={t.value} value={t.value}>{tr(t.label)}</option>)}</select>
       </Field>
       <Field label={tr("Then")} hint={tr("Conditions check the event's details (e.g. status, severity, sku). Use {{field}} in the title to insert a detail.")}>
         {steps.map((s, i) => (
@@ -88,7 +88,7 @@ function AutomationEditor({ automation, catalog, onDone, onCancel }: { automatio
 }
 
 function summary(a: Automation, catalog?: AutomationCatalog): string {
-  const t = catalog?.triggers.find((x) => x.value === a.trigger)?.label ?? a.trigger;
+  const t = tr(catalog?.triggers.find((x) => x.value === a.trigger)?.label ?? a.trigger);
   return `${t} → ${a.steps.map((s) => (s.action === 'notify_user' ? 'notify' : 'open exception')).join(', ')}${a.steps.some((s) => s.delayMinutes) ? ' (delayed)' : ''}`;
 }
 
@@ -141,6 +141,56 @@ export function AutomationsView() {
   );
 }
 
+function delayLabel(minutes: number): string {
+  if (minutes === 0) return tr("Immediately");
+  const h = Math.floor(minutes / 60), m = minutes % 60;
+  if (h === 0) return tf("After {n} min", { n: m });
+  return m === 0 ? tf("After {h} h", { h }) : tf("After {h} h {m} min", { h, m });
+}
+
+/** Read-only flowchart: every step starts when the trigger fires, waits its own delay, and is skipped when its condition fails. */
+export function AutomationFlow({ automation, triggerLabel, who }: { automation: Automation; triggerLabel: string; who: (uid?: string | null) => string }) {
+  const lanes = automation.steps.map((step, index) => ({ step, index })).sort((a, b) => a.step.delayMinutes - b.step.delayMinutes || a.index - b.index);
+  return (
+    <div className="flow" role="img" aria-label={tr("Flowchart of this automation")}>
+      <div className="flow-node trigger"><small>{tr("Trigger")}</small>{triggerLabel}</div>
+      <div className="flow-edge" />
+      <div className="flow-fan">
+        {lanes.map(({ step, index }) => {
+          const act = (
+            <div className="flow-node action">
+              <small>{tf("Step {n}", { n: index + 1 })} · {tr(ACTIONS[step.action])}</small>
+              <strong>{who(step.config.userId)}</strong>
+              <span>“{step.config.title}”</span>
+              {step.action === 'create_exception' && step.config.severity && <em>{tf("Severity: {level}", { level: tr(step.config.severity) })}</em>}
+            </div>
+          );
+          return (
+            <div className="flow-lane" key={index}>
+              <div className="flow-edge" />
+              <div className={`flow-node wait${step.delayMinutes > 0 ? ' delayed' : ''}`}><small>{tr("Wait")}</small>{delayLabel(step.delayMinutes)}</div>
+              <div className="flow-edge" />
+              {step.condition ? (
+                <>
+                  <div className="flow-node decision">
+                    <small>{tr("Condition")}</small>
+                    <code>{step.condition.field}</code> {tr(OPS[step.condition.op])} {step.condition.value && <code>{step.condition.value}</code>}?
+                  </div>
+                  <div className="flow-edge" />
+                  <div className="flow-branches">
+                    <div className="flow-branch"><div className="flow-edge" /><span className="flow-label yes">{tr("Yes")}</span><div className="flow-edge" />{act}</div>
+                    <div className="flow-branch"><div className="flow-edge" /><span className="flow-label no">{tr("No")}</span><div className="flow-edge" /><div className="flow-node skip"><small>{tf("Step {n}", { n: index + 1 })}</small>{tr("Skipped, nothing happens")}</div></div>
+                  </div>
+                </>
+              ) : act}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 export function AutomationDossier({ id }: { id: string }) {
   const { notify } = useShell();
   const a = useLoad(() => api.automation(id), [id]);
@@ -151,27 +201,31 @@ export function AutomationDossier({ id }: { id: string }) {
   const crumbs = [SUITE, { label: tr("Automations"), href: '#/symphony/automations' }];
   if (!a.data) return <ViewFrame title={tr("Automation")} crumbs={[...crumbs, { label: tr("Loading…") }]}><Loading error={a.error} /></ViewFrame>;
   const x = a.data;
-  const who = (uid?: string | null) => users.data?.find((u) => u.id === uid)?.name ?? (uid ? 'someone' : 'no owner');
+  const who = (uid?: string | null) => users.data?.find((u) => u.id === uid)?.name ?? (uid ? tr("someone") : tr("no owner"));
   return (
     <ViewFrame title={x.name} subtitle={summary(x, catalog.data ?? undefined)} crumbs={[...crumbs, { label: x.name }]}
       actions={<>
         <button className="secondary" disabled={!catalog.data} onClick={() => setEditing(true)}>{tr("Edit")}</button>
         <button className="secondary" disabled={action.busy} onClick={() => void action.run(() => api.updateAutomation(id, { active: !x.active })).then((r) => r && (notify(r.active ? tr("Automation activated") : tr("Automation paused")), a.reload()))}>{x.active ? tr("Pause") : tr("Activate")}</button>
-        <button className="secondary danger" disabled={action.busy} onClick={() => window.confirm(`Delete ${x.name} and its history?`) && void action.run(() => api.deleteAutomation(id)).then((r) => r !== undefined && (notify(tr("Automation deleted")), navigate('/symphony/automations')))}>{tr("Delete")}</button>
+        <button className="secondary danger" disabled={action.busy} onClick={() => window.confirm(tf("Delete {name} and its history?", { name: x.name })) && void action.run(() => api.deleteAutomation(id)).then((r) => r !== undefined && (notify(tr("Automation deleted")), navigate('/symphony/automations')))}>{tr("Delete")}</button>
       </>}>
       <ErrorText error={action.error} />
       <div className="card-panel">
-        <h2>{tr("Rule")}</h2>
-        <ol className="rule-steps">
-          <li><strong>{tr("When")}</strong> {catalog.data?.triggers.find((t) => t.value === x.trigger)?.label ?? x.trigger}</li>
-          {x.steps.map((s, i) => (
-            <li key={i}>
-              {s.delayMinutes > 0 && <>{tr("wait")} {s.delayMinutes}  {tr("min, then")} </>}
-              {s.condition ? <>{tr("if")} <code>{s.condition.field}</code> {OPS[s.condition.op]} {s.condition.value && <code>{s.condition.value}</code>}, </> : null}
-              <strong>{ACTIONS[s.action].toLowerCase()}</strong> {who(s.config.userId)}: “{s.config.title}”
-            </li>
-          ))}
-        </ol>
+        <h2>{tr("Flow")}</h2>
+        <p className="muted">{tr("All steps start when the trigger fires; each wait counts from that moment. A condition that is not met skips only its own step.")}</p>
+        <AutomationFlow automation={x} triggerLabel={tr(catalog.data?.triggers.find((t) => t.value === x.trigger)?.label ?? x.trigger)} who={who} />
+        <details className="flow-text">
+          <summary>{tr("Show as text")}</summary>
+          <ol className="rule-steps">
+            <li><strong>{tr("When")}</strong> {tr(catalog.data?.triggers.find((t) => t.value === x.trigger)?.label ?? x.trigger)}</li>
+            {x.steps.map((s, i) => (
+              <li key={i}>
+                {delayLabel(s.delayMinutes)}: {s.condition ? <>{tr("if")} <code>{s.condition.field}</code> {tr(OPS[s.condition.op])} {s.condition.value && <code>{s.condition.value}</code>}, </> : null}
+                <strong>{tr(ACTIONS[s.action]).toLowerCase()}</strong> {who(s.config.userId)}: “{s.config.title}”
+              </li>
+            ))}
+          </ol>
+        </details>
       </div>
       <div className="card-panel">
         <h2>{tr("Recent runs")}</h2>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useClientFilter } from '../clientFilter';
 import { api, type WorkOrderStatus } from '../api';
 import { useUsers, userName } from '../directory';
 import { EditWorkOrderDrawer } from '../EditForms';
@@ -7,7 +8,7 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
-import { t } from '../i18n';
+import { t, tf } from '../i18n';
 
 const SUITE_CRUMB = { label: t("RetailPower"), href: '#/retailpower' };
 const LIST_CRUMB = { label: t("Work orders"), href: '#/retailpower/work-orders' };
@@ -33,7 +34,8 @@ export function WorkOrdersView({ route }: { route: Route }) {
   const users = useUsers();
   const status = route.params.get('status') ?? 'open';
   const q = route.params.get('q') ?? '';
-  const { data, error } = useLoad(() => api.workOrders());
+  const clientFilter = useClientFilter();
+  const { data, error } = useLoad(() => api.workOrders(clientFilter?.id), [clientFilter?.id]);
   const items = data?.items ?? [];
   const count = (s: WorkOrderStatus) => items.filter((w) => w.status === s).length;
   const filtered = items.filter(
@@ -62,13 +64,16 @@ export function WorkOrdersView({ route }: { route: Route }) {
         />
         <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v }))} placeholder={t("Filter by title or assignee")} />
       </div>
+      {clientFilter && (
+        <p className="muted">{tf("Showing work orders with a store visit for {name}. Work orders without a store visit have no client yet and are hidden while the filter is on.", { name: clientFilter.name })}</p>
+      )}
       {!data && <Loading error={error} />}
       {data && filtered.length === 0 && (
         <EmptyState
-          title={items.length === 0 ? t("No work orders yet") : t("No work orders match this filter")}
+          title={items.length === 0 && !clientFilter ? t("No work orders yet") : t("No work orders match this filter")}
           action={<button className="primary" onClick={() => openNew('work_order')}>{t("+ New work order")}</button>}
         >
-          {items.length === 0 ? t("Work orders are field tasks that you can assign to a colleague and link to store visits.") : t("Try another status or clear the filter.")}
+          {items.length === 0 && !clientFilter ? t("Work orders are field tasks that you can assign to a colleague and link to store visits.") : t("Try another status or clear the filter.")}
         </EmptyState>
       )}
       {filtered.length > 0 && (
@@ -86,7 +91,7 @@ export function WorkOrdersView({ route }: { route: Route }) {
               <tr key={w.id} onClick={() => navigate(`/retailpower/work-orders/${w.id}`)}>
                 <td><a href={`#/retailpower/work-orders/${w.id}`}>{w.title}</a></td>
                 <td><StatusBadge status={w.status} label={WORK_ORDER_STATUS[w.status]} /></td>
-                <td>{userName(users, w.assignedUserId, 'Not assigned')}</td>
+                <td>{userName(users, w.assignedUserId, t("Not assigned"))}</td>
                 <td>{formatDateTime(w.updatedAt)}</td>
               </tr>
             ))}
@@ -120,9 +125,9 @@ export function WorkOrderDossier({ id }: { id: string }) {
   const storeName = (storeId: string) => stores.data?.items.find((s) => s.id === storeId)?.name ?? 'Store';
   const refresh = () => (order.reload(), logs.reload());
   const setStatus = (status: WorkOrderStatus, label: string) =>
-    void action.run(() => api.setWorkOrderStatus(id, status)).then((r) => r && (notify(`Work order: ${label.toLowerCase()}`), refresh()));
+    void action.run(() => api.setWorkOrderStatus(id, status)).then((r) => r && (notify(tf("Work order: {status}", { status: label.toLowerCase() })), refresh()));
   const assign = (userId: string) =>
-    void action.run(() => api.assignWorkOrder(id, userId || null)).then((r) => r && (notify(userId ? `Assigned to ${userName(users, userId)}` : t("Unassigned")), refresh()));
+    void action.run(() => api.assignWorkOrder(id, userId || null)).then((r) => r && (notify(userId ? tf("Assigned to {name}", { name: userName(users, userId) }) : t("Unassigned")), refresh()));
 
   return (
     <ViewFrame
@@ -130,7 +135,7 @@ export function WorkOrderDossier({ id }: { id: string }) {
       subtitle={
         <>
           <StatusBadge status={w.status} label={WORK_ORDER_STATUS[w.status]} />
-          {w.priority !== 'normal' && <StatusBadge status={`priority_${w.priority}`} label={`${WORK_ORDER_PRIORITY[w.priority]} priority`} />}
+          {w.priority !== 'normal' && <StatusBadge status={`priority_${w.priority}`} label={tf("{level} priority", { level: WORK_ORDER_PRIORITY[w.priority] })} />}
         </>
       }
       crumbs={[SUITE_CRUMB, LIST_CRUMB, { label: w.title }]}
@@ -157,8 +162,8 @@ export function WorkOrderDossier({ id }: { id: string }) {
       <Tabs
         tabs={[
           { id: 'details', label: t("Details") },
-          { id: 'history', label: `History (${logs.data?.length ?? '…'})` },
-          { id: 'visits', label: `Store visits (${visits.data ? linked.length : '…'})` },
+          { id: 'history', label: `${t("History")} (${logs.data?.length ?? '…'})` },
+          { id: 'visits', label: `${t("Store visits")} (${visits.data ? linked.length : '…'})` },
         ]}
         active={tab}
         onChange={setTab}
@@ -183,7 +188,7 @@ export function WorkOrderDossier({ id }: { id: string }) {
               <li key={l.id}>
                 <time>{formatDateTime(l.createdAt)}</time>
                 <span>
-                  {l.previousStatus ? `${WORK_ORDER_STATUS[l.previousStatus]} → ${WORK_ORDER_STATUS[l.newStatus]}` : `Created as ${WORK_ORDER_STATUS[l.newStatus]}`}
+                  {l.previousStatus ? `${WORK_ORDER_STATUS[l.previousStatus]} → ${WORK_ORDER_STATUS[l.newStatus]}` : tf("Created as {status}", { status: WORK_ORDER_STATUS[l.newStatus] })}
                 </span>
                 <span className="muted">{t("by")} {userName(users, l.changedByUserId)}</span>
               </li>
