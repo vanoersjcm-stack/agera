@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { api, type AccountRole, type UserAccount } from '../api';
 import type { UserContext } from '../context';
 import { activeClients, useClients } from '../directory';
@@ -115,7 +115,11 @@ export function PeopleView({ route, user }: { route: Route; user: UserContext })
   const me = useLoad(() => api.me(), []);
   const org = useLoad(() => api.tenant(), []);
   const seatsFull = org.data?.maxSeats != null && (org.data.activeSeats ?? 0) >= org.data.maxSeats;
-  const [inviting, setInviting] = useState(false);
+  const startInvite = route.params.get('invite') === '1';
+  const [inviting, setInviting] = useState(startInvite);
+  useEffect(() => {
+    if (startInvite) setInviting(true);
+  }, [startInvite]);
   const [invited, setInvited] = useState<{ email: string; password: string } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const canGrant = user.isPlatformAdmin;

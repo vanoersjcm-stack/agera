@@ -57,6 +57,13 @@ describe('/v1/document-templates', () => {
     assert.match(preview.body.text, new RegExp(`Dear Pricing ${stamp},`));
     assert.match(preview.body.text, new RegExp(`Room: Templates ${stamp}`));
     assert.deepEqual(preview.body.missing, ['client.vat']);
+    const byClient = await api<{ text: string; missing: string[] }>(alice, 'POST', `/v1/document-templates/${tpl.body.id}/render`, { clientId });
+    assert.equal(byClient.status, 201, JSON.stringify(byClient.body));
+    assert.match(byClient.body.text, new RegExp(`Dear Pricing ${stamp},`));
+    assert.deepEqual(byClient.body.missing.sort(), ['client.vat', 'room.name']);
+    const blank = await api<{ text: string }>(alice, 'POST', `/v1/document-templates/${tpl.body.id}/render`, {});
+    assert.match(blank.body.text, /Dear \[client\.name\],/);
+    assert.equal((await api(alice, 'POST', `/v1/document-templates/${tpl.body.id}/render`, { clientId: '00000000-0000-4000-8000-000000000000' })).status, 404);
     const doc = await api<{ id: string; title: string; currentVersion: number }>(alice, 'POST', `/v1/nexus/client-rooms/${roomId}/documents/from-template`, { templateId: tpl.body.id });
     assert.equal(doc.status, 201, JSON.stringify(doc.body));
     assert.equal(doc.body.title, `Proposal ${stamp}`);

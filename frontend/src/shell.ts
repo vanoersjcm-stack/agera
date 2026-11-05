@@ -1,6 +1,11 @@
 import { createContext, useContext } from 'react';
 
 export type NewKind =
+  | 'doc_text'
+  | 'doc_sheet'
+  | 'doc_mail'
+  | 'automation'
+  | 'user_invite'
   | 'survey'
   | 'price_list'
   | 'document_template'

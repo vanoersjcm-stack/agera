@@ -163,18 +163,23 @@ export class CommercialService {
   }
 
   /** Fills a template with the room's client, contact, agreement and price list. Returns plain text. */
-  async render(templateId: string, roomId: string, identity: AuthenticatedUser): Promise<{ name: string; text: string; missing: string[] }> {
+  async render(templateId: string, target: { roomId?: string | null; clientId?: string | null }, identity: AuthenticatedUser): Promise<{ name: string; text: string; missing: string[] }> {
     const actor = await this.userService.resolveActor(identity);
     return this.tx.run(async (m) => {
       const tpl = await this.loadTemplate(m, templateId);
-      const [room] = await m.query(
-        'SELECT r.room_name, r.client_id, a.title AS agreement_title FROM digital_sales_rooms r LEFT JOIN agreements a ON a.id = r.agreement_id WHERE r.tenant_id = $1 AND r.id = $2',
-        [this.t, roomId],
-      );
-      if (!room) throw new NotFoundException('Client room not found');
-      const [client] = room.client_id
-        ? await m.query('SELECT id, name, legal_name, kvk_number, vat_number, address, city, payment_terms FROM clients WHERE tenant_id = $1 AND id = $2', [this.t, room.client_id])
+      let room: { room_name: string | null; client_id: string | null; agreement_title: string | null } | undefined;
+      if (target.roomId) {
+        [room] = await m.query(
+          'SELECT r.room_name, r.client_id, a.title AS agreement_title FROM digital_sales_rooms r LEFT JOIN agreements a ON a.id = r.agreement_id WHERE r.tenant_id = $1 AND r.id = $2',
+          [this.t, target.roomId],
+        );
+        if (!room) throw new NotFoundException('Client room not found');
+      }
+      const clientId = room ? room.client_id : (target.clientId ?? null);
+      const [client] = clientId
+        ? await m.query('SELECT id, name, legal_name, kvk_number, vat_number, address, city, payment_terms FROM clients WHERE tenant_id = $1 AND id = $2', [this.t, clientId])
         : [];
+      if (!room && target.clientId && !client) throw new NotFoundException('Client not found');
       const [contact] = client
         ? await m.query(
             `SELECT COALESCE(NULLIF(btrim(concat_ws(' ', first_name, last_name)), ''), email) AS name, email FROM contacts WHERE tenant_id = $1 AND client_id = $2 ORDER BY is_primary DESC, created_at LIMIT 1`,
@@ -196,7 +201,7 @@ export class CommercialService {
       const values: Record<string, string | null | undefined> = {
         'client.name': client?.name, 'client.legalName': client?.legal_name, 'client.kvk': client?.kvk_number, 'client.vat': client?.vat_number,
         'client.address': client?.address, 'client.city': client?.city, 'client.paymentTerms': client?.payment_terms,
-        'contact.name': contact?.name, 'contact.email': contact?.email, 'room.name': room.room_name, 'agreement.title': room.agreement_title,
+        'contact.name': contact?.name, 'contact.email': contact?.email, 'room.name': room?.room_name, 'agreement.title': room?.agreement_title,
         'user.name': me?.name, today: new Date().toISOString().slice(0, 10), priceList: priceList || null,
       };
       const missing = new Set<string>();
@@ -214,7 +219,7 @@ export class CommercialService {
 
   /** Renders a template and stores it as a new HTML document in the room (normal document versioning). */
   async generate(templateId: string, roomId: string, title: string | null, identity: AuthenticatedUser): Promise<unknown> {
-    const r = await this.render(templateId, roomId, identity);
+    const r = await this.render(templateId, { roomId }, identity);
     const docTitle = title ?? r.name;
     const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(docTitle)}</title><style>body{font-family:system-ui,sans-serif;max-width:46rem;margin:2rem auto;line-height:1.5;white-space:pre-wrap}</style></head><body>${escapeHtml(r.text)}</body></html>`;
     return this.documents.upload(roomId, { originalName: `${docTitle}.html`, data: Buffer.from(html, 'utf8') }, docTitle, null, identity);

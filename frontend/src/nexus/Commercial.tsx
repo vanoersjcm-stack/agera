@@ -243,7 +243,7 @@ export function GenerateDocumentDrawer({ roomId, onClose, onDone }: { roomId: st
     setTemplateId(id);
     setPreview(null);
     setTitle(data.data?.items.find((t) => t.id === id)?.name ?? '');
-    if (id) void run(() => api.renderTemplate(id, roomId)).then((r) => r && setPreview(r));
+    if (id) void run(() => api.renderTemplate(id, { roomId })).then((r) => r && setPreview(r));
   };
   const submit = (e: FormEvent) => {
     e.preventDefault();

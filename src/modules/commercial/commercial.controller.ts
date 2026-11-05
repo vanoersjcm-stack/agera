@@ -132,15 +132,14 @@ export class DocumentTemplatesController {
   }
 
   @Post(':id/render')
-  @ApiOperation({ summary: 'Preview a template filled with a client room’s data' })
+  @ApiOperation({ summary: 'Fill a template with a client room’s data (roomId) or a client’s data (clientId); neither gives the blank template with [placeholders]' })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiBody(OBJ)
   @ApiOkResponse(OBJ)
   @ApiErrors(400, 404)
   render(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
-    const roomId = optionalUuid('roomId', asObject(body).roomId);
-    if (!roomId) throw new BadRequestException('roomId must be a uuid');
-    return this.commercial.render(id, roomId, identity);
+    const b = asObject(body);
+    return this.commercial.render(id, { roomId: optionalUuid('roomId', b.roomId), clientId: optionalUuid('clientId', b.clientId) }, identity);
   }
 }
 

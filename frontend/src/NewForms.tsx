@@ -1,5 +1,6 @@
 import { NewPriceListForm, NewTemplateForm } from './nexus/Commercial';
 import { NewSurveyForm } from './nexus/Surveys';
+import { NewMailForm, NewSpreadsheetForm, NewTextDocumentForm } from './DocumentCreate';
 import { NewExceptionForm } from './symphony/Workflow';
 import { NewAuditRoundForm, NewFieldOrderForm, NewPlanogramForm, NewProductForm } from './retailpower/Field';
 import { type FormEvent, useEffect, useState } from 'react';
@@ -13,11 +14,19 @@ import { t as tr, tf } from './i18n';
 export interface NewItem {
   kind: NewKind;
   label: string;
-  group: 'Nexus' | 'RetailPower' | 'Symphony';
+  group: 'Document' | 'Nexus' | 'RetailPower' | 'Symphony';
+  /** Extra suites whose menu also lists this item. */
+  also?: ('Nexus' | 'RetailPower' | 'Symphony')[];
+  hint?: string;
+  icon?: 'text' | 'sheet' | 'mail';
   platformAdminOnly?: boolean;
+  adminOnly?: boolean;
 }
 
 export const NEW_ITEMS: NewItem[] = [
+  { kind: 'doc_text', label: tr("Word / text document"), hint: tr("Blank or from a template, filled with client data"), icon: 'text', group: 'Document' },
+  { kind: 'doc_sheet', label: tr("Spreadsheet"), hint: tr("Price tiers, payment schedules or a blank grid"), icon: 'sheet', group: 'Document' },
+  { kind: 'doc_mail', label: tr("E-mail"), hint: tr("Compose from a template; opens in your e-mail program"), icon: 'mail', group: 'Document' },
   { kind: 'deal', label: tr("Deal"), group: 'Nexus' },
   { kind: 'client', label: tr("Client"), group: 'Nexus' },
   { kind: 'contact', label: tr("Contact"), group: 'Nexus' },
@@ -27,7 +36,6 @@ export const NEW_ITEMS: NewItem[] = [
   { kind: 'price_list', label: tr("Price list"), group: 'Nexus' },
   { kind: 'document_template', label: tr("Document template"), group: 'Nexus' },
   { kind: 'financial_plan', label: tr("Financial plan"), group: 'Nexus' },
-  { kind: 'survey', label: tr("Survey"), group: 'Nexus' },
   { kind: 'work_order', label: tr("Work order"), group: 'RetailPower' },
   { kind: 'store_visit', label: tr("Store visit"), group: 'RetailPower' },
   { kind: 'store', label: tr("Store"), group: 'RetailPower' },
@@ -36,6 +44,9 @@ export const NEW_ITEMS: NewItem[] = [
   { kind: 'product', label: tr("Product"), group: 'RetailPower' },
   { kind: 'planogram', label: tr("Planogram"), group: 'RetailPower' },
   { kind: 'invoice', label: tr("Invoice"), group: 'Symphony' },
+  { kind: 'automation', label: tr("Automation"), group: 'Symphony' },
+  { kind: 'survey', label: tr("Survey"), group: 'Symphony', also: ['Nexus'] },
+  { kind: 'user_invite', label: tr("Invite person"), group: 'Symphony', adminOnly: true },
   { kind: 'organisation', label: tr("Organisation"), group: 'Symphony', platformAdminOnly: true },
   { kind: 'integration_key', label: tr("Integration key"), group: 'Symphony', platformAdminOnly: true },
 ];
@@ -679,6 +690,11 @@ const TITLES: Record<NewKind, string> = {
   contact: 'New contact',
   financial_plan: 'New financial plan',
   survey: 'New survey',
+  doc_text: 'New document',
+  doc_sheet: 'New spreadsheet',
+  doc_mail: 'New e-mail',
+  automation: 'New automation',
+  user_invite: 'Invite a person',
   organisation: 'New organisation',
   integration_key: 'New integration key',
 };
@@ -715,6 +731,9 @@ export function NewDrawer({
       {kind === 'contact' && <ContactForm {...props} onSwitch={onSwitch} />}
       {kind === 'financial_plan' && <FinancialPlanForm {...props} />}
       {kind === 'survey' && <NewSurveyForm {...props} />}
+      {kind === 'doc_text' && <NewTextDocumentForm {...props} />}
+      {kind === 'doc_sheet' && <NewSpreadsheetForm {...props} />}
+      {kind === 'doc_mail' && <NewMailForm {...props} />}
       {kind === 'organisation' && <OrganisationForm {...props} />}
       {kind === 'integration_key' && <IntegrationKeyForm {...props} />}
       {kind === 'product' && <NewProductForm {...props} />}

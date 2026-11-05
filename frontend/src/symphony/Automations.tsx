@@ -1,4 +1,4 @@
-import { type FormEvent, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { api, type Automation, type AutomationCatalog, type AutomationStep, type UserSummary } from '../api';
 import { formatDateTime } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
@@ -92,11 +92,14 @@ function summary(a: Automation, catalog?: AutomationCatalog): string {
   return `${t} → ${a.steps.map((s) => (s.action === 'notify_user' ? 'notify' : 'open exception')).join(', ')}${a.steps.some((s) => s.delayMinutes) ? ' (delayed)' : ''}`;
 }
 
-export function AutomationsView() {
+export function AutomationsView({ startNew = false }: { startNew?: boolean }) {
   const { notify } = useShell();
   const list = useLoad(() => api.automations(), []);
   const catalog = useLoad(() => api.automationCatalog(), []);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState(startNew);
+  useEffect(() => {
+    if (startNew) setCreating(true);
+  }, [startNew]);
   const action = useAction();
   const l = list.data;
   const full = !!l && l.maxActive !== null && l.activeCount >= l.maxActive;

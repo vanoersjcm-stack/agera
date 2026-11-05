@@ -5,6 +5,7 @@ import { keycloak } from './auth';
 import { displayName, type UserContext, userContext } from './context';
 import { EmptyState, ViewFrame } from './Layout';
 import { NEW_ITEMS, NewDrawer } from './NewForms';
+import { DocIcon } from './DocumentCreate';
 import { AgreementDossier, AgreementsView } from './nexus/Agreements';
 import { AlertsView } from './nexus/Alerts';
 import { FeedbackView, PortalSurveysView, SurveyDossier, SurveysView } from './nexus/Surveys';
@@ -60,7 +61,7 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
     case 'symphony/feedback':
       return <FeedbackView />;
     case 'symphony/automations':
-      return id ? <AutomationDossier id={id} /> : <AutomationsView />;
+      return id ? <AutomationDossier id={id} /> : <AutomationsView startNew={route.params.get('new') === '1'} />;
     case 'symphony/reports':
       return <ReportsView />;
     case 'symphony/report-builder':
@@ -304,29 +305,32 @@ const SEARCH_TYPE: Record<string, string> = {
 
 function NewMenu({ suite, user, tier, onPick }: { suite: SuiteId; user: UserContext; tier: LicenseTier; onPick: (kind: NewKind) => void }) {
   const { open, setOpen, ref } = useDropdown();
-  const items = NEW_ITEMS.filter((i) => !i.platformAdminOnly || user.isPlatformAdmin);
-  const current = SUITES.find((s) => s.id === suite)!.name;
-  const groups = [current, ...['Nexus', 'RetailPower', 'Symphony'].filter((g) => g !== current)];
+  const current = SUITES.find((s) => s.id === suite)!.name as 'Nexus' | 'RetailPower' | 'Symphony';
+  const allowed = NEW_ITEMS.filter((i) => (!i.platformAdminOnly || user.isPlatformAdmin) && (!i.adminOnly || user.role === 'admin' || user.isPlatformAdmin));
+  const docs = current === 'RetailPower' ? [] : allowed.filter((i) => i.group === 'Document');
+  const items = allowed.filter((i) => i.group === current || i.also?.includes(current));
+  const heading = current === 'Symphony' && tier === 'vanguard' ? tr("Vanguard") : current;
+  const item = (i: (typeof NEW_ITEMS)[number]) => (
+    <button key={i.kind} role="menuitem" className={i.icon ? 'menu-doc' : undefined} onClick={() => (setOpen(false), onPick(i.kind))}>
+      {i.icon ? <><strong><DocIcon kind={i.icon} /> {i.label}</strong>{i.hint && <span>{i.hint}</span>}</> : i.label}
+    </button>
+  );
   return (
     <div className="dropdown" ref={ref}>
       <button className="new-button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
         {tr("+ New")}</button>
       {open && (
         <div className="menu new-menu" role="menu">
-          {groups.map((g) => {
-            const groupItems = items.filter((i) => i.group === g);
-            if (groupItems.length === 0) return null;
-            return (
-              <div key={g} className="menu-group">
-                <span className="menu-heading">{g === 'Symphony' && tier === 'vanguard' ? tr("Vanguard") : g}{g === current ? tr(" (current)") : ''}</span>
-                {groupItems.map((i) => (
-                  <button key={i.kind} role="menuitem" onClick={() => (setOpen(false), onPick(i.kind))}>
-                    {i.label}
-                  </button>
-                ))}
-              </div>
-            );
-          })}
+          {docs.length > 0 && (
+            <div className="menu-group">
+              <span className="menu-heading">{tr("Make new document")}</span>
+              {docs.map(item)}
+            </div>
+          )}
+          <div className="menu-group">
+            <span className="menu-heading">{heading}</span>
+            {items.map(item)}
+          </div>
         </div>
       )}
     </div>
@@ -565,7 +569,11 @@ export function App() {
 
   useEffect(() => setCreating(null), [route.path]);
 
-  const openNew = useCallback((kind: NewKind, defaults: NewDefaults = {}) => setCreating({ kind, defaults }), []);
+  const openNew = useCallback((kind: NewKind, defaults: NewDefaults = {}) => {
+    if (kind === 'automation') return navigate('/symphony/automations?new=1');
+    if (kind === 'user_invite') return navigate('/symphony/people?invite=1');
+    setCreating({ kind, defaults });
+  }, []);
   const shell = useMemo(() => ({ openNew, notify: setToast }), [openNew]);
 
   if (redirect) return null;

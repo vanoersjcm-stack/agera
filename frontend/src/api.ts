@@ -804,7 +804,7 @@ export const api = {
   documentTemplates: (includeInactive = false) => request<{ placeholders: string[]; items: DocumentTemplate[] }>('GET', `/v1/document-templates${includeInactive ? '?includeInactive=true' : ''}`),
   createDocumentTemplate: (body: { name: string; kind: TemplateKind; body: string }) => request<DocumentTemplate>('POST', '/v1/document-templates', body),
   updateDocumentTemplate: (id: string, body: Partial<{ name: string; kind: TemplateKind; body: string; active: boolean }>) => request<DocumentTemplate>('PATCH', `/v1/document-templates/${id}`, body),
-  renderTemplate: (id: string, roomId: string) => request<{ name: string; text: string; missing: string[] }>('POST', `/v1/document-templates/${id}/render`, { roomId }),
+  renderTemplate: (id: string, target: { roomId?: string; clientId?: string }) => request<{ name: string; text: string; missing: string[] }>('POST', `/v1/document-templates/${id}/render`, target),
   generateRoomDocument: (roomId: string, templateId: string, title?: string) => request<RoomDocument>('POST', `/v1/nexus/client-rooms/${roomId}/documents/from-template`, { templateId, title: title || null }),
   products: (includeInactive = false) => request<Product[]>('GET', `/v1/field/products${includeInactive ? '?includeInactive=true' : ''}`),
   createProduct: (body: { sku: string; name: string; brand?: string | null; category?: string | null; unitPrice: string | number }) => request<Product>('POST', '/v1/field/products', body),
