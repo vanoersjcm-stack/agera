@@ -5,6 +5,8 @@
 #   ./deploy.sh [up]                    validate, build and (re)start the stack, apply migrations
 #   ./deploy.sh create-admin --email <e> --tenant-name <n> --tenant-domain <d> [--first-name <f>] [--last-name <l>]
 #                                       create the first tenant and its platform-admin user
+#   ./deploy.sh seed-demo [--reset]         (re)create the demo organisations Agera Demo and Agera Demo Vanguard
+#                                       with demo data and logins (written to demo-logins.txt); --reset removes them
 #   ./deploy.sh seed-agera --tenant-domain <d> [--keycloak-users]
 #                                       import seed/agera/*.json into that tenant (idempotent); optionally
 #                                       create the matching Keycloak users (no passwords set)
@@ -346,6 +348,50 @@ KCADM
   info "Done. Set a password for each user in the Keycloak admin console (Users -> Credentials)."
 }
 
+cmd_seed_demo() {
+  local reset=false
+  while (($# > 0)); do
+    case $1 in
+      --reset) reset=true; shift ;;
+      *) die "unknown option: $1" ;;
+    esac
+  done
+  check_tools
+  validate_env
+  [[ $(container_state backend) == running* && $(container_state postgres) == running* && $(container_state keycloak) == running* ]] \
+    || die "the stack is not running; run ./deploy.sh first"
+
+  local mode=() out=/tmp/agera-demo
+  $reset && mode=(--reset-only)
+  info "$($reset && echo 'Removing' || echo 'Creating') the demo organisations (Agera Demo, Agera Demo Vanguard)"
+  compose exec -T -e SEED_DB_USER="${ENV[POSTGRES_USER]}" -e SEED_DB_PASSWORD="${ENV[POSTGRES_PASSWORD]}" -e PUBLIC_URL="${ENV[PUBLIC_URL]}" \
+    backend node dist/seed/demo-seed.js --out-dir "$out" "${mode[@]}"
+
+  local ids users=""
+  ids=$(compose exec -T backend cat "$out/keycloak-user-ids.txt")
+  $reset || users=$(compose exec -T backend cat "$out/keycloak-users.json")
+  info "$($reset && echo 'Removing' || echo 'Creating') the demo logins in Keycloak"
+  compose exec -T -e AG_IDS="$ids" -e AG_USERS="$users" keycloak bash -s <<'KCADM'
+set -euo pipefail
+kc() { /opt/keycloak/bin/kcadm.sh "$@" --config "$CFG"; }
+CFG=$(mktemp)
+trap 'rm -f "$CFG"' EXIT
+kc config credentials --server http://localhost:8080/auth --realm master \
+  --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD" >/dev/null
+for id in $AG_IDS; do kc delete "users/$id" -r agera >/dev/null 2>&1 || true; done
+if [[ -n $AG_USERS ]]; then printf '%s' "$AG_USERS" | kc create partialImport -r agera -f - >/dev/null; fi
+KCADM
+  if $reset; then
+    rm -f demo-logins.txt
+    compose exec -T backend rm -rf "$out"
+    info "Demo organisations and logins removed."
+    return 0
+  fi
+  (umask 077 && compose exec -T backend cat "$out/demo-logins.txt" > demo-logins.txt)
+  compose exec -T backend rm -rf "$out"
+  info "Demo data created. Logins and passwords: $(pwd)/demo-logins.txt"
+}
+
 cmd_status() {
   check_tools
   load_env
@@ -357,6 +403,7 @@ case ${1:-up} in
   up) cmd_up ;;
   create-admin) shift; cmd_create_admin "$@" ;;
   seed-agera) shift; cmd_seed_agera "$@" ;;
+  seed-demo) shift; cmd_seed_demo "$@" ;;
   status) cmd_status ;;
   compose) shift; check_tools; load_env; compose "$@" ;;
   -h | --help | help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//' ;;
