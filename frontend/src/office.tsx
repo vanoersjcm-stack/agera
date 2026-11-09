@@ -5,6 +5,7 @@ import { formatDateTime } from './labels';
 import { getLanguage, t as tr, tf } from './i18n';
 import type { NewDefaults, NewKind } from './shell';
 import { ErrorText, Field, Tabs, useAction } from './ui';
+import { ViewFrame } from './Layout';
 
 type Format = 'docx' | 'xlsx' | 'pptx';
 const OPEN_EVENT = 'agera:office-open';
@@ -280,7 +281,36 @@ export function ClientOfficeDocuments({ clientId, canCreate, openNew }: { client
   );
 }
 
-function DocRow({ doc, canEdit, showHistory, onHistory }: { doc: OfficeDocument; canEdit: boolean; showHistory: boolean; onHistory: () => void }) {
+/** Navigator › Documents › Drafts: office documents of all clients that are not yet shared in a client room. */
+export function DraftDocumentsView() {
+  const connected = useEditorConnected();
+  const [docs, setDocs] = useState<OfficeDocument[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<string | null>(null);
+  const load = () => api.officeDrafts().then(setDocs, (e: Error) => setError(e.message));
+  useEffect(() => {
+    void load();
+    window.addEventListener(CLOSED_EVENT, load);
+    return () => window.removeEventListener(CLOSED_EVENT, load);
+  }, []);
+  return (
+    <ViewFrame title={tr("Draft documents")} subtitle={tr("Office documents not yet shared in a client room, newest first")} crumbs={[{ label: tr("Nexus"), href: '#/nexus' }, { label: tr("Draft documents") }]}>
+      <ErrorText error={error} />
+      {docs === null ? <p className="muted">{tr("Loading…")}</p> : docs.length === 0 ? <p className="muted">{tr("No draft documents.")}</p> : (
+        <table className="grid">
+          <thead><tr><th>{tr("Document")}</th><th>{tr("Linked to")}</th><th>{tr("Version")}</th><th>{tr("Last edited")}</th><th /></tr></thead>
+          <tbody>
+            {docs.map((d) => (
+              <DocRow key={d.id} doc={d} showClient canEdit={connected === true && d.editable && KNOWN.has(d.fileFormat ?? '')} showHistory={history === d.id} onHistory={() => setHistory(history === d.id ? null : d.id)} />
+            ))}
+          </tbody>
+        </table>
+      )}
+    </ViewFrame>
+  );
+}
+
+function DocRow({ doc, canEdit, showHistory, onHistory, showClient = false }: { doc: OfficeDocument; canEdit: boolean; showHistory: boolean; onHistory: () => void; showClient?: boolean }) {
   const [versions, setVersions] = useState<OfficeVersion[] | null>(null);
   useEffect(() => {
     if (showHistory) api.officeVersions(doc.id).then(setVersions, () => setVersions([]));
@@ -290,7 +320,10 @@ function DocRow({ doc, canEdit, showHistory, onHistory }: { doc: OfficeDocument;
     <>
       <tr>
         <td><DocIcon kind={FORMAT_ICON[doc.fileFormat ?? ''] ?? 'text'} /> <strong>{doc.title}</strong><div className="muted small">{doc.fileName} · {kb(doc.sizeBytes)}</div></td>
-        <td>{links || <span className="muted">{tr("Client dossier")}</span>}</td>
+        <td>
+          {showClient && doc.clientName && <div><a href={`#/nexus/clients/${doc.clientId}?tab=documents`}>{doc.clientName}</a></div>}
+          {links || <span className="muted">{tr("Client dossier")}</span>}
+        </td>
         <td>v{doc.currentVersion}</td>
         <td>{formatDateTime(doc.updatedAt)}<div className="muted small">{doc.lastModifiedByName ?? '—'}</div></td>
         <td className="row-actions">

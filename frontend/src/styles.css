@@ -748,3 +748,23 @@ button.wide { width: 100%; }
 .button-like { color: var(--accent); cursor: pointer; font-weight: 600; }
 .button-like:hover { text-decoration: underline; }
 .list-toolbar label { display: inline-flex; align-items: center; gap: 0.4rem; }
+
+/* Navigator: collapsible cross-suite tree below the suite menu */
+.navigator { width: 100%; margin-top: 0.8rem; padding-top: 0.6rem; border-top: 1px solid var(--border); font-size: 0.85rem; }
+.navigator summary { cursor: pointer; list-style: none; padding: 0.3rem 0.6rem; border-radius: 6px; color: var(--text); }
+.navigator summary::-webkit-details-marker { display: none; }
+.navigator summary::before { content: '▸'; display: inline-block; width: 1em; color: var(--muted); transition: transform 0.15s; }
+[dir='rtl'] .navigator summary::before { content: '◂'; }
+.navigator details[open] > summary::before, .navigator[open] > summary::before { transform: rotate(90deg); }
+[dir='rtl'] .navigator details[open] > summary::before, [dir='rtl'] .navigator[open] > summary::before { transform: rotate(-90deg); }
+.navigator summary:hover { background: var(--hover); }
+.navigator > summary { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); }
+.navigator .nav-children { display: flex; flex-direction: column; gap: 0.1rem; padding-inline-start: 0.8rem; }
+.navigator > .nav-children { padding-inline-start: 0; }
+.sidenav .navigator a { padding: 0.3rem 0.6rem; font-size: 0.85rem; border-inline-start: 0; }
+.navigator .nav-disabled, .navigator .nav-note { padding: 0.3rem 0.6rem; color: var(--muted); }
+.navigator .nav-disabled { cursor: not-allowed; }
+.navigator .nav-note { font-size: 0.75rem; padding-block: 0.15rem; }
+.navigator input[type='search'] { width: 100%; box-sizing: border-box; margin: 0.25rem 0; font-size: 0.85rem; }
+.navigator button.nav-link { background: none; border: 0; text-align: start; padding: 0.3rem 0.6rem; color: var(--text); font: inherit; cursor: pointer; border-radius: 6px; }
+.navigator button.nav-link:hover { background: var(--hover); }

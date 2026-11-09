@@ -1,5 +1,5 @@
 import { ClientOfficeDocuments } from '../office';
-import { type FormEvent, type ReactNode, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { api, type Client, type ClientRecord, type Invoice, type Contact, type CreditStatus, type RoomActivity } from '../api';
 import { invalidateDirectory, useUsers } from '../directory';
 import { ClientInvoicesPanel } from '../symphony/Invoices';
@@ -9,6 +9,7 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
+import { recordClientView } from '../Navigator';
 import { t as tr, tf, locale, live } from '../i18n';
 
 const SUITE = live(() => ({ label: tr("Nexus"), href: '#/nexus' }));
@@ -272,6 +273,10 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
   const action = useAction();
   const invoices = useLoad(() => api.clientInvoices(id), [id]);
   const tab = route.params.get('tab') ?? 'overview';
+  const clientName = data?.client.name;
+  useEffect(() => {
+    if (clientName) recordClientView(id, clientName);
+  }, [id, clientName]);
   if (!data) {
     return (
       <ViewFrame title={tr("Client")} crumbs={[SUITE, LIST, { label: tr("Loading…") }]}>

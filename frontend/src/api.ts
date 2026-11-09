@@ -909,6 +909,7 @@ export const api = {
   },
   editorStatus: () => request<{ connected: boolean; editor: string }>('GET', '/v1/documents/editor-status'),
   officeDocuments: (clientId: string) => request<OfficeDocument[]>('GET', `/v1/documents?clientId=${clientId}`),
+  officeDrafts: () => request<OfficeDocument[]>('GET', '/v1/documents?drafts=true'),
   createOfficeDocument: (body: NewOfficeDocument) => request<OfficeDocument>('POST', '/v1/documents', body),
   officeVersions: (id: string) => request<OfficeVersion[]>('GET', `/v1/documents/${id}/versions`),
   officeSession: (id: string) => request<EditorSession>('POST', `/v1/documents/${id}/session`),

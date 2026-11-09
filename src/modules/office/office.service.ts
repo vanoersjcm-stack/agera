@@ -180,6 +180,14 @@ export class OfficeService {
     });
   }
 
+  /** Documents not yet shared in a client room, newest first. */
+  drafts(): Promise<OfficeDocumentView[]> {
+    return this.tx.run(async (manager) => {
+      const rows: OfficeDocumentView[] = await manager.query(`${VIEW_SQL} WHERE d.tenant_id = $1 AND d.client_room_id IS NULL ORDER BY d.updated_at DESC LIMIT 100`, [this.context.tenantId]);
+      return rows.map((r) => ({ ...r, editable: EDITABLE_FORMATS.has(r.fileFormat ?? '') }));
+    });
+  }
+
   get(id: string): Promise<OfficeDocumentView> {
     return this.tx.run((manager) => this.view(manager, id));
   }

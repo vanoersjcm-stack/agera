@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api, type Client, type SearchHit, type Tenant, switchOrganisation, viewingOrganisation, type UserProfile, type LicenseTier } from './api';
 import { AssistantTip, useAssistant } from './Assistant';
 import { keycloak } from './auth';
@@ -37,7 +37,8 @@ import { IntegrationsView as ExternalSystemsView } from './symphony/Integrations
 import { GoldenThreadTour, startTour } from './tour';
 import { getTheme, setTheme } from './theme';
 import { availableLanguages, getLanguage, setLanguage, t, useLanguage, t as tr, tf, live } from './i18n';
-import { OfficeEditorHost } from './office';
+import { DraftDocumentsView, OfficeEditorHost } from './office';
+import { Navigator } from './Navigator';
 import { startOfflineSync, useOfflineQueue } from './offlineQueue';
 import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
 import { ActivityLogView, IntegrationsView, OrganisationsView, SymphonyOverview } from './symphony/SymphonyViews';
@@ -101,6 +102,8 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return <NexusOverview />;
     case 'nexus/clients':
       return id ? <ClientDossier id={id} route={route} /> : <ClientsView route={route} />;
+    case 'nexus/drafts':
+      return <DraftDocumentsView />;
     case 'nexus/agreements':
       return id ? <AgreementDossier id={id} external={false} /> : <AgreementsView route={route} external={false} />;
     case 'nexus/client-rooms':
@@ -399,7 +402,7 @@ function initials(name: string): string {
   return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
 }
 
-function SideNav({ items, path, heading }: { items: NavItem[]; path: string; heading: string }) {
+function SideNav({ items, path, heading, children }: { items: NavItem[]; path: string; heading: string; children?: ReactNode }) {
   useLanguage();
   const active = items
     .filter((i) => path === i.path || path.startsWith(`${i.path}/`))
@@ -412,6 +415,7 @@ function SideNav({ items, path, heading }: { items: NavItem[]; path: string; hea
           {t(i.label)}
         </a>
       ))}
+      {children}
     </nav>
   );
 }
@@ -641,7 +645,9 @@ export function App() {
           {external ? (
             <SideNav items={PORTAL_NAV} path={route.path} heading={tr("Client portal")} />
           ) : (
-            <SideNav items={navFor(suite.id, user)} path={route.path} heading={`${brand} · ${suite.tagline}`} />
+            <SideNav items={navFor(suite.id, user)} path={route.path} heading={`${brand} · ${suite.tagline}`}>
+              <Navigator user={user} readOnlyTenant={!!tenant?.readOnly} />
+            </SideNav>
           )}
           <main>
             {preview && preview !== tenant?.licenseTier && (

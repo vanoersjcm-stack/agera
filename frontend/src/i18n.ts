@@ -856,6 +856,7 @@ const NL: Record<string, string> = {
   "Merchandisers by availability, contract, language and brand certification": "Merchandisers op beschikbaarheid, contract, taal en merkcertificering",
   "Clock in/out, coordinator sign-off and HR export": "In-/uitklokken, aftekening door coördinator en HR-export",
   "Vehicles with a four-photo check, apparel, RMA and stock-protection claims": "Voertuigen met controle met vier foto's, kleding, RMA en voorraadbeschermingsclaims",
+  "Navigator": "Navigator", "Open workflow items": "Openstaande werkitems", "Status on approvals": "Status van goedkeuringen", "Customers": "Klanten", "Search customers": "Klanten zoeken", "Most viewed": "Meest bekeken", "No customers found": "Geen klanten gevonden", "Open action-plan milestones and tasks": "Mijlpalen en taken uit het actieplan openen", "Mail": "Mail", "not connected": "niet gekoppeld", "Mail is not connected yet": "Mail is nog niet gekoppeld", "Contracts": "Contracten", "Financial": "Financieel", "Operational": "Operationeel", "New text document": "Nieuw tekstdocument", "Drafts": "Concepten", "Draft documents": "Conceptdocumenten", "Office documents not yet shared in a client room, newest first": "Office-documenten die nog niet in een klantruimte zijn gedeeld, nieuwste eerst", "No draft documents.": "Geen conceptdocumenten.",
 };
 const DICTIONARIES: Partial<Record<Language, Record<string, string>>> = { nl: NL };
 

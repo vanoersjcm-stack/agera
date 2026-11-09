@@ -36,6 +36,16 @@ describe('/v1/documents (office)', () => {
     assert.equal(r.body.connected, true);
   });
 
+  it('lists documents not yet shared in a client room as drafts and requires clientId otherwise', async () => {
+    const created = await api<Doc>(alice, 'POST', '/v1/documents', { clientId, title: `Concept ${stamp}`, format: 'xlsx' });
+    assert.equal(created.status, 201, JSON.stringify(created.body));
+    const drafts = await api<(Doc & { clientRoomId: string | null })[]>(alice, 'GET', '/v1/documents?drafts=true');
+    assert.equal(drafts.status, 200);
+    assert.ok(drafts.body.some((d) => d.id === created.body.id));
+    assert.ok(drafts.body.every((d) => d.clientRoomId === null));
+    assert.equal((await api(alice, 'GET', '/v1/documents')).status, 400);
+  });
+
   it('creates a .docx for a client and contact, edits it via WOPI with locks, and keeps versions', async () => {
     const created = await api<Doc>(alice, 'POST', '/v1/documents', { clientId, contactId, title: `Jaarovereenkomst ${stamp}`, format: 'docx' });
     assert.equal(created.status, 201, JSON.stringify(created.body));

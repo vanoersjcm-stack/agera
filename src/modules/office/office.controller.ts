@@ -25,9 +25,14 @@ export class OfficeDocumentsController {
 
   @Get()
   @ApiOperation({ summary: "A client's documents (Word, spreadsheets, presentations and other files), newest first" })
-  @ApiQuery({ name: 'clientId', format: 'uuid' })
-  list(@Query('clientId', ParseUUIDPipe) clientId: string): Promise<OfficeDocumentView[]> {
-    return this.office.list(clientId);
+  @ApiQuery({ name: 'clientId', format: 'uuid', required: false })
+  @ApiQuery({ name: 'drafts', required: false, description: 'true: documents of all clients not yet shared in a client room (the Navigator drafts list)' })
+  @ApiErrors(400)
+  list(@Query('clientId') clientId?: string, @Query('drafts') drafts?: string): Promise<OfficeDocumentView[]> {
+    if (drafts === 'true') return this.office.drafts();
+    const id = optionalUuid('clientId', clientId);
+    if (!id) throw new BadRequestException('clientId is required');
+    return this.office.list(id);
   }
 
   @Post()
