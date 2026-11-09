@@ -83,6 +83,12 @@ const CITIES: [string, string, 'Noord' | 'Midden' | 'Zuid'][] = [
   ['Arnhem', '6811', 'Midden'], ['Haarlem', '2011', 'Midden'], ['Enschede', '7511', 'Noord'], ['Amersfoort', '3811', 'Midden'], ['Zwolle', '8011', 'Noord'],
   ['Leiden', '2311', 'Midden'], ['Maastricht', '6211', 'Zuid'], ['Dordrecht', '3311', 'Zuid'], ['Apeldoorn', '7311', 'Noord'], ['Leeuwarden', '8911', 'Noord'],
 ];
+const CITY_COORDS: Record<string, [number, number]> = {
+  Amsterdam: [52.3702, 4.8952], Rotterdam: [51.9244, 4.4777], 'Den Haag': [52.0705, 4.3007], Utrecht: [52.0907, 5.1214], Eindhoven: [51.4416, 5.4697],
+  Groningen: [53.2194, 6.5665], Tilburg: [51.5555, 5.0913], Almere: [52.3508, 5.2647], Breda: [51.5719, 4.7683], Nijmegen: [51.8126, 5.8372],
+  Arnhem: [51.9851, 5.8987], Haarlem: [52.3874, 4.6462], Enschede: [52.2215, 6.8937], Amersfoort: [52.1561, 5.3878], Zwolle: [52.5168, 6.083],
+  Leiden: [52.1601, 4.497], Maastricht: [50.8514, 5.691], Dordrecht: [51.8133, 4.6901], Apeldoorn: [52.2112, 5.9699], Leeuwarden: [53.2012, 5.7999],
+};
 const STREETS = ['Dorpsstraat', 'Kerkstraat', 'Stationsweg', 'Marktplein', 'Hoofdstraat', 'Molenweg', 'Schoolstraat', 'Julianalaan', 'Beatrixstraat', 'Industrieweg', 'Parallelweg', 'Nieuwstraat'];
 const RETAILERS = ['Versmarkt', 'Buurtsuper', 'DagelijksVers', 'Stadsmarkt', 'Polder Super', 'Kustwinkels', 'Groenhoek', 'Marktplein Retail', 'De Korenbloem', 'Noorderzon', 'Zuiderhaven', 'Molenhoek', 'Plein Supermarkten', 'Vers & Co', 'Hollandse Hoek', 'Lindeboom', 'Oranjehof', 'De Graanschuur', 'Buitenhof', 'Eikenhof', 'Waterkant Retail', 'Kanaalzijde', 'Duinrand', 'De Kaasstolp', 'Huismerk Winkels'];
 const BRANDS = ['Lage Landen Dranken', 'Zeeuws Zout', 'Brabantse Bakkerij', 'Friese Zuivel', 'Delta Snacks', 'Hollandse Koffiebranders', 'Veluwe Vers', 'Noordzee Visgroep', 'Twentse Sappen', 'Limburgse Vlaai', 'Utrechtse Thee', 'Gouds Kaashuis', 'Rijnmond Frisdrank', 'Achterhoek Vlees', 'Westland Groente', 'Betuwe Fruit', 'Kempen Chips', 'Wadden Water', 'Zaanse Specerijen', 'Drentse Granen', 'Hanze Huishoud', 'Maas Verzorging', 'Groene Hart Bio', 'Kennemer Bloem', 'IJssel Pasta'];
@@ -334,6 +340,7 @@ async function generate(db: pg.Client, spec: TenantSpec, logins: Login[], keyclo
       await w.insert('stores', {
         id: sid, tenant_id: t, store_code: `${c.slug.slice(0, 3).toUpperCase()}${String(clients.indexOf(c)).padStart(2, '0')}-${String(101 + k)}`, name: stores[stores.length - 1].name, address: `${r.pick(STREETS)} ${r.int(1, 180)}`,
         city: city[0], postal_code: `${city[1]} ${String.fromCharCode(65 + r.int(0, 25))}${String.fromCharCode(65 + r.int(0, 25))}`, country: 'NL', status: storeNo % 31 === 30 ? 'closed' : 'active', client_id: c.id,
+        latitude: (CITY_COORDS[city[0]]?.[0] ?? 52.09) + ((storeNo * 37) % 41 - 20) / 1000, longitude: (CITY_COORDS[city[0]]?.[1] ?? 5.12) + ((storeNo * 53) % 41 - 20) / 1000,
       });
       storeNo++;
     }
@@ -515,6 +522,78 @@ async function generate(db: pg.Client, spec: TenantSpec, logins: Login[], keyclo
     for (const [k, p] of r.sample(products, r.int(2, 6)).entries()) {
       await w.insert('field_order_lines', { id: id(`fol:${i}:${k}`), tenant_id: t, order_id: oid, product_id: p.id, quantity: r.pick([6, 12, 12, 24, 48, 60]), unit_price: money(p.price) });
     }
+  }
+
+  // RetailPower operations: crew, shifts, vehicles, apparel, returns, stock claims ----------------------------------------
+  const crewKeys = spec.key === 'symphony' ? ['field1', 'field2', 'field3', 'fieldlead'] : ['user'];
+  const zoneOf: Record<string, string> = { field1: 'Noord', field2: 'Midden', field3: 'Zuid', fieldlead: 'Midden', user: 'Midden' };
+  const LANGS = [['nl', 'en'], ['nl', 'en', 'de'], ['nl', 'ar', 'en'], ['nl', 'tr'], ['nl', 'pl', 'en'], ['nl', 'fr']];
+  const CERTS = BRANDS.slice(0, 8);
+  for (const [i, key] of crewKeys.entries()) {
+    const uid = userId[key];
+    if (!uid) continue;
+    await w.insert('merchandisers', {
+      id: id(`crew:${key}`), tenant_id: t, user_id: uid, contract_type: i % 3 === 2 ? 'flex' : 'fixed', languages: `{${LANGS[i % LANGS.length].join(',')}}`,
+      brand_certifications: `{${r.sample(CERTS, r.int(1, 3)).map((b) => `"${b}"`).join(',')}}`, available_days: i % 3 === 2 ? '{2,4,6}' : '{1,2,3,4,5}',
+      availability: i === 1 ? 'busy' : 'available', home_region: zoneOf[key], phone: `06${r.int(10000000, 99999999)}`,
+    });
+  }
+  const crewUsers = crewKeys.map((k) => userId[k]).filter(Boolean);
+  const coordinator = fieldLead === userId.user ? (userId.admin ?? fieldLead) : fieldLead;
+  const doneVisits = visits.filter((v) => v.status === 'COMPLETED' && v.date.getTime() > NOW.getTime() - 45 * DAY);
+  for (const [i, v] of doneVisits.slice(0, spec.key === 'symphony' ? 120 : 15).entries()) {
+    const start = new Date(v.date.getTime() + (8 + (i % 3)) * 3600_000);
+    const end = new Date(start.getTime() + r.int(3, 8) * 3600_000 + r.pick([0, 15, 30, 45]) * 60_000);
+    const age = (NOW.getTime() - start.getTime()) / DAY;
+    const status = age < 7 ? 'pending' : i % 23 === 4 ? 'rejected' : 'approved';
+    const far = i % 17 === 3;
+    await w.insert('shift_logs', {
+      id: id(`shift:${i}`), tenant_id: t, user_id: v.rep, store_id: v.storeId, visit_id: v.id, clock_in_at: start, clock_out_at: end,
+      geofence_distance_m: far ? r.int(400, 2500) : r.int(5, 180), validation_status: status,
+      validated_by: status === 'pending' || v.rep === coordinator ? (status === 'pending' ? null : (userId.admin ?? coordinator)) : coordinator,
+      validated_at: status === 'pending' ? null : new Date(end.getTime() + DAY), rejection_reason: status === 'rejected' ? 'Clock-in far from the store; please explain' : null,
+    });
+  }
+  const PLATES = ['V-123-KB', 'V-456-LN', 'V-789-PR', 'V-321-ST', 'V-654-HG'];
+  const VANS = ['VW Caddy', 'Renault Kangoo', 'Peugeot Partner', 'Ford Transit Connect', 'Opel Combo'];
+  for (const [i, uid] of crewUsers.entries()) {
+    await w.insert('vehicle_allocations', {
+      id: id(`vehicle:${i}`), tenant_id: t, user_id: uid, vehicle_id: PLATES[i % PLATES.length], vehicle_description: VANS[i % VANS.length],
+      allocated_from: daysAgo(r.int(0, 5)), status: 'pending_check', created_by: coordinator,
+    });
+    for (const [k, item] of (['polo', 'polo', 'jacket', 'cap', 'shoes'] as const).entries()) {
+      if (k > 1 && r.chance(0.4)) continue;
+      await w.insert('apparel_assignments', {
+        id: id(`apparel:${i}:${k}`), tenant_id: t, user_id: uid, item, size: item === 'shoes' ? String(r.int(38, 46)) : item === 'cap' ? null : r.pick(['S', 'M', 'L', 'XL']),
+        quantity: item === 'polo' ? 2 : 1, issued_on: daysAgo(r.int(30, 300)), returned_on: k === 1 && i % 2 === 1 ? daysAgo(r.int(1, 20)) : null,
+      });
+    }
+  }
+  const rmaFlow = ['open', 'open', 'approved', 'shipped', 'credited', 'credited', 'rejected'] as const;
+  for (let i = 0; i < (spec.key === 'symphony' ? 24 : 4); i++) {
+    const s = stores[(i * 7) % stores.length];
+    const p = products.length ? products[(i * 5) % products.length] : null;
+    const status = rmaFlow[i % rmaFlow.length];
+    const created = daysAgo(r.int(2, 120));
+    await w.insert('rma_cases', {
+      id: id(`rma:${i}`), tenant_id: t, case_number: `RMA-${created.getFullYear()}-${String(i + 1).padStart(4, '0')}`, store_id: s.id, product_id: p?.id ?? null, client_id: s.clientId,
+      quantity: r.pick([1, 2, 6, 12, 24]), reason: r.pick(['damaged', 'expired', 'recall', 'wrong_delivery', 'defective', 'other']), status,
+      description: r.pick(['Doos beschadigd bij levering', 'THT verstreken op schap', 'Terugroepactie leverancier', null]), opened_by: crewUsers[i % crewUsers.length] ?? coordinator,
+      closed_at: status === 'credited' || status === 'rejected' ? new Date(created.getTime() + 10 * DAY) : null, created_at: created,
+    });
+  }
+  const claimFlow = ['submitted', 'submitted', 'approved', 'paid', 'paid', 'rejected'] as const;
+  for (let i = 0; i < (spec.key === 'symphony' ? 18 : 3); i++) {
+    const s = stores[(i * 11 + 3) % stores.length];
+    const p = products.length ? products[(i * 3) % products.length] : null;
+    const status = claimFlow[i % claimFlow.length];
+    const qty = r.pick([6, 12, 24, 48]);
+    const created = daysAgo(r.int(2, 90));
+    await w.insert('stock_protection_claims', {
+      id: id(`claim:${i}`), tenant_id: t, store_id: s.id, product_id: p?.id ?? null, client_id: s.clientId, claim_type: r.pick(['price_protection', 'damaged', 'shrinkage', 'expired', 'other']),
+      quantity: qty, amount: money(qty * (p?.price ?? 2) * 0.3), status, submitted_by: crewUsers[i % crewUsers.length] ?? coordinator,
+      decided_by: status === 'submitted' ? null : finance, decided_at: status === 'submitted' ? null : new Date(created.getTime() + 5 * DAY), created_at: created,
+    });
   }
 
   // Exceptions, approvals, notifications ---------------------------------------------------------------------------------
