@@ -10,7 +10,7 @@ import { activeClients, clientName, invalidateDirectory, useClients, useUsers } 
 import { navigate } from './router';
 import type { NewDefaults, NewKind } from './shell';
 import { Drawer, ErrorText, Field, FormActions, useAction } from './ui';
-import { t as tr, tf } from './i18n';
+import { t as tr, tf, live } from './i18n';
 
 export interface NewItem {
   kind: NewKind;
@@ -24,7 +24,7 @@ export interface NewItem {
   adminOnly?: boolean;
 }
 
-export const NEW_ITEMS: NewItem[] = [
+export const NEW_ITEMS: NewItem[] = live(() => ([
   { kind: 'doc_text', label: tr("Word document (.docx)"), hint: tr("Blank or from a template, filled with client data; opens in Agera Office"), icon: 'text', group: 'Document' },
   { kind: 'doc_sheet', label: tr("Spreadsheet (.xlsx)"), hint: tr("Blank, price tiers or a payment schedule; opens in Agera Office"), icon: 'sheet', group: 'Document' },
   { kind: 'doc_slides', label: tr("Presentation (.pptx)"), hint: tr("Blank 16:9 presentation; opens in Agera Office"), icon: 'slides', group: 'Document' },
@@ -51,7 +51,7 @@ export const NEW_ITEMS: NewItem[] = [
   { kind: 'user_invite', label: tr("Invite person"), group: 'Symphony', adminOnly: true },
   { kind: 'organisation', label: tr("Organisation"), group: 'Symphony', platformAdminOnly: true },
   { kind: 'integration_key', label: tr("Integration key"), group: 'Symphony', platformAdminOnly: true },
-];
+]));
 
 interface FormProps {
   defaults: NewDefaults;

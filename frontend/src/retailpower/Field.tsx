@@ -8,9 +8,9 @@ import { money } from '../nexus/Clients';
 import { navigate, type Route, withParams } from '../router';
 import { type NewDefaults, useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
-import { t, tf, locale } from '../i18n';
+import { t, tf, locale, live } from '../i18n';
 
-const SUITE = { label: t("RetailPower"), href: '#/retailpower' };
+const SUITE = live(() => ({ label: t("RetailPower"), href: '#/retailpower' }));
 
 export const ORDER_STATUS: Record<FieldOrderStatus, string> = {
   draft: 'Draft',
@@ -329,13 +329,13 @@ export function FieldOrdersView({ route }: { route: Route }) {
   );
 }
 
-const NEXT: Record<FieldOrderStatus, { to: FieldOrderStatus; label: string; primary?: boolean }[]> = {
+const NEXT: Record<FieldOrderStatus, { to: FieldOrderStatus; label: string; primary?: boolean }[]> = live(() => ({
   draft: [{ to: 'submitted', label: t("Submit order"), primary: true }, { to: 'cancelled', label: t("Cancel order") }],
   submitted: [{ to: 'confirmed', label: t("Confirm"), primary: true }, { to: 'cancelled', label: t("Cancel order") }],
   confirmed: [{ to: 'delivered', label: t("Mark delivered"), primary: true }, { to: 'cancelled', label: t("Cancel order") }],
   delivered: [],
   cancelled: [],
-};
+}));
 
 export function FieldOrderDossier({ id }: { id: string }) {
   const { notify } = useShell();

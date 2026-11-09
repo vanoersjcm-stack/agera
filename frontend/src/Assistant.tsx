@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { keycloak } from './auth';
-import { t } from './i18n';
+import { t, live } from './i18n';
 
 interface Tip {
   title: string;
@@ -13,7 +13,7 @@ interface AssistantState {
 }
 
 /** Rule-based onboarding tips per page; the preference is kept per user in localStorage. */
-const TIPS: Record<string, Tip> = {
+const TIPS: Record<string, Tip> = live(() => ({
   '/symphony': {
     title: t("Welcome to Agera"),
     text: t("Use the suite switcher at the top left to move between Symphony (HQ & governance), Nexus (commercial) and RetailPower (field work). “+ New” creates any record from every page, and the search box finds stores, work orders, agreements and client rooms."),
@@ -46,7 +46,7 @@ const TIPS: Record<string, Tip> = {
     title: t("Welcome to your client portal"),
     text: t("You see the client rooms and agreements Agera shares with your organisation. Missing something? Contact your Agera account manager."),
   },
-};
+}));
 
 function storageKey(): string {
   return `agera.assistant.${keycloak.subject ?? 'anonymous'}`;

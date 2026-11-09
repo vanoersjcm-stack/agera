@@ -9,10 +9,10 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, Stepper, useAction, useLoad } from '../ui';
-import { t, tf } from '../i18n';
+import { t, tf, live } from '../i18n';
 
-const SUITE_CRUMB = { label: t("RetailPower"), href: '#/retailpower' };
-const LIST_CRUMB = { label: t("Store visits"), href: '#/retailpower/store-visits' };
+const SUITE_CRUMB = live(() => ({ label: t("RetailPower"), href: '#/retailpower' }));
+const LIST_CRUMB = live(() => ({ label: t("Store visits"), href: '#/retailpower/store-visits' }));
 
 export function StoreVisitsView({ route }: { route: Route }) {
   const { openNew } = useShell();
@@ -104,18 +104,18 @@ function Photo({ media, onDelete }: { media: VisitMedia; onDelete?: () => void }
   );
 }
 
-const CHECKLIST = [
+const CHECKLIST = live(() => ([
   { key: 'shelfStocked', label: t("Shelf fully stocked") },
   { key: 'pricingCorrect', label: t("Price labels correct") },
   { key: 'promoPlaced', label: t("Promotion material placed") },
   { key: 'planogramFollowed', label: t("Shelf layout (planogram) followed") },
-] as const;
+] as const));
 
-const COMPLIANCE_CHOICES = [
+const COMPLIANCE_CHOICES = live(() => ([
   { value: 'compliant', label: t("Compliant") },
   { value: 'needs_follow_up', label: t("Needs follow-up") },
   { value: 'not_compliant', label: t("Not compliant") },
-];
+]));
 
 function ReportStep({ summary, editable, onSaved }: { summary: VisitSummary; editable: boolean; onSaved: () => void }) {
   const { notify } = useShell();

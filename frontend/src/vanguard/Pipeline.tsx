@@ -8,7 +8,7 @@ import { money } from '../nexus/Clients';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, useAction, useLoad } from '../ui';
-import { t, tf } from '../i18n';
+import { t, tf, live } from '../i18n';
 
 export const STAGES: DealStage[] = ['lead_ingest', 'proposal_sent', 'contract_negotiation', 'ops_handoff'];
 export const DEAL_STAGE: Record<DealStage, string> = {
@@ -18,7 +18,7 @@ export const DEAL_STAGE: Record<DealStage, string> = {
   ops_handoff: 'Handed to operations',
 };
 const PRIORITY: Record<DealPriority, string> = { low: 'Low', medium: 'Medium', high: 'High' };
-const SUITE = { label: t("Nexus"), href: '#/nexus' };
+const SUITE = live(() => ({ label: t("Nexus"), href: '#/nexus' }));
 
 function Priority({ value }: { value: DealPriority }) {
   return <span className={`prio prio-${value}`}>{PRIORITY[value]}</span>;

@@ -7,9 +7,9 @@ import { navigate, type Route, withParams } from '../router';
 import { type NewDefaults, useShell } from '../shell';
 import { Drawer, ErrorText, Field, FilterChips, FormActions, Loading, StatusBadge, useAction, useLoad } from '../ui';
 import { money } from './Clients';
-import { t as tr, tf } from '../i18n';
+import { t as tr, tf, live } from '../i18n';
 
-const SUITE = { label: tr("Nexus"), href: '#/nexus' };
+const SUITE = live(() => ({ label: tr("Nexus"), href: '#/nexus' }));
 export const TEMPLATE_KIND: Record<TemplateKind, string> = { proposal: 'Proposal', agreement: 'Agreement', letter: 'Letter', mail: 'E-mail text' };
 
 interface FormProps { defaults: NewDefaults; onDone: (route?: string, message?: string) => void; onCancel: () => void }

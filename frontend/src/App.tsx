@@ -36,7 +36,7 @@ import { ReportBuilderView, ReportsView } from './symphony/Reports';
 import { IntegrationsView as ExternalSystemsView } from './symphony/Integrations';
 import { GoldenThreadTour, startTour } from './tour';
 import { getTheme, setTheme } from './theme';
-import { getLanguage, setLanguage, t, useLanguage, t as tr, tf } from './i18n';
+import { availableLanguages, getLanguage, setLanguage, t, useLanguage, t as tr, tf, live } from './i18n';
 import { OfficeEditorHost } from './office';
 import { startOfflineSync, useOfflineQueue } from './offlineQueue';
 import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
@@ -305,14 +305,14 @@ function SearchPalette({ user, tier }: { user: UserContext; tier: LicenseTier })
   );
 }
 
-const SEARCH_TYPE: Record<string, string> = {
+const SEARCH_TYPE: Record<string, string> = live(() => ({
   client: tr("Client"),
   store: tr("Store"),
   work_order: tr("Work order"),
   agreement: tr("Agreement"),
   client_room: tr("Client room"),
   digital_sales_room: tr("Client room"),
-};
+}));
 
 function NewMenu({ suite, user, tier, onPick }: { suite: SuiteId; user: UserContext; tier: LicenseTier; onPick: (kind: NewKind) => void }) {
   const { open, setOpen, ref } = useDropdown();
@@ -383,7 +383,9 @@ function UserMenu({ user, tenant, tier, tipsOn, onToggleTips }: { user: UserCont
           {user.isPlatformAdmin && previewTier() && <button role="menuitem" onClick={() => setPreviewTier(null)}>{tr("Stop edition preview")}</button>}
           <button role="menuitem" onClick={() => (setOpen(false), startTour())}>{t('Take the Golden Thread tour')}</button>
           <button role="menuitem" onClick={() => (setOpen(false), setTheme(getTheme() === 'dark' ? 'light' : 'dark'))}>{getTheme() === 'dark' ? tr("Appearance: dark → light") : tr("Appearance: light → dark")}</button>
-          <button role="menuitem" onClick={() => setLanguage(getLanguage() === 'nl' ? 'en' : 'nl')}>{getLanguage() === 'nl' ? tr("Language: Nederlands → English") : tr("Language: English → Nederlands")}</button>
+          {availableLanguages().filter((l) => l.code !== getLanguage()).map((l) => (
+            <button key={l.code} role="menuitem" lang={l.code} onClick={() => (setOpen(false), setLanguage(l.code))}>{tf("Language: {name}", { name: l.name })}</button>
+          ))}
           <button role="menuitem" onClick={onToggleTips}>{t(tipsOn ? 'Hide page tips' : 'Show page tips')}</button>
           <button role="menuitem" onClick={() => void keycloak.logout({ redirectUri: window.location.origin + '/' })}>{t('Log out')}</button>
         </div>

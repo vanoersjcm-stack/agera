@@ -8,10 +8,10 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, FilterChips, includesText, Loading, SearchInput, StatusBadge, useLoad } from '../ui';
-import { t } from '../i18n';
+import { t, live } from '../i18n';
 
-const SUITE_CRUMB = { label: t("RetailPower"), href: '#/retailpower' };
-const LIST_CRUMB = { label: t("Stores"), href: '#/retailpower/stores' };
+const SUITE_CRUMB = live(() => ({ label: t("RetailPower"), href: '#/retailpower' }));
+const LIST_CRUMB = live(() => ({ label: t("Stores"), href: '#/retailpower/stores' }));
 
 /** Store compliance comes from the store-compliance alerts (latest visit report not compliant). */
 export function nonCompliantStores(alerts: Alert[] | undefined): Map<string, Alert> {

@@ -7,9 +7,9 @@ import { navigate, type Route, withParams } from '../router';
 import { editionName } from '../suites';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, Loading, useAction, useLoad } from '../ui';
-import { locale, t as tr, tf } from '../i18n';
+import { locale, t as tr, tf, live } from '../i18n';
 
-const SUITE_CRUMB = { label: tr("Symphony"), href: '#/symphony' };
+const SUITE_CRUMB = live(() => ({ label: tr("Symphony"), href: '#/symphony' }));
 
 function Tile({ href, value, label, tone }: { href: string; value: string; label: string; tone?: string }) {
   return (

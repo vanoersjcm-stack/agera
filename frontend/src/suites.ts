@@ -1,6 +1,6 @@
 import type { LicenseTier } from './api';
 import type { UserContext } from './context';
-import { t } from './i18n';
+import { t, live } from './i18n';
 
 export type SuiteId = 'symphony' | 'nexus' | 'retailpower';
 
@@ -11,11 +11,11 @@ export interface Suite {
   home: string;
 }
 
-export const SUITES: Suite[] = [
+export const SUITES: Suite[] = live(() => ([
   { id: 'symphony', name: 'Symphony', tagline: t("HQ & Governance"), home: '/symphony' },
   { id: 'nexus', name: 'Nexus', tagline: t("Commercial & Client Portal"), home: '/nexus' },
   { id: 'retailpower', name: 'RetailPower', tagline: t("Field & Shelf Execution"), home: '/retailpower' },
-];
+]));
 
 export interface NavItem {
   path: string;
@@ -84,12 +84,12 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
   }
 }
 
-export const PORTAL_NAV: NavItem[] = [
+export const PORTAL_NAV: NavItem[] = live(() => ([
   { path: '/portal', label: t("Overview"), description: t("What Agera shares with you") },
   { path: '/portal/rooms', label: t("My client rooms"), description: t("Rooms Agera opened for your organisation") },
   { path: '/portal/agreements', label: t("My agreements"), description: t("Agreements and their status") },
   { path: '/portal/surveys', label: t("Surveys"), description: t("Questions from Agera about our service") },
-];
+]));
 
 const SUITE_KEY = 'agera.suite';
 

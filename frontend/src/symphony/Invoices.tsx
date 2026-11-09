@@ -6,15 +6,15 @@ import { money } from '../nexus/Clients';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
-import { t, tf } from '../i18n';
+import { t, tf, live } from '../i18n';
 
 export const INVOICE_STATUS: Record<InvoiceStatus, string> = { draft: 'Draft', issued: 'Sent', paid: 'Paid', cancelled: 'Cancelled' };
-const NEXT: Record<InvoiceStatus, { status: InvoiceStatus; label: string }[]> = {
+const NEXT: Record<InvoiceStatus, { status: InvoiceStatus; label: string }[]> = live(() => ({
   draft: [{ status: 'issued', label: t("Mark as sent") }, { status: 'cancelled', label: t("Cancel") }],
   issued: [{ status: 'paid', label: t("Mark as paid") }, { status: 'cancelled', label: t("Cancel") }],
   paid: [],
   cancelled: [],
-};
+}));
 
 function badge(i: Invoice) {
   return i.overdue ? <StatusBadge status="not_compliant" label={t("Overdue")} /> : <StatusBadge status={i.status === 'paid' ? 'active' : i.status === 'cancelled' ? 'archived' : 'pending'} label={INVOICE_STATUS[i.status]} />;

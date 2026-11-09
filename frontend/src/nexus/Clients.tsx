@@ -9,10 +9,10 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
-import { t as tr, tf, locale } from '../i18n';
+import { t as tr, tf, locale, live } from '../i18n';
 
-const SUITE = { label: tr("Nexus"), href: '#/nexus' };
-const LIST = { label: tr("Clients"), href: '#/nexus/clients' };
+const SUITE = live(() => ({ label: tr("Nexus"), href: '#/nexus' }));
+const LIST = live(() => ({ label: tr("Clients"), href: '#/nexus/clients' }));
 
 export function money(value: string | number): string {
   return new Intl.NumberFormat(locale(), { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(value));

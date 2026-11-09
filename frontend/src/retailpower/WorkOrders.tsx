@@ -8,13 +8,13 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
-import { t, tf } from '../i18n';
+import { t, tf, live } from '../i18n';
 
-const SUITE_CRUMB = { label: t("RetailPower"), href: '#/retailpower' };
-const LIST_CRUMB = { label: t("Work orders"), href: '#/retailpower/work-orders' };
+const SUITE_CRUMB = live(() => ({ label: t("RetailPower"), href: '#/retailpower' }));
+const LIST_CRUMB = live(() => ({ label: t("Work orders"), href: '#/retailpower/work-orders' }));
 
 /** Mirrors ALLOWED_TRANSITIONS in the backend; COMPLETED and CANCELLED are final. */
-const NEXT: Record<WorkOrderStatus, { status: WorkOrderStatus; label: string }[]> = {
+const NEXT: Record<WorkOrderStatus, { status: WorkOrderStatus; label: string }[]> = live(() => ({
   PENDING: [
     { status: 'IN_PROGRESS', label: t("Start") },
     { status: 'COMPLETED', label: t("Complete") },
@@ -27,7 +27,7 @@ const NEXT: Record<WorkOrderStatus, { status: WorkOrderStatus; label: string }[]
   ],
   COMPLETED: [],
   CANCELLED: [],
-};
+}));
 
 export function WorkOrdersView({ route }: { route: Route }) {
   const { openNew } = useShell();

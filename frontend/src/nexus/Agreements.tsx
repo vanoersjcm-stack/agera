@@ -12,16 +12,16 @@ import { ApprovalPanel } from '../symphony/Workflow';
 import { EditAgreementDrawer } from '../EditForms';
 import { money } from './Clients';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
-import { t, tf } from '../i18n';
+import { t, tf, live } from '../i18n';
 
-const NEXT: Record<AgreementStatus, { status: AgreementStatus; label: string; confirm?: string }[]> = {
+const NEXT: Record<AgreementStatus, { status: AgreementStatus; label: string; confirm?: string }[]> = live(() => ({
   pending_approval: [
     { status: 'active', label: t("Approve & activate") },
     { status: 'expired', label: t("Mark expired"), confirm: t("Mark this agreement as expired? This cannot be undone.") },
   ],
   active: [{ status: 'expired', label: t("Mark expired"), confirm: t("Mark this agreement as expired? This cannot be undone.") }],
   expired: [],
-};
+}));
 
 function crumbs(external: boolean) {
   return external

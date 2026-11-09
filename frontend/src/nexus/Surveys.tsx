@@ -8,20 +8,20 @@ import { useShell } from '../shell';
 import { currentTier } from '../suites';
 import { EnterpriseBadge } from '../symphony/Automations';
 import { Drawer, ErrorText, Field, FormActions, Loading, StatusBadge, Tabs, useAction, useLoad } from '../ui';
-import { t as tr, tf } from '../i18n';
+import { t as tr, tf, live } from '../i18n';
 
-const SUITE = { label: tr("Nexus"), href: '#/nexus' };
-const LIST = { label: tr("Surveys & feedback"), href: '#/nexus/surveys' };
-export const QUESTION_TYPE: Record<SurveyQuestionType, string> = {
+const SUITE = live(() => ({ label: tr("Nexus"), href: '#/nexus' }));
+const LIST = live(() => ({ label: tr("Surveys & feedback"), href: '#/nexus/surveys' }));
+export const QUESTION_TYPE: Record<SurveyQuestionType, string> = live(() => ({
   nps: tr("Recommendation score (NPS 0–10)"),
   csat: tr("Satisfaction (1–5 stars)"),
   rating: tr("Rating scale"),
   single_choice: tr("Single choice"),
   multi_choice: tr("Multiple choice"),
   text: tr("Open text"),
-};
+}));
 const BASIC: SurveyQuestionType[] = ['nps', 'csat', 'text'];
-export const SURVEY_STATUS: Record<SurveyStatus, string> = { draft: tr("Draft"), active: tr("Active"), closed: tr("Closed"), archived: tr("Archived") };
+export const SURVEY_STATUS: Record<SurveyStatus, string> = live(() => ({ draft: tr("Draft"), active: tr("Active"), closed: tr("Closed"), archived: tr("Archived") }));
 const STATUS_TONE: Record<SurveyStatus, string> = { draft: 'draft', active: 'active', closed: 'closed', archived: 'archived' };
 
 let seq = 0;

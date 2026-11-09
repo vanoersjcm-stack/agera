@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 
-export type Language = 'en' | 'nl';
+export type Language = 'en' | 'nl' | 'de' | 'fr' | 'es' | 'pl' | 'tr' | 'ar';
+export const LANGUAGES: { code: Language; name: string }[] = [
+  { code: 'en', name: 'English' }, { code: 'nl', name: 'Nederlands' }, { code: 'de', name: 'Deutsch' }, { code: 'fr', name: 'Français' },
+  { code: 'es', name: 'Español' }, { code: 'pl', name: 'Polski' }, { code: 'tr', name: 'Türkçe' }, { code: 'ar', name: 'العربية' },
+];
+const LOCALES: Record<Language, string> = { en: 'en-GB', nl: 'nl-NL', de: 'de-DE', fr: 'fr-FR', es: 'es-ES', pl: 'pl-PL', tr: 'tr-TR', ar: 'ar' };
+const RTL = new Set<Language>(['ar']);
 const KEY = 'agera_lang';
 const LEGACY_KEY = 'agera.language';
 const EVENT = 'agera:language';
@@ -730,6 +736,8 @@ const NL: Record<string, string> = {
   "Shipped back": "Teruggestuurd",
   "Credited": "Gecrediteerd",
   "Damaged": "Beschadigd",
+  "Language: {name}": "Taal: {name}",
+  "Defective": "Defect",
   "Recall": "Terugroepactie",
   "Wrong delivery": "Verkeerde levering",
   "Overstock": "Overvoorraad",
@@ -849,28 +857,60 @@ const NL: Record<string, string> = {
   "Clock in/out, coordinator sign-off and HR export": "In-/uitklokken, aftekening door coördinator en HR-export",
   "Vehicles with a four-photo check, apparel, RMA and stock-protection claims": "Voertuigen met controle met vier foto's, kleding, RMA en voorraadbeschermingsclaims",
 };
-export function getLanguage(): Language {
-  const stored = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
-  return stored === 'nl' ? 'nl' : 'en';
+const DICTIONARIES: Partial<Record<Language, Record<string, string>>> = { nl: NL };
+
+/** Languages offered in the switcher: English plus every language that has a dictionary. */
+export function availableLanguages(): { code: Language; name: string }[] {
+  return LANGUAGES.filter((l) => l.code === 'en' || DICTIONARIES[l.code]);
 }
 
+export function getLanguage(): Language {
+  const stored = localStorage.getItem(KEY) ?? localStorage.getItem(LEGACY_KEY);
+  return availableLanguages().find((l) => l.code === stored)?.code ?? 'en';
+}
+
+function applyToDocument(language: Language): void {
+  document.documentElement.lang = language;
+  document.documentElement.dir = RTL.has(language) ? 'rtl' : 'ltr';
+}
+
+/** Switches the interface language in place; components re-render, no page reload. */
 export function setLanguage(language: Language): void {
   localStorage.setItem(KEY, language);
   localStorage.removeItem(LEGACY_KEY);
-  document.documentElement.lang = language;
+  applyToDocument(getLanguage());
   window.dispatchEvent(new Event(EVENT));
-  // Labels in module-level constants are translated once at load, so a reload applies the switch everywhere.
-  window.location.reload();
+}
+
+/** Locale for dates and numbers, following the interface language. */
+export function locale(): string {
+  return LOCALES[getLanguage()];
 }
 
 /** Translate a fixed interface text; unknown texts (and record names) are returned unchanged. */
-/** Locale for dates and numbers, following the interface language. */
-export function locale(): string {
-  return getLanguage() === 'nl' ? 'nl-NL' : 'en-GB';
+export function t(text: string): string {
+  return DICTIONARIES[getLanguage()]?.[text] ?? text;
 }
 
-export function t(text: string): string {
-  return getLanguage() === 'nl' ? (NL[text] ?? text) : text;
+/** A module-level label object or list that is rebuilt (translated) whenever the language changes. */
+export function live<T extends object>(build: () => T): T {
+  let value = build();
+  let builtFor = getLanguage();
+  const current = (): T => {
+    const language = getLanguage();
+    if (language !== builtFor) [value, builtFor] = [build(), language];
+    return value;
+  };
+  return new Proxy((Array.isArray(value) ? [] : {}) as T, {
+    get: (_, key) => Reflect.get(current(), key),
+    set: (_, key, v) => Reflect.set(current(), key, v),
+    has: (_, key) => Reflect.has(current(), key),
+    ownKeys: () => Reflect.ownKeys(current()),
+    getOwnPropertyDescriptor: (_, key) => {
+      const d = Reflect.getOwnPropertyDescriptor(current(), key);
+      return d && key !== 'length' ? { ...d, configurable: true } : d;
+    },
+  });
 }
 
 /** Translate a text with {placeholders}, then fill them in: tf("{n} photos added", { n: 3 }). */
@@ -890,3 +930,5 @@ export function useLanguage(): Language {
 }
 
 export const TRANSLATED_COUNT = Object.keys(NL).length;
+
+applyToDocument(getLanguage());

@@ -7,9 +7,9 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { type NewDefaults, useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, Loading, StatusBadge, useAction, useLoad } from '../ui';
-import { t as tr, tf } from '../i18n';
+import { t as tr, tf, live } from '../i18n';
 
-const APPROVAL_STATUS: Record<string, string> = { pending: tr("Pending"), approved: tr("Approved"), rejected: tr("Rejected"), cancelled: tr("Withdrawn") };
+const APPROVAL_STATUS: Record<string, string> = live(() => ({ pending: tr("Pending"), approved: tr("Approved"), rejected: tr("Rejected"), cancelled: tr("Withdrawn") }));
 const SEVERITY: Record<ExceptionSeverity, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 const EXC_STATUS: Record<ExceptionStatus, string> = { open: 'Open', in_progress: 'In progress', resolved: 'Resolved' };
 const ENTITY: Record<ApprovalEntity, string> = { financial_plan: 'Financial plan', agreement: 'Agreement' };

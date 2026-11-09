@@ -7,10 +7,10 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, Field, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
-import { t as tr, locale } from '../i18n';
+import { t as tr, locale, live } from '../i18n';
 
-const SUITE_CRUMB = { label: tr("Nexus"), href: '#/nexus' };
-const LIST_CRUMB = { label: tr("Financial plans"), href: '#/nexus/financial-plans' };
+const SUITE_CRUMB = live(() => ({ label: tr("Nexus"), href: '#/nexus' }));
+const LIST_CRUMB = live(() => ({ label: tr("Financial plans"), href: '#/nexus/financial-plans' }));
 
 function planClient(metadata: Record<string, unknown>): string {
   return typeof metadata.companyName === 'string' ? metadata.companyName : '—';

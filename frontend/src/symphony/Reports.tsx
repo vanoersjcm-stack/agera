@@ -7,9 +7,9 @@ import { useShell } from '../shell';
 import { currentTier } from '../suites';
 import { ErrorText, Loading, useAction, useLoad } from '../ui';
 import { EnterpriseBadge } from './Automations';
-import { t, tf, locale } from '../i18n';
+import { t, tf, locale, live } from '../i18n';
 
-const SUITE = { label: t("Symphony"), href: '#/symphony' };
+const SUITE = live(() => ({ label: t("Symphony"), href: '#/symphony' }));
 
 function Bars({ rows }: { rows: { label: string; value: number; hint?: string }[] }) {
   const max = Math.max(1, ...rows.map((r) => r.value));
