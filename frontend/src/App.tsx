@@ -16,6 +16,7 @@ import { NexusOverview } from './nexus/NexusOverview';
 import { ProfitLossView } from './nexus/ProfitLoss';
 import { PortalOverview } from './portal/PortalOverview';
 import { RetailOverview } from './retailpower/RetailOverview';
+import { BackOfficeView, CrewView, FleetView, HoursView } from './retailpower/Operations';
 import { StoreDossier, StoresView } from './retailpower/Stores';
 import { StoreVisitsView, VisitDossier } from './retailpower/StoreVisits';
 import { WorkOrderDossier, WorkOrdersView } from './retailpower/WorkOrders';
@@ -130,6 +131,14 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return id ? <AuditRoundDossier id={id} /> : <AuditRoundsView />;
     case 'retailpower/calendar':
       return <FieldCalendarView route={route} />;
+    case 'retailpower/back-office':
+      return <BackOfficeView />;
+    case 'retailpower/crew':
+      return <CrewView />;
+    case 'retailpower/hours':
+      return <HoursView />;
+    case 'retailpower/fleet':
+      return <FleetView />;
     default:
       return <NotAvailable path={route.path} />;
   }

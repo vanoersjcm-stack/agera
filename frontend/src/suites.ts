@@ -68,6 +68,10 @@ export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
     case 'retailpower':
       return [
         { path: '/retailpower', label: t("Overview"), description: t("Visits, open work orders and store compliance") },
+        { path: '/retailpower/back-office', label: t("Back office"), description: t("Chain performance, KPIs across chains and the photo audit gallery") },
+        { path: '/retailpower/crew', label: t("Crew directory"), description: t("Merchandisers by availability, contract, language and brand certification") },
+        { path: '/retailpower/hours', label: t("Validated hours"), description: t("Clock in/out, coordinator sign-off and HR export") },
+        { path: '/retailpower/fleet', label: t("Fleet, apparel & returns"), description: t("Vehicles with a four-photo check, apparel, RMA and stock-protection claims") },
         { path: '/retailpower/work-orders', label: t("Work orders"), description: t("Field tasks, assignment and status") },
         { path: '/retailpower/store-visits', label: t("Store visits"), description: t("Plan visits, write reports, add photos") },
         { path: '/retailpower/stores', label: t("Stores"), description: t("Store list and compliance") },

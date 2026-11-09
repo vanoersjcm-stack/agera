@@ -741,3 +741,10 @@ button.wide { width: 100%; }
 .history-row > td { background: var(--surface-2); }
 .grid.compact td, .grid.compact th { padding: 4px 8px; font-size: 12px; }
 .doc-icon-slides { color: #d97706; }
+
+/* RetailPower back office (Wave B) */
+.table-wrap { overflow-x: auto; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 0.75rem; }
+.button-like { color: var(--accent); cursor: pointer; font-weight: 600; }
+.button-like:hover { text-decoration: underline; }
+.list-toolbar label { display: inline-flex; align-items: center; gap: 0.4rem; }

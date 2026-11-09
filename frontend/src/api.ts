@@ -660,6 +660,27 @@ export interface ClientRoom {
   updatedAt: string;
 }
 
+/* ---------- RetailPower operations (V26) ---------- */
+
+export type ContractType = 'fixed' | 'flex';
+export type CrewAvailability = 'available' | 'busy' | 'on_leave' | 'inactive';
+export interface CrewMember { id: string; userId: string; name: string; email: string; isActive: boolean; contractType: ContractType; languages: string[]; brandCertifications: string[]; availableDays: number[]; availability: CrewAvailability; homeRegion: string | null; phone: string | null; notes: string | null; openVisits: number; vehicleId: string | null }
+export type ShiftStatus = 'pending' | 'approved' | 'rejected';
+export interface Shift { id: string; userId: string; userName: string; contractType: ContractType | null; storeId: string | null; storeName: string | null; visitId: string | null; clockInAt: string; clockOutAt: string | null; clockInLat: number | null; clockInLng: number | null; geofenceDistanceM: number | null; hours: number | null; validationStatus: ShiftStatus; validatedByName: string | null; validatedAt: string | null; rejectionReason: string | null; notes: string | null }
+export type VehicleSide = 'front' | 'back' | 'left' | 'right';
+export interface VehicleAllocation { id: string; userId: string; userName: string; vehicleId: string; description: string | null; allocatedFrom: string; allocatedUntil: string | null; status: 'pending_check' | 'active' | 'returned'; checkCompletedAt: string | null; odometerKm: number | null; damageNotes: string | null; returnedAt: string | null; photos: Record<VehicleSide, boolean> }
+export interface ApparelAssignment { id: string; userId: string; userName: string; item: string; size: string | null; quantity: number; issuedOn: string; returnedOn: string | null; notes: string | null }
+export type RmaStatus = 'open' | 'approved' | 'shipped' | 'credited' | 'rejected';
+export interface RmaCase { id: string; caseNumber: string; storeId: string; storeName: string; productName: string | null; clientName: string | null; quantity: number; reason: string; status: RmaStatus; description: string | null; openedByName: string; createdAt: string }
+export type ClaimStatus = 'submitted' | 'approved' | 'rejected' | 'paid';
+export interface StockClaim { id: string; storeId: string; storeName: string; productName: string | null; clientName: string | null; claimType: string; quantity: number; amount: string; status: ClaimStatus; description: string | null; submittedByName: string; decidedByName: string | null; createdAt: string }
+export interface OpsChainRow { clientId: string | null; chain: string; stores: number; visits30: number; completed30: number; nonCompliant: number; compliant: number; photos30: number; lastVisit: string | null }
+export interface OpsDashboard {
+  kpis: { chains: number; stores: number; visits30: number; completed30: number; compliancePercent: number | null; photos30: number; openRma: number; openClaims: number; pendingShifts: number; availableCrew: number };
+  chains: OpsChainRow[];
+  photos: { id: string; visitId: string; url: string; storeName: string; chain: string | null; visitDate: string; repName: string | null; createdAt: string }[];
+}
+
 export const api = {
   // Symphony
   tenant: () => request<Tenant>('GET', '/tenants/me'),
@@ -696,6 +717,37 @@ export const api = {
   users: () => request<UserSummary[]>('GET', '/users'),
   auditLogs: (page: number, limit = 50) => request<Page<AuditLog>>('GET', `/audit-logs${query({ page, limit })}`),
   verifyAuditChain: () => request<AuditChainCheck>('GET', '/audit-logs/verify'),
+  // RetailPower operations
+  opsDashboard: () => request<OpsDashboard>('GET', '/v1/operations/dashboard'),
+  crew: () => request<CrewMember[]>('GET', '/v1/operations/crew'),
+  createCrew: (body: Partial<CrewMember> & { userId: string }) => request<{ id: string }>('POST', '/v1/operations/crew', body),
+  updateCrew: (id: string, body: Partial<CrewMember>) => request<{ id: string }>('PATCH', `/v1/operations/crew/${id}`, body),
+  shifts: (params: { status?: ShiftStatus; from?: string; to?: string; userId?: string } = {}) => request<Shift[]>('GET', `/v1/operations/shifts${query(params)}`),
+  myOpenShift: () => request<Shift | null>('GET', '/v1/operations/shifts/mine/open'),
+  clockIn: (body: { storeId?: string | null; visitId?: string | null; lat?: number; lng?: number; notes?: string | null }) => request<Shift>('POST', '/v1/operations/shifts/clock-in', body),
+  clockOut: (body: { lat?: number; lng?: number }) => request<Shift>('POST', '/v1/operations/shifts/clock-out', body),
+  recordShift: (body: { userId: string; storeId: string | null; clockInAt: string; clockOutAt: string; notes: string | null }) => request<Shift>('POST', '/v1/operations/shifts', body),
+  validateShift: (id: string, decision: 'approved' | 'rejected', reason?: string) => request<Shift>('PATCH', `/v1/operations/shifts/${id}/validation`, { decision, reason }),
+  exportHours: (from: string, to: string) => downloadFile(`/v1/operations/shifts/export.csv${query({ from, to })}`, `validated-hours-${from.slice(0, 10)}-${to.slice(0, 10)}.csv`),
+  vehicles: () => request<VehicleAllocation[]>('GET', '/v1/operations/vehicles'),
+  allocateVehicle: (body: { userId: string; vehicleId: string; description: string | null; allocatedFrom: string | null; allocatedUntil: string | null }) => request<VehicleAllocation>('POST', '/v1/operations/vehicles', body),
+  uploadVehiclePhoto: (id: string, side: VehicleSide, file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return send<VehicleAllocation>('POST', `/v1/operations/vehicles/${id}/photos/${side}`, form);
+  },
+  vehiclePhotoUrl: (id: string, side: VehicleSide) => `/api/v1/operations/vehicles/${id}/photos/${side}`,
+  completeVehicleCheck: (id: string, body: { odometerKm: number | null; damageNotes: string | null }) => request<VehicleAllocation>('POST', `/v1/operations/vehicles/${id}/check`, body),
+  returnVehicle: (id: string) => request<VehicleAllocation>('POST', `/v1/operations/vehicles/${id}/return`),
+  apparel: () => request<ApparelAssignment[]>('GET', '/v1/operations/apparel'),
+  issueApparel: (body: { userId: string; item: string; size: string | null; quantity: number; issuedOn: string | null; notes: string | null }) => request<{ id: string }>('POST', '/v1/operations/apparel', body),
+  returnApparel: (id: string) => request<{ id: string }>('POST', `/v1/operations/apparel/${id}/return`),
+  rmaCases: () => request<RmaCase[]>('GET', '/v1/operations/rma'),
+  openRma: (body: { storeId: string; productId: string | null; clientId: string | null; quantity: number; reason: string; description: string | null }) => request<RmaCase>('POST', '/v1/operations/rma', body),
+  setRmaStatus: (id: string, status: RmaStatus) => request<RmaCase>('PATCH', `/v1/operations/rma/${id}/status`, { status }),
+  stockClaims: () => request<StockClaim[]>('GET', '/v1/operations/stock-claims'),
+  submitClaim: (body: { storeId: string; productId: string | null; clientId: string | null; claimType: string; quantity: number; amount: string | number; description: string | null }) => request<StockClaim>('POST', '/v1/operations/stock-claims', body),
+  setClaimStatus: (id: string, status: ClaimStatus) => request<StockClaim>('PATCH', `/v1/operations/stock-claims/${id}/status`, { status }),
   mailStatus: () => request<MailStatus>('GET', '/v1/mail/status'),
   sendMail: (input: { to: string; subject: string; text: string; clientId?: string }) => request<{ messageId: string }>('POST', '/v1/mail/send', input),
   apiKeys: () => request<Page<ApiKey>>('GET', '/api-keys?limit=100'),
