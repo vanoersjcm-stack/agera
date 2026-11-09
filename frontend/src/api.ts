@@ -239,6 +239,22 @@ export interface UserSummary {
   title: string | null;
 }
 
+export interface MailStatus {
+  configured: boolean;
+  connected: boolean;
+  host: string | null;
+  port: number;
+  from: string | null;
+  error: string | null;
+}
+
+export interface AuditChainCheck {
+  intact: boolean;
+  checked: number;
+  firstBrokenSeq: number | null;
+  headHash: string | null;
+}
+
 export interface AuditLog {
   id: string;
   userId: string | null;
@@ -679,6 +695,9 @@ export const api = {
   deleteSavedReport: (id: string) => request<void>('DELETE', `/v1/reports/saved/${id}`),
   users: () => request<UserSummary[]>('GET', '/users'),
   auditLogs: (page: number, limit = 50) => request<Page<AuditLog>>('GET', `/audit-logs${query({ page, limit })}`),
+  verifyAuditChain: () => request<AuditChainCheck>('GET', '/audit-logs/verify'),
+  mailStatus: () => request<MailStatus>('GET', '/v1/mail/status'),
+  sendMail: (input: { to: string; subject: string; text: string; clientId?: string }) => request<{ messageId: string }>('POST', '/v1/mail/send', input),
   apiKeys: () => request<Page<ApiKey>>('GET', '/api-keys?limit=100'),
   createApiKey: (body: { name: string; expiresAt?: string }) => request<CreatedApiKey>('POST', '/api-keys', body),
   revokeApiKey: (id: string) => request<null>('DELETE', `/api-keys/${id}`),

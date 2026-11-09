@@ -1,5 +1,5 @@
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
-import { api, type ClientRecord, type DocumentTemplate, type Product } from './api';
+import { api, type ClientRecord, type DocumentTemplate, type MailStatus, type Product } from './api';
 import { getClientFilter } from './clientFilter';
 import { activeClients, useClients } from './directory';
 import type { NewDefaults } from './shell';
@@ -325,8 +325,18 @@ export function NewMailForm({ defaults, onDone, onCancel }: FormProps) {
     if (template) fill(template);
   }, [record, contactId]);
 
+  const [mail, setMail] = useState<MailStatus | null>(null);
+  useEffect(() => {
+    api.mailStatus().then(setMail, () => setMail(null));
+  }, []);
+  const sendFromAgera = () => {
+    void run(() => api.sendMail({ to: to.trim(), subject, text: body, clientId: clientId || undefined })).then((r) => {
+      if (r) onDone(undefined, tr("E-mail sent from Agera"));
+    });
+  };
   const submit = (e: FormEvent) => {
     e.preventDefault();
+    if (mail?.connected) return sendFromAgera();
     window.location.href = `mailto:${encodeURIComponent(to.trim())}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
     onDone(undefined, tr("Opened in your e-mail program"));
   };
@@ -336,7 +346,9 @@ export function NewMailForm({ defaults, onDone, onCancel }: FormProps) {
 
   return (
     <form className="doc-form" onSubmit={submit}>
-      <p className="not-connected-note">{tr("Sending from Agera isn't connected yet (no e-mail integration). This opens your own e-mail program with the message filled in.")}</p>
+      {mail?.connected
+        ? <p className="callout good">{tr("Sent from Agera through your organisation's e-mail server")} ({mail.from}).</p>
+        : <p className="not-connected-note">{tr("Sending from Agera isn't connected yet (no SMTP server configured). This opens your own e-mail program with the message filled in.")}</p>}
       <ClientSelect value={clientId} onChange={setClientId} optional />
       {clientId && (
         <Field label={tr("Contact")} hint={record && contacts.length === 0 ? tr("This client has no contacts with an e-mail address.") : undefined}>
@@ -366,7 +378,7 @@ export function NewMailForm({ defaults, onDone, onCancel }: FormProps) {
       <div className="form-actions">
         <button type="button" className="secondary" onClick={onCancel}>{tr("Cancel")}</button>
         <button type="button" className="secondary" onClick={copy}>{copied ? tr("Copied") : tr("Copy text")}</button>
-        <button type="submit" className="primary" disabled={busy || !subject.trim()}>{tr("Open in e-mail program")}</button>
+        <button type="submit" className="primary" disabled={busy || !subject.trim() || (mail?.connected === true && !to.trim())}>{mail?.connected ? tr("Send from Agera") : tr("Open in e-mail program")}</button>
       </div>
     </form>
   );

@@ -34,6 +34,17 @@ export interface OfficeConfig {
   publicOrigin: string;
 }
 
+export interface MailConfig {
+  /** SMTP relay (e.g. an EU provider or your own mail server); null host = sending not connected. */
+  host: string | null;
+  port: number;
+  /** true = implicit TLS (port 465); false = STARTTLS is required on submission ports such as 587. */
+  secure: boolean;
+  user: string | null;
+  pass: string | null;
+  from: string | null;
+}
+
 export interface AppConfig {
   port: number;
   /** Path prefix for all API routes, e.g. `api` behind the production reverse proxy; empty = none. */
@@ -44,6 +55,7 @@ export interface AppConfig {
   db: DatabaseConfig;
   keycloak: KeycloakConfig;
   office: OfficeConfig;
+  mail: MailConfig;
 }
 
 function required(name: string): string {
@@ -82,6 +94,18 @@ function officeConfig(): OfficeConfig {
   };
 }
 
+function mailConfig(): MailConfig {
+  const port = Number(process.env.SMTP_PORT || 587);
+  return {
+    host: process.env.SMTP_HOST || null,
+    port,
+    secure: process.env.SMTP_SECURE ? process.env.SMTP_SECURE === 'true' : port === 465,
+    user: process.env.SMTP_USER || null,
+    pass: process.env.SMTP_PASS || null,
+    from: process.env.SMTP_FROM || null,
+  };
+}
+
 export default (): AppConfig => ({
   port: Number(process.env.PORT ?? 3000),
   apiPrefix: (process.env.API_PREFIX ?? '').replace(/^\/+|\/+$/g, ''),
@@ -101,4 +125,5 @@ export default (): AppConfig => ({
   },
   keycloak: keycloakConfig(),
   office: officeConfig(),
+  mail: mailConfig(),
 });

@@ -334,7 +334,10 @@ button.secondary, .button-link, select, input, textarea, .chip { border-color: v
 
 /* Deal pipeline board */
 .board { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 1rem; overflow-x: auto; padding-bottom: 0.5rem; }
-.board-column { background: var(--surface-4); border-radius: 12px; padding: 0.75rem; min-height: 240px; display: flex; flex-direction: column; gap: 0.6rem; transition: background 0.15s; }
+.board { align-items: start; }
+.board-column { background: var(--surface-4); border-radius: 12px; padding: 0.75rem; min-height: 240px; max-height: calc(100vh - 220px); display: flex; flex-direction: column; gap: 0.6rem; transition: background 0.15s; }
+.board-head { flex-shrink: 0; }
+.board-cards { flex: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 0.6rem; padding-right: 2px; }
 .board-column.drop { background: #dbeafe; outline: 2px dashed var(--accent); }
 .board-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.8rem; color: var(--text-2); font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
 .board-head span { font-weight: 500; color: var(--text-muted); text-transform: none; letter-spacing: 0; }
@@ -576,6 +579,7 @@ body { -webkit-font-smoothing: antialiased; color: var(--text); }
 .placeholder-chips .chip.on { background: #4338ca; color: #fff; border-color: #4338ca; }
 .integration-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem; }
 .integration p { margin: 0.4rem 0; font-size: 0.88rem; }
+.connected { font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; background: var(--tint-green); color: var(--tone-green); white-space: nowrap; }
 .not-connected { font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.55rem; border-radius: 999px; background: var(--surface-3); color: var(--text-3); border: 1px dashed #94a3b8; white-space: nowrap; }
 .tour-card { position: fixed; right: 1.25rem; bottom: 1.25rem; width: 340px; z-index: 60; background: #0f172a; color: #e2e8f0; border-radius: 14px; padding: 1rem 1.1rem; box-shadow: 0 12px 32px rgba(15, 23, 42, 0.35); }
 .tour-card h3 { margin: 0.2rem 0 0.4rem; font-size: 1rem; color: #fff; }

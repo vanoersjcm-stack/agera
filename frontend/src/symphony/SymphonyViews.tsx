@@ -1,4 +1,5 @@
-import { api, type ApiKey, type LicenseTier, type Tenant } from '../api';
+import { useState } from 'react';
+import { api, type ApiKey, type AuditChainCheck, type LicenseTier, type Tenant } from '../api';
 import { useUsers, userName } from '../directory';
 import { auditActionLabel, formatDate, formatDateTime } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
@@ -6,7 +7,7 @@ import { navigate, type Route, withParams } from '../router';
 import { editionName } from '../suites';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, Loading, useAction, useLoad } from '../ui';
-import { t as tr, tf } from '../i18n';
+import { locale, t as tr, tf } from '../i18n';
 
 const SUITE_CRUMB = { label: tr("Symphony"), href: '#/symphony' };
 
@@ -63,8 +64,20 @@ export function ActivityLogView({ route }: { route: Route }) {
   const page = Math.max(1, Number(route.params.get('page') ?? '1') || 1);
   const { data, error } = useLoad(() => api.auditLogs(page, PAGE_SIZE), [page]);
   const pages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
+  const [chain, setChain] = useState<AuditChainCheck | null>(null);
+  const check = useAction();
+  const verify = () => void check.run(() => api.verifyAuditChain()).then((r) => r && setChain(r));
   return (
-    <ViewFrame title={tr("Activity log")} crumbs={[SUITE_CRUMB, { label: tr("Activity log") }]} subtitle={tr("Every change in this organisation, newest first")}>
+    <ViewFrame
+      title={tr("Activity log")}
+      crumbs={[SUITE_CRUMB, { label: tr("Activity log") }]}
+      subtitle={tr("Every change in this organisation, newest first. Entries can't be changed or deleted: each one is sealed with a SHA-256 fingerprint linked to the previous entry.")}
+      actions={<button className="secondary" disabled={check.busy} onClick={verify}>{check.busy ? tr("Checking…") : tr("Check chain")}</button>}
+    >
+      <ErrorText error={check.error} />
+      {chain && (chain.intact
+        ? <p className="callout good">{tr("Chain intact: all")} {chain.checked.toLocaleString(locale())} {tr("entries match their fingerprints.")}</p>
+        : <p className="callout bad">{tr("Chain broken at entry")} #{chain.firstBrokenSeq} {tr("of")} {chain.checked.toLocaleString(locale())}. {tr("An entry was changed outside Agera. Contact your platform administrator.")}</p>)}
       {!data && <Loading error={error} />}
       {data?.items.length === 0 && <EmptyState title={tr("No activity recorded yet")} />}
       {data && data.items.length > 0 && (

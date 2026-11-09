@@ -6,6 +6,7 @@ import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { AuditService } from '../core/audit/audit.service.js';
 import { Tenant } from '../core/entities/index.js';
 import { TenantContext } from '../core/tenancy/tenant-context.service.js';
+import { runAsSystem } from '../core/tenancy/tenant-transaction.service.js';
 import { UserService } from '../user/user.service.js';
 import { ApiKey } from './api-key.entity.js';
 
@@ -44,12 +45,17 @@ export class ApiKeysService {
     private readonly audit: AuditService,
   ) {}
 
+  /** api_keys rows are only visible in the 'system' RLS scope (keys are looked up before a tenant is known). */
+  private system<R>(work: (keys: Repository<ApiKey>) => Promise<R>): Promise<R> {
+    return runAsSystem(this.keys.manager, (m) => work(m.getRepository(ApiKey)));
+  }
+
   /** Returns the key row for a valid, unexpired key, otherwise null. */
   async authenticate(rawKey: string): Promise<ApiKey | null> {
     if (!rawKey.startsWith(KEY_PREFIX) || rawKey.length > 200) {
       return null;
     }
-    const key = await this.keys.findOneBy({ keyHash: hashKey(rawKey) });
+    const key = await this.system((keys) => keys.findOneBy({ keyHash: hashKey(rawKey) }));
     if (!key || (key.expiresAt !== null && key.expiresAt.getTime() <= Date.now())) {
       return null;
     }
@@ -67,14 +73,16 @@ export class ApiKeysService {
     }
 
     const key = `${KEY_PREFIX}${randomBytes(32).toString('base64url')}`;
-    const apiKey = await this.keys.save(
-      this.keys.create({
-        tenantId,
-        name: input.name,
-        keyPrefix: key.slice(0, PREFIX_LENGTH),
-        keyHash: hashKey(key),
-        expiresAt: input.expiresAt,
-      }),
+    const apiKey = await this.system((keys) =>
+      keys.save(
+        keys.create({
+          tenantId,
+          name: input.name,
+          keyPrefix: key.slice(0, PREFIX_LENGTH),
+          keyHash: hashKey(key),
+          expiresAt: input.expiresAt,
+        }),
+      ),
     );
     this.audit.logAction(this.context.tenantId, actor.id, 'api_key.created', {
       apiKeyId: apiKey.id,
@@ -87,22 +95,24 @@ export class ApiKeysService {
 
   async list(page: number, limit: number, tenantId: string | null): Promise<ApiKeyPage> {
     const where: FindOptionsWhere<ApiKey> = tenantId === null ? {} : { tenantId };
-    const [items, total] = await this.keys.findAndCount({
-      where,
-      order: { createdAt: 'DESC', id: 'DESC' },
-      skip: (page - 1) * limit,
-      take: limit,
-    });
+    const [items, total] = await this.system((keys) =>
+      keys.findAndCount({
+        where,
+        order: { createdAt: 'DESC', id: 'DESC' },
+        skip: (page - 1) * limit,
+        take: limit,
+      }),
+    );
     return { items, page, limit, total };
   }
 
   async revoke(id: string, identity: AuthenticatedUser): Promise<void> {
     const actor = await this.userService.resolveActor(identity);
-    const apiKey = await this.keys.findOneBy({ id });
+    const apiKey = await this.system((keys) => keys.findOneBy({ id }));
     if (!apiKey) {
       throw new NotFoundException('API key not found');
     }
-    await this.keys.delete({ id });
+    await this.system((keys) => keys.delete({ id }));
     this.audit.logAction(this.context.tenantId, actor.id, 'api_key.revoked', {
       apiKeyId: id,
       keyTenantId: apiKey.tenantId,

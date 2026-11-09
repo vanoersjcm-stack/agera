@@ -22,6 +22,7 @@
     "@nestjs/swagger": "12.0.2",
     "@nestjs/typeorm": "12.0.1",
     "jose": "6.2.12",
+    "nodemailer": "10.4.0",
     "pg": "8.23.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",

@@ -25,7 +25,7 @@ export class AuditLog {
   @Column({ name: 'user_id', type: 'uuid', nullable: true })
   userId!: string | null;
 
-  @ManyToOne(() => User, { onDelete: 'SET NULL', nullable: true })
+  @ManyToOne(() => User, { onDelete: 'RESTRICT', nullable: true })
   @JoinColumn({ name: 'user_id' })
   user?: Relation<User> | null;
 

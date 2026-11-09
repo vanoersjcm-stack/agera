@@ -118,6 +118,13 @@ services:
       COLLABORA_URL: http://collabora:9980
       WOPI_HOST_URL: http://backend:3000/api
       PUBLIC_URL: ${PUBLIC_URL:?Set PUBLIC_URL in .env.production}
+      # Outgoing e-mail through your own (EU) SMTP relay; empty SMTP_HOST = sending not connected.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASS: ${SMTP_PASS:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     volumes:
       - uploads:/uploads
     healthcheck:

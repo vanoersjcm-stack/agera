@@ -30,6 +30,20 @@ export class AuditLogDto {
   createdAt!: Date;
 }
 
+export class AuditChainCheckDto {
+  @ApiProperty({ description: 'True when every row hash and link matches' })
+  intact!: boolean;
+
+  @ApiProperty()
+  checked!: number;
+
+  @ApiProperty({ type: Number, nullable: true })
+  firstBrokenSeq!: number | null;
+
+  @ApiProperty({ type: String, nullable: true })
+  headHash!: string | null;
+}
+
 export class AuditLogPageDto extends PageMetaDto {
   @ApiProperty({ type: [AuditLogDto] })
   items!: AuditLogDto[];
@@ -65,5 +79,12 @@ export class AuditController {
     assertPagination(page, limit);
     const result = await this.audit.findForActiveTenant(page, limit);
     return { ...result, items: result.items.map(toResponse) };
+  }
+
+  @Get('verify')
+  @ApiOperation({ summary: 'Verify the SHA-256 hash chain of the active tenant\'s audit log' })
+  @ApiOkResponse({ type: AuditChainCheckDto })
+  verify(): Promise<AuditChainCheckDto> {
+    return this.audit.verifyChain();
   }
 }

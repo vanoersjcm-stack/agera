@@ -70,6 +70,7 @@ export function PipelineBoard() {
                 <div className="board-head">
                   {DEAL_STAGE[stage]} <span>{column.length} · {money(column.reduce((s, d) => s + Number(d.value), 0))}</span>
                 </div>
+                <div className="board-cards">
                 {column.map((d) => (
                   <article key={d.id} className="deal-card" draggable onDragStart={(e) => e.dataTransfer.setData('text/deal', d.id)}>
                     <a href={`#/nexus/deals/${d.id}`}>{d.title}</a>
@@ -84,6 +85,7 @@ export function PipelineBoard() {
                     </div>
                   </article>
                 ))}
+                </div>
               </section>
             );
           })}

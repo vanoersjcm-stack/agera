@@ -97,6 +97,7 @@ export const AUDIT_ACTION: Record<string, string> = {
   'store.updated': t("Edited a store"),
   'tenant.created': t("Created an organisation"),
   'user.provisioned': t("Signed in for the first time"),
+  'access.denied': t("Was refused access (403)"),
   'user.profile_fetched': t("Signed in"),
   'visit.media_deleted': t("Deleted a visit photo"),
   'visit.media_uploaded': t("Uploaded a visit photo"),

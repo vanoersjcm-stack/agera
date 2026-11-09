@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { randomInt, randomUUID } from 'node:crypto';
 import { after, before, describe, it } from 'node:test';
 import pg from 'pg';
-import { ACME_TEST, AGERA_DEV, API_URL, type ApiResponse, api, setupUsers, type TestUser } from './helpers.ts';
+import { ACME_TEST, AGERA_DEV, API_URL, type ApiResponse, api, setupUsers, type TestUser, waitFor } from './helpers.ts';
 
 /**
  * Phase 10: strict tenant isolation for financial_models, financial_line_items, dsr_activities and
@@ -566,5 +566,141 @@ describe('Phase 10: financials, DSR activity and Nexus voice events (RLS)', () =
       const leaked = await client.query<{ n: number }>('SELECT COUNT(*)::int AS n FROM financial_models');
       assert.equal(leaked.rows[0].n, 0);
     });
+  });
+});
+
+const CORE_RLS_TABLES = ['stores', 'merchandising_visits', 'visit_reports', 'visit_media', 'work_orders', 'work_order_logs', 'users', 'audit_logs', 'api_keys'] as const;
+
+interface ChainCheck {
+  intact: boolean;
+  checked: number;
+  firstBrokenSeq: number | null;
+  headHash: string | null;
+}
+
+describe('V25: row-level security on the core tables and the hash-chained audit log', () => {
+  let tenantA: TestUser;
+  let alice: TestUser;
+  let app: pg.Client;
+  let owner: pg.Client;
+
+  const connect = async (user: string | undefined, password: string | undefined): Promise<pg.Client> => {
+    const c = new pg.Client({
+      host: process.env.DB_HOST ?? 'localhost',
+      port: Number(process.env.DB_PORT ?? 5432),
+      user,
+      password,
+      database: process.env.DB_NAME ?? 'agera_symphony',
+    });
+    await c.connect();
+    return c;
+  };
+
+  before(async () => {
+    ({ tenantA, alice } = await setupUsers());
+    app = await connect(process.env.DB_USER ?? 'symphony_user', process.env.DB_PASSWORD);
+    owner = await connect(process.env.POSTGRES_USER ?? 'agera', process.env.POSTGRES_PASSWORD);
+  });
+
+  after(async () => {
+    await app.end();
+    await owner.end();
+  });
+
+  async function inTx<T>(client: pg.Client, settings: string | null, work: () => Promise<T>): Promise<T> {
+    await client.query('BEGIN');
+    try {
+      if (settings) await client.query(settings);
+      return await work();
+    } finally {
+      await client.query('ROLLBACK');
+    }
+  }
+  const tenantSettings = (tenantId: string) =>
+    `SELECT set_config('app.current_tenant', '${tenantId}', true), set_config('app.access_scope', 'internal', true)`;
+
+  it('enables RLS with a tenant policy on every core table', async () => {
+    const { rows } = await owner.query<{ relname: string; relrowsecurity: boolean; policies: number }>(
+      `SELECT c.relname, c.relrowsecurity, (SELECT count(*)::int FROM pg_policies p WHERE p.tablename = c.relname) AS policies
+         FROM pg_class c WHERE c.relname = ANY($1) AND c.relkind = 'r' ORDER BY c.relname`,
+      [CORE_RLS_TABLES],
+    );
+    assert.equal(rows.length, CORE_RLS_TABLES.length);
+    for (const r of rows) {
+      assert.equal(r.relrowsecurity, true, `${r.relname} has RLS enabled`);
+      assert.ok(r.policies >= 1, `${r.relname} has a policy`);
+    }
+  });
+
+  it('shows the application role nothing without a tenant, and only its own tenant with one', async () => {
+    for (const table of CORE_RLS_TABLES) {
+      const none = await inTx(app, null, () => app.query<{ n: number }>(`SELECT count(*)::int AS n FROM ${table}`));
+      assert.equal(none.rows[0].n, 0, `${table} hides every row without app.current_tenant`);
+      const foreign = await inTx(app, tenantSettings(AGERA_DEV), () =>
+        app.query<{ n: number }>(`SELECT count(*)::int AS n FROM ${table} WHERE tenant_id <> $1`, [AGERA_DEV]),
+      );
+      assert.equal(foreign.rows[0].n, 0, `${table} shows no rows of other tenants`);
+    }
+    const own = await inTx(app, tenantSettings(AGERA_DEV), () => app.query<{ n: number }>('SELECT count(*)::int AS n FROM users'));
+    assert.ok(own.rows[0].n > 0, 'own users are visible');
+  });
+
+  it('rejects writing a row for another tenant', async () => {
+    await assert.rejects(
+      inTx(app, tenantSettings(AGERA_DEV), () =>
+        app.query(`INSERT INTO stores (tenant_id, store_code, name) VALUES ($1, $2, 'Smuggled')`, [ACME_TEST, `RLS-${randomInt(1e9)}`]),
+      ),
+      /row-level security/,
+    );
+  });
+
+  it('keeps answering 404 for another organisation\'s store', async () => {
+    const stores = await api<{ items: { id: string }[] }>(tenantA.token, 'GET', '/stores?limit=1');
+    assert.equal(stores.status, 200);
+    const id = stores.body.items[0]?.id;
+    assert.ok(id, 'tenant A has a store');
+    assert.equal((await api(alice.token, 'GET', `/stores/${id}`)).status, 404);
+  });
+
+  it('does not let the application role change or delete audit rows', async () => {
+    for (const sql of ['UPDATE audit_logs SET action = action', 'DELETE FROM audit_logs', 'TRUNCATE audit_logs']) {
+      await assert.rejects(inTx(app, tenantSettings(AGERA_DEV), () => app.query(sql)), /permission denied|append-only/, sql);
+    }
+    await assert.rejects(inTx(owner, null, () => owner.query('UPDATE audit_logs SET action = action')), /append-only/);
+  });
+
+  it('logs every 403 refusal in the organisation\'s audit log, chained under concurrency', async () => {
+    const since = (await owner.query<{ now: Date }>('SELECT now()')).rows[0].now;
+    const refusals = await Promise.all(Array.from({ length: 12 }, () => api(alice.token, 'GET', '/users/accounts')));
+    assert.ok(refusals.every((r) => r.status === 403));
+    await waitFor(async () => {
+      const { rows } = await owner.query<{ n: number }>(
+        `SELECT count(*)::int AS n FROM audit_logs WHERE tenant_id = $1 AND action = 'access.denied' AND created_at >= $2 AND details->>'path' = '/users/accounts'`,
+        [ACME_TEST, since],
+      );
+      return rows[0].n >= 12 ? true : undefined;
+    }, 5000);
+    const check = await api<ChainCheck>(alice.token, 'GET', '/audit-logs/verify');
+    assert.equal(check.status, 200);
+    assert.equal(check.body.intact, true, JSON.stringify(check.body));
+    assert.ok(check.body.checked >= 12);
+    assert.match(check.body.headHash ?? '', /^[0-9a-f]{64}$/);
+  });
+
+  it('detects a row changed behind the application\'s back', async () => {
+    const before = await api<ChainCheck>(tenantA.token, 'GET', '/audit-logs/verify');
+    assert.equal(before.body.intact, true);
+    const broken = await inTx(owner, "SET LOCAL session_replication_role = replica", async () => {
+      const { rows } = await owner.query<{ seq: string }>(
+        `UPDATE audit_logs SET action = 'tampered' WHERE id = (SELECT id FROM audit_logs WHERE tenant_id = $1 ORDER BY seq LIMIT 1 OFFSET 0) RETURNING seq`,
+        [AGERA_DEV],
+      );
+      await owner.query(tenantSettings(AGERA_DEV));
+      const check = await owner.query<{ first_broken_seq: string | null }>('SELECT first_broken_seq FROM app_verify_audit_chain()');
+      return { seq: rows[0].seq, firstBroken: check.rows[0].first_broken_seq };
+    });
+    assert.equal(broken.firstBroken, broken.seq);
+    const after = await api<ChainCheck>(tenantA.token, 'GET', '/audit-logs/verify');
+    assert.equal(after.body.intact, true, 'the tampering was rolled back');
   });
 });

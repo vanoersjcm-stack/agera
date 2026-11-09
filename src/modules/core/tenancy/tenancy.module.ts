@@ -10,6 +10,6 @@ import { TenantTransaction } from './tenant-transaction.service.js';
 @Module({
   imports: [TypeOrmModule.forFeature([Tenant])],
   providers: [TenantContext, TenantTransaction, TenantResolver, { provide: APP_INTERCEPTOR, useClass: TenantInterceptor }],
-  exports: [TenantContext, TenantTransaction],
+  exports: [TenantContext, TenantTransaction, TenantResolver],
 })
 export class TenancyModule {}

@@ -11,6 +11,7 @@ import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantRepository } from '../core/tenancy/tenant-repository.js';
 import { KeycloakAdminService, KeycloakRequestError } from './keycloak-admin.service.js';
 import { UserService } from './user.service.js';
+import { runForTenant } from '../core/tenancy/tenant-transaction.service.js';
 
 export const ACCOUNT_ROLES = ['platform-admin', 'admin', 'user', 'External_Client'] as const;
 export type AccountRole = (typeof ACCOUNT_ROLES)[number];
@@ -136,12 +137,12 @@ export class UserAdminService {
 
   /** Vanguard organisations have a seat cap on active internal users (client contacts do not count). 402 when full. */
   private async assertSeatAvailable(): Promise<void> {
-    const [row] = await this.dataSource.query(
+    const [row] = await runForTenant(this.dataSource, this.context.tenantId, (m) => m.query(
       `SELECT t.license_tier AS tier, t.max_seats AS "maxSeats",
               (SELECT count(*)::int FROM users u WHERE u.tenant_id = t.id AND u.is_active AND NOT ('External_Client' = ANY (u.realm_roles))) AS used
          FROM tenants t WHERE t.id = $1`,
       [this.context.tenantId],
-    );
+    ));
     if (row?.maxSeats != null && row.used >= row.maxSeats) {
       throw new HttpException(
         {

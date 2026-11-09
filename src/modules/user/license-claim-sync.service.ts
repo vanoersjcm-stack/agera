@@ -5,6 +5,7 @@ import type { DataSource } from 'typeorm';
 import { TENANT_LICENSE_CHANGED_EVENT, type TenantLicenseChangedEvent } from '../core/tenants/tenants.service.js';
 import { markTierChanged } from '../core/tenancy/license.js';
 import { KeycloakAdminService } from './keycloak-admin.service.js';
+import { runForTenant } from '../core/tenancy/tenant-transaction.service.js';
 
 export const TIER_ATTRIBUTE = 'tenant_license_tier';
 
@@ -43,7 +44,7 @@ export class LicenseClaimSyncService implements OnApplicationBootstrap {
 
   private async syncTenant(tenantId: string, tier: string): Promise<boolean> {
     let ok = true;
-    const users: { keycloak_id: string }[] = await this.dataSource.query('SELECT keycloak_id FROM users WHERE tenant_id = $1', [tenantId]);
+    const users: { keycloak_id: string }[] = await runForTenant(this.dataSource, tenantId, (m) => m.query('SELECT keycloak_id FROM users WHERE tenant_id = $1', [tenantId]));
     for (const u of users) {
       try {
         await this.keycloak.setAttribute(u.keycloak_id, TIER_ATTRIBUTE, tier);

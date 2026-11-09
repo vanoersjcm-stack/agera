@@ -5,7 +5,16 @@ import { Repository } from 'typeorm';
 import { AuditLog } from '../entities/index.js';
 import { TenantContext } from '../tenancy/tenant-context.service.js';
 import { TenantRepository } from '../tenancy/tenant-repository.js';
+import { TenantTransaction } from '../tenancy/tenant-transaction.service.js';
 import { AUDIT_LOG_EVENT, type AuditLogEvent } from './audit.events.js';
+
+export interface AuditChainCheck {
+  intact: boolean;
+  checked: number;
+  /** Position (seq) of the first row whose hash does not match; null when intact. */
+  firstBrokenSeq: number | null;
+  headHash: string | null;
+}
 
 export interface AuditLogPage {
   items: AuditLog[];
@@ -22,6 +31,7 @@ export class AuditService {
     private readonly events: EventEmitter2,
     @InjectRepository(AuditLog) repository: Repository<AuditLog>,
     context: TenantContext,
+    private readonly transaction: TenantTransaction,
   ) {
     this.auditLogs = new TenantRepository(repository, context);
   }
@@ -39,5 +49,12 @@ export class AuditService {
       take: limit,
     });
     return { items, page, limit, total };
+  }
+
+  /** Recomputes the active tenant's SHA-256 chain in the database. */
+  async verifyChain(): Promise<AuditChainCheck> {
+    const [row] = await this.transaction.run((m) => m.query('SELECT checked, first_broken_seq, head_hash FROM app_verify_audit_chain()'));
+    const firstBrokenSeq = row.first_broken_seq === null ? null : Number(row.first_broken_seq);
+    return { intact: firstBrokenSeq === null, checked: Number(row.checked), firstBrokenSeq, headHash: row.head_hash ?? null };
   }
 }

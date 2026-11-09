@@ -9,6 +9,7 @@ import { type LicenseTier, VANGUARD_DEFAULT_SEATS } from '../entities/tenant.ent
 import { distrustTierClaims } from '../tenancy/license.js';
 import { TenantContext } from '../tenancy/tenant-context.service.js';
 import { TenantRepository } from '../tenancy/tenant-repository.js';
+import { runForTenant } from '../tenancy/tenant-transaction.service.js';
 
 const PG_UNIQUE_VIOLATION = '23505';
 
@@ -46,9 +47,9 @@ export class TenantsService {
 
   /** Active internal users of the active tenant (seats in use). */
   activeSeats(tenantId: string): Promise<number> {
-    return this.tenants.manager
-      .query(`SELECT count(*)::int AS n FROM users WHERE tenant_id = $1 AND is_active AND NOT ('External_Client' = ANY (realm_roles))`, [tenantId])
-      .then((r: { n: number }[]) => r[0]?.n ?? 0);
+    return runForTenant(this.tenants.manager, tenantId, (m) =>
+      m.query(`SELECT count(*)::int AS n FROM users WHERE tenant_id = $1 AND is_active AND NOT ('External_Client' = ANY (realm_roles))`, [tenantId]),
+    ).then((r: { n: number }[]) => r[0]?.n ?? 0);
   }
 
   /** Upgrade/downgrade path: changing the tier switches branding and limits in place, without data migration. */
