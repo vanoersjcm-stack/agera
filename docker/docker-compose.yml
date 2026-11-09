@@ -38,6 +38,7 @@ services:
       - ../migrations/V23__surveys_and_responses.sql:/docker-entrypoint-initdb.d/1m_V23__surveys_and_responses.sql:ro
       - ../migrations/V24__office_documents.sql:/docker-entrypoint-initdb.d/1n_V24__office_documents.sql:ro
       - ../migrations/V25__rls_core_tables.sql:/docker-entrypoint-initdb.d/1o_V25__rls_core_tables.sql:ro
+      - ../migrations/V26__retailpower_operations.sql:/docker-entrypoint-initdb.d/1p_V26__retailpower_operations.sql:ro
       - ./postgres/dev_seed.sql:/docker-entrypoint-initdb.d/20_dev_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]

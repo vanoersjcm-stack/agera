@@ -12,6 +12,7 @@ import { WorkflowModule } from './modules/workflow/workflow.module.js';
 import { CommercialModule } from './modules/commercial/commercial.module.js';
 import { OfficeModule } from './modules/office/office.module.js';
 import { MailModule } from './modules/mail/mail.module.js';
+import { OperationsModule } from './modules/operations/operations.module.js';
 import { AutomationModule } from './modules/automation/automation.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { SurveysModule } from './modules/surveys/surveys.module.js';
@@ -46,6 +47,7 @@ import { WorkOrdersModule } from './modules/work-orders/work-orders.module.js';
     CommercialModule,
     OfficeModule,
     MailModule,
+    OperationsModule,
     AutomationModule,
     ReportsModule,
     SurveysModule,
