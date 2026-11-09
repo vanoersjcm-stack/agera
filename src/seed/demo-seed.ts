@@ -112,7 +112,7 @@ interface Persona {
   first: string;
   last: string;
   email: string;
-  role: 'admin' | 'user' | 'External_Client';
+  role: 'HQ_ADMIN' | 'ACCOUNT_MANAGER' | 'FIELD_REPRESENTATIVE' | 'CLIENT_VIEWER';
   title: string;
   zone?: 'Noord' | 'Midden' | 'Zuid';
   /** Index into the tenant's client list for client contacts. */
@@ -131,7 +131,12 @@ interface TenantSpec {
   personas: Persona[];
 }
 
-const ROLE_SETS: Record<Persona['role'], string[]> = { admin: ['admin', 'user'], user: ['user'], External_Client: ['External_Client'] };
+const ROLE_SETS: Record<Persona['role'], string[]> = {
+  HQ_ADMIN: ['HQ_ADMIN', 'admin', 'user'],
+  ACCOUNT_MANAGER: ['ACCOUNT_MANAGER', 'user'],
+  FIELD_REPRESENTATIVE: ['FIELD_REPRESENTATIVE', 'user'],
+  CLIENT_VIEWER: ['CLIENT_VIEWER', 'External_Client'],
+};
 
 const SPECS: TenantSpec[] = [
   {
@@ -143,19 +148,19 @@ const SPECS: TenantSpec[] = [
     seed: 20261105,
     counts: { retailers: 25, brands: 25, wholesale: 10, storesPerRetailer: [8, 16], products: 120, deals: 40, visits: 450, workOrders: 150, fieldOrders: 140, exceptions: 30 },
     personas: [
-      { key: 'admin', first: 'Iris', last: 'Bakker', email: 'iris.bakker@agera-demo.nl', role: 'admin', title: 'Operations director', hint: 'Admin: manages users and settings of Agera Demo; sees everything' },
-      { key: 'director', first: 'Thomas', last: 'Visser', email: 'thomas.visser@agera-demo.nl', role: 'user', title: 'Commercial director', hint: 'Approves agreements; owns key accounts and deals' },
-      { key: 'am1', first: 'Lotte', last: 'de Boer', email: 'lotte.deboer@agera-demo.nl', role: 'user', title: 'Key account manager', hint: 'Account manager for about a third of the clients' },
-      { key: 'am2', first: 'Daan', last: 'Mulder', email: 'daan.mulder@agera-demo.nl', role: 'user', title: 'Account manager', hint: 'Account manager for about a third of the clients' },
-      { key: 'finance', first: 'Fatima', last: 'El Amrani', email: 'fatima.elamrani@agera-demo.nl', role: 'user', title: 'Finance controller', hint: 'Invoices, credit locks, second approval step' },
-      { key: 'fieldlead', first: 'Ruben', last: 'Smit', email: 'ruben.smit@agera-demo.nl', role: 'user', title: 'Field team lead', zone: 'Midden', hint: 'Plans work orders and audit rounds for the field team' },
-      { key: 'field1', first: 'Noah', last: 'Jansen', email: 'noah.jansen@agera-demo.nl', role: 'user', title: 'Field merchandiser', zone: 'Noord', hint: 'Store visits and work orders in region Noord' },
-      { key: 'field2', first: 'Emma', last: 'de Vries', email: 'emma.devries@agera-demo.nl', role: 'user', title: 'Field merchandiser', zone: 'Midden', hint: 'Store visits and work orders in region Midden' },
-      { key: 'field3', first: 'Milan', last: 'Peters', email: 'milan.peters@agera-demo.nl', role: 'user', title: 'Field merchandiser', zone: 'Zuid', hint: 'Store visits and work orders in region Zuid' },
-      { key: 'client1a', first: 'Sophie', last: 'Hendriks', email: 'sophie.hendriks@versmarkt.example', role: 'External_Client', title: 'Purchasing manager', clientIndex: 0, hint: 'Client portal for Versmarkt (retailer): rooms, documents, surveys, signing' },
-      { key: 'client1b', first: 'Koen', last: 'Dekker', email: 'koen.dekker@versmarkt.example', role: 'External_Client', title: 'Store manager', clientIndex: 0, hint: 'Second Versmarkt contact: same company, different person' },
-      { key: 'client2', first: 'Femke', last: 'Brouwer', email: 'femke.brouwer@lagelandendranken.example', role: 'External_Client', title: 'Category manager', clientIndex: 25, hint: 'Client portal for Lage Landen Dranken (brand)' },
-      { key: 'client3', first: 'Joris', last: 'van Vliet', email: 'joris.vanvliet@horecagroothandel.example', role: 'External_Client', title: 'Finance manager', clientIndex: 50, hint: 'Client portal for Horeca Groothandel Midden (wholesale)' },
+      { key: 'admin', first: 'Iris', last: 'Bakker', email: 'iris.bakker@agera-demo.nl', role: 'HQ_ADMIN', title: 'Operations director', hint: 'Admin: manages users and settings of Agera Demo; sees everything' },
+      { key: 'director', first: 'Thomas', last: 'Visser', email: 'thomas.visser@agera-demo.nl', role: 'ACCOUNT_MANAGER', title: 'Commercial director', hint: 'Approves agreements; owns key accounts and deals' },
+      { key: 'am1', first: 'Lotte', last: 'de Boer', email: 'lotte.deboer@agera-demo.nl', role: 'ACCOUNT_MANAGER', title: 'Key account manager', hint: 'Account manager for about a third of the clients' },
+      { key: 'am2', first: 'Daan', last: 'Mulder', email: 'daan.mulder@agera-demo.nl', role: 'ACCOUNT_MANAGER', title: 'Account manager', hint: 'Account manager for about a third of the clients' },
+      { key: 'finance', first: 'Fatima', last: 'El Amrani', email: 'fatima.elamrani@agera-demo.nl', role: 'HQ_ADMIN', title: 'Finance controller', hint: 'Invoices, credit locks, second approval step' },
+      { key: 'fieldlead', first: 'Ruben', last: 'Smit', email: 'ruben.smit@agera-demo.nl', role: 'FIELD_REPRESENTATIVE', title: 'Field team lead', zone: 'Midden', hint: 'Plans work orders and audit rounds for the field team' },
+      { key: 'field1', first: 'Noah', last: 'Jansen', email: 'noah.jansen@agera-demo.nl', role: 'FIELD_REPRESENTATIVE', title: 'Field merchandiser', zone: 'Noord', hint: 'Store visits and work orders in region Noord' },
+      { key: 'field2', first: 'Emma', last: 'de Vries', email: 'emma.devries@agera-demo.nl', role: 'FIELD_REPRESENTATIVE', title: 'Field merchandiser', zone: 'Midden', hint: 'Store visits and work orders in region Midden' },
+      { key: 'field3', first: 'Milan', last: 'Peters', email: 'milan.peters@agera-demo.nl', role: 'FIELD_REPRESENTATIVE', title: 'Field merchandiser', zone: 'Zuid', hint: 'Store visits and work orders in region Zuid' },
+      { key: 'client1a', first: 'Sophie', last: 'Hendriks', email: 'sophie.hendriks@versmarkt.example', role: 'CLIENT_VIEWER', title: 'Purchasing manager', clientIndex: 0, hint: 'Client portal for Versmarkt (retailer): rooms, documents, surveys, signing' },
+      { key: 'client1b', first: 'Koen', last: 'Dekker', email: 'koen.dekker@versmarkt.example', role: 'CLIENT_VIEWER', title: 'Store manager', clientIndex: 0, hint: 'Second Versmarkt contact: same company, different person' },
+      { key: 'client2', first: 'Femke', last: 'Brouwer', email: 'femke.brouwer@lagelandendranken.example', role: 'CLIENT_VIEWER', title: 'Category manager', clientIndex: 25, hint: 'Client portal for Lage Landen Dranken (brand)' },
+      { key: 'client3', first: 'Joris', last: 'van Vliet', email: 'joris.vanvliet@horecagroothandel.example', role: 'CLIENT_VIEWER', title: 'Finance manager', clientIndex: 50, hint: 'Client portal for Horeca Groothandel Midden (wholesale)' },
     ],
   },
   {
@@ -167,9 +172,9 @@ const SPECS: TenantSpec[] = [
     seed: 20261106,
     counts: { retailers: 4, brands: 4, wholesale: 2, storesPerRetailer: [3, 6], products: 25, deals: 6, visits: 40, workOrders: 15, fieldOrders: 12, exceptions: 5 },
     personas: [
-      { key: 'admin', first: 'Maud', last: 'Kok', email: 'maud.kok@vanguard-demo.nl', role: 'admin', title: 'Managing director', hint: 'Admin of the Vanguard demo: see the edition limits' },
-      { key: 'user', first: 'Stijn', last: 'Willems', email: 'stijn.willems@vanguard-demo.nl', role: 'user', title: 'Account manager & field', zone: 'Midden', hint: 'Day-to-day user in the Vanguard demo' },
-      { key: 'client1', first: 'Roos', last: 'Schouten', email: 'roos.schouten@buurtsuper.example', role: 'External_Client', title: 'Owner', clientIndex: 0, hint: 'Client portal in the Vanguard demo' },
+      { key: 'admin', first: 'Maud', last: 'Kok', email: 'maud.kok@vanguard-demo.nl', role: 'HQ_ADMIN', title: 'Managing director', hint: 'Admin of the Vanguard demo: see the edition limits' },
+      { key: 'user', first: 'Stijn', last: 'Willems', email: 'stijn.willems@vanguard-demo.nl', role: 'ACCOUNT_MANAGER', title: 'Account manager & field', zone: 'Midden', hint: 'Day-to-day user in the Vanguard demo' },
+      { key: 'client1', first: 'Roos', last: 'Schouten', email: 'roos.schouten@buurtsuper.example', role: 'CLIENT_VIEWER', title: 'Owner', clientIndex: 0, hint: 'Client portal in the Vanguard demo' },
     ],
   },
 ];
@@ -227,7 +232,7 @@ async function generate(db: pg.Client, spec: TenantSpec, logins: Login[], keyclo
 
   // Users --------------------------------------------------------------------------------------------------------
   const userId: Record<string, string> = {};
-  for (const p of spec.personas.filter((p) => p.role !== 'External_Client')) {
+  for (const p of spec.personas.filter((p) => p.role !== 'CLIENT_VIEWER')) {
     const uid = id(`user:${p.key}`);
     userId[p.key] = uid;
     await w.insert('users', { id: uid, tenant_id: t, keycloak_id: uid, email: p.email, first_name: p.first, last_name: p.last, realm_roles: ROLE_SETS[p.role], title: p.title, zone: p.zone ?? null, is_active: true });
@@ -539,7 +544,7 @@ async function generate(db: pg.Client, spec: TenantSpec, logins: Login[], keyclo
     });
   }
   const crewUsers = crewKeys.map((k) => userId[k]).filter(Boolean);
-  const coordinator = fieldLead === userId.user ? (userId.admin ?? fieldLead) : fieldLead;
+  const coordinator = userId.admin;
   const doneVisits = visits.filter((v) => v.status === 'COMPLETED' && v.date.getTime() > NOW.getTime() - 45 * DAY);
   for (const [i, v] of doneVisits.slice(0, spec.key === 'symphony' ? 120 : 15).entries()) {
     const start = new Date(v.date.getTime() + (8 + (i % 3)) * 3600_000);
@@ -794,7 +799,7 @@ function loginsText(logins: Login[], publicUrl: string): string {
   for (const tenant of [...new Set(logins.map((l) => l.tenant))]) {
     lines.push(`== ${tenant} ==`);
     for (const l of logins.filter((x) => x.tenant === tenant)) {
-      const level = l.persona.role === 'External_Client' ? `Client contact (${l.clientName})` : l.persona.role === 'admin' ? 'Admin' : 'User';
+      const level = l.persona.role === 'CLIENT_VIEWER' ? `CLIENT_VIEWER (${l.clientName})` : l.persona.role;
       lines.push(`${l.persona.first} ${l.persona.last} — ${l.persona.title} — ${level}`);
       lines.push(`  Login:    ${l.persona.email}`);
       lines.push(`  Password: ${l.password}`);

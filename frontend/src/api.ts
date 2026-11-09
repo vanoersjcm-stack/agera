@@ -508,7 +508,7 @@ export interface RoomActivity {
 
 export type AgreementStatus = 'pending_approval' | 'active' | 'expired';
 
-export type AccountRole = 'platform-admin' | 'admin' | 'user' | 'External_Client';
+export type AccountRole = 'PLATFORM_ADMIN' | 'HQ_ADMIN' | 'ACCOUNT_MANAGER' | 'FIELD_REPRESENTATIVE' | 'CLIENT_VIEWER';
 
 export interface UserAccount {
   id: string;

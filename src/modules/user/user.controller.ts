@@ -4,7 +4,7 @@ import { PLATFORM_ADMIN_ROLE, Roles } from '../auth/roles.decorator.js';
 import type { User } from '../core/entities/index.js';
 import { ApiPagination, PageMetaDto } from '../core/http/api-docs.js';
 import { asObject, assertPagination, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
-import { ACCOUNT_ROLES, type AccountRole, accountRole, UserAdminService } from './user-admin.service.js';
+import { ACCOUNT_ROLES, type AccountRole, accountRole, LEGACY_ROLES, UserAdminService } from './user-admin.service.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
@@ -154,10 +154,11 @@ function toAccount(u: User): UserAccountDto {
 }
 
 function parseRole(value: unknown): AccountRole {
-  if (!ACCOUNT_ROLES.includes(value as AccountRole)) {
+  const role = typeof value === 'string' ? (LEGACY_ROLES[value] ?? value) : value;
+  if (!ACCOUNT_ROLES.includes(role as AccountRole)) {
     throw new BadRequestException(`role must be one of ${ACCOUNT_ROLES.join(', ')}`);
   }
-  return value as AccountRole;
+  return role as AccountRole;
 }
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;

@@ -1,6 +1,6 @@
 import { keycloak, userRoles } from './auth';
 import type { UserRole } from './api';
-import { ROLE } from './labels';
+import { JOB_ROLE_LABEL, ROLE } from './labels';
 
 export type Scope = 'internal' | 'external';
 
@@ -11,17 +11,23 @@ export interface UserContext {
   roleLabel: string;
   isPlatformAdmin: boolean;
   clientId: string | null;
+  /** Job role from the token; null for accounts that still have only a legacy role (full access). */
+  jobRole: JobRole | null;
 }
+
+export type JobRole = 'PLATFORM_ADMIN' | 'HQ_ADMIN' | 'ACCOUNT_MANAGER' | 'FIELD_REPRESENTATIVE' | 'CLIENT_VIEWER';
+const JOB_ROLES: JobRole[] = ['PLATFORM_ADMIN', 'HQ_ADMIN', 'ACCOUNT_MANAGER', 'FIELD_REPRESENTATIVE', 'CLIENT_VIEWER'];
 
 /** Derived from the token only: External_Client users get the client portal, everyone else is internal. */
 export function userContext(): UserContext {
   const roles = userRoles();
   const clientId = (keycloak.tokenParsed?.client_id as string | undefined) ?? null;
+  const jobRole = JOB_ROLES.find((r) => roles.includes(r)) ?? null;
   if (roles.includes('External_Client')) {
-    return { scope: 'external', role: 'client', roleLabel: 'Client contact', isPlatformAdmin: false, clientId };
+    return { scope: 'external', role: 'client', roleLabel: 'Client contact', isPlatformAdmin: false, clientId, jobRole };
   }
   const role: UserRole = roles.includes('platform-admin') ? 'platform-admin' : roles.includes('admin') ? 'admin' : 'user';
-  return { scope: 'internal', role, roleLabel: ROLE[role], isPlatformAdmin: role === 'platform-admin', clientId: null };
+  return { scope: 'internal', role, roleLabel: jobRole ? JOB_ROLE_LABEL[jobRole] : ROLE[role], isPlatformAdmin: role === 'platform-admin', clientId: null, jobRole };
 }
 
 export function displayName(): string {

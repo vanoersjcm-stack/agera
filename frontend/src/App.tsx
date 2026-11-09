@@ -24,7 +24,7 @@ import { AuditRoundDossier, AuditRoundsView, FieldCalendarView, FieldOrderDossie
 import { DealDossier, DealsView, PipelineBoard } from './vanguard/Pipeline';
 import { navigate, type Route, useRoute } from './router';
 import { type NewDefaults, type NewKind, ShellContext } from './shell';
-import { editionName, LEGACY_ROUTES, lastSuite, type NavItem, navFor, PORTAL_NAV, previewTier, rememberSuite, setActiveTier, setPreviewTier, SUITES, type Suite, type SuiteId, suiteName } from './suites';
+import { editionName, LEGACY_ROUTES, lastSuite, type NavItem, navFor, readOnlySuite, suitesFor, PORTAL_NAV, previewTier, rememberSuite, setActiveTier, setPreviewTier, SUITES, type Suite, type SuiteId, suiteName } from './suites';
 import { CREDIT_HOLDS_CHANGED, CreditControlView } from './symphony/CreditControl';
 import { InvoicesView } from './symphony/Invoices';
 import { PeopleView } from './symphony/People';
@@ -178,7 +178,7 @@ function useDropdown() {
   return { open, setOpen, ref };
 }
 
-function WaffleMenu({ active, tier }: { active: Suite; tier: LicenseTier }) {
+function WaffleMenu({ active, tier, user }: { active: Suite; tier: LicenseTier; user: UserContext }) {
   const { open, setOpen, ref } = useDropdown();
   return (
     <div className="dropdown" ref={ref}>
@@ -192,7 +192,7 @@ function WaffleMenu({ active, tier }: { active: Suite; tier: LicenseTier }) {
             <span className="waffle-hint">{tr("1 click")}</span>
           </div>
           <div className="waffle-grid">
-            {SUITES.map((s) => (
+            {suitesFor(user).map((s) => (
               <a key={s.id} role="menuitem" href={`#${s.home}`} className={`waffle-card ${s.id}${s.id === active.id ? ' current' : ''}`} onClick={() => setOpen(false)}>
                 <strong>{tr("Agera")} {suiteName(s, tier)}</strong>
                 {s.tagline}
@@ -214,7 +214,7 @@ interface PageHit {
 function pageHits(user: UserContext, tier: LicenseTier, q: string): PageHit[] {
   const n = q.trim().toLowerCase();
   if (n.length < 2) return [];
-  return SUITES.flatMap((s) =>
+  return suitesFor(user).flatMap((s) =>
     navFor(s.id, user)
       .filter((i) => `${suiteName(s, tier)} ${i.label} ${i.description}`.toLowerCase().includes(n))
       .map((i) => ({ route: i.path, title: `${suiteName(s, tier)} › ${i.label}`, subtitle: i.description })),
@@ -566,7 +566,8 @@ export function App() {
     if (redirect) window.location.replace(`#${redirect}`);
   }, [redirect]);
 
-  const suite = SUITES.find((s) => s.id === route.segments[0]) ?? lastSuite();
+  const allowedSuites = suitesFor(user);
+  const suite = allowedSuites.find((s) => s.id === route.segments[0]) ?? allowedSuites.find((s) => s.id === lastSuite().id) ?? allowedSuites[0];
   const preview = user.isPlatformAdmin ? previewTier() : null;
   const tier: LicenseTier = preview ?? tenant?.licenseTier ?? 'symphony';
   setActiveTier(tier);
@@ -600,13 +601,13 @@ export function App() {
             <span className="brand">{tr("Agera · Client portal")}</span>
           ) : (
             <>
-              <WaffleMenu active={suite} tier={tier} />
+              <WaffleMenu active={suite} tier={tier} user={user} />
               <div className="suite-indicator">
                 <span className="suite-title">{tr("Agera")} {brand}</span>
                 <span className="suite-tag">{suiteBadge(suite.id, tier)}</span>
               </div>
               <nav className="suite-nav" aria-label={tr("Suites")}>
-                {SUITES.map((s) => (
+                {suitesFor(user).map((s) => (
                   <a key={s.id} href={`#${s.home}`} className={s.id === suite.id ? 'active' : undefined}>
                     <span className={`suite-dot dot-${s.id}`} aria-hidden />
                     {suiteName(s, tier)}
@@ -649,6 +650,7 @@ export function App() {
                 <button className="link-button" onClick={() => setPreviewTier(null)}>{tr("Stop preview")}</button>
               </p>
             )}
+            {!external && readOnlySuite(suite.id, user) && <p className="callout readonly-banner">{tr("Your role can view this suite but not change it.")}</p>}
             {tenant?.readOnly && (
               <p className="callout readonly-banner">
                 {tr("You are viewing")} <strong>{tenant.name}</strong>  {tr("read-only. Changes are only possible in your own organisation.")}{' '}

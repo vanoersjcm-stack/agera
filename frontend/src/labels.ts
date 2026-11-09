@@ -131,3 +131,11 @@ export const CREDIT_STATUS: Record<'approved' | 'review_required' | 'locked', st
 export const STORE_STATUS: Record<string, string> = live(() => ({ active: t("Open"), closed: t("Closed") }));
 
 export const WORK_ORDER_PRIORITY: Record<string, string> = live(() => ({ low: t("Low"), normal: t("Normal"), high: t("High"), urgent: t("Urgent") }));
+
+export const JOB_ROLE_LABEL: Record<'PLATFORM_ADMIN' | 'HQ_ADMIN' | 'ACCOUNT_MANAGER' | 'FIELD_REPRESENTATIVE' | 'CLIENT_VIEWER', string> = live(() => ({
+  PLATFORM_ADMIN: t("Platform administrator"),
+  HQ_ADMIN: t("HQ administrator"),
+  ACCOUNT_MANAGER: t("Account manager"),
+  FIELD_REPRESENTATIVE: t("Field representative"),
+  CLIENT_VIEWER: t("Client contact"),
+}));

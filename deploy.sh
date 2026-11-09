@@ -199,7 +199,7 @@ cmd_up() {
     die "the stack failed to start (migration output and container status above)"
   fi
   wait_until_ready
-  info "Granting the backend user-management rights in Keycloak (People & access)"
+  info "Granting the backend user-management rights in Keycloak (People & access) and creating the job roles"
   compose exec -T keycloak bash -s <<'KCADM' || info "warning: could not grant user-management rights; People & access will report it as unavailable"
 set -euo pipefail
 kc() { /opt/keycloak/bin/kcadm.sh "$@" --config "$CFG"; }
@@ -209,6 +209,9 @@ kc config credentials --server http://localhost:8080/auth --realm master \
   --user "$KC_BOOTSTRAP_ADMIN_USERNAME" --password "$KC_BOOTSTRAP_ADMIN_PASSWORD" >/dev/null
 kc add-roles -r agera --uusername service-account-agera-backend --cclientid realm-management \
   --rolename manage-users --rolename view-users --rolename query-users
+for role in PLATFORM_ADMIN HQ_ADMIN ACCOUNT_MANAGER FIELD_REPRESENTATIVE CLIENT_VIEWER; do
+  kc get "roles/$role" -r agera >/dev/null 2>&1 || kc create roles -r agera -s name="$role" >/dev/null
+done
 KCADM
   info "Adding the edition claim (tenant_license_tier) to Keycloak tokens"
   local claim_out

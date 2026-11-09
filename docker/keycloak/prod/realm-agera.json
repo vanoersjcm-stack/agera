@@ -23,6 +23,26 @@
       {
         "name": "External_Client",
         "description": "External client, retailer or brand partner; limited to its own agreements and Digital Sales Rooms (client_id attribute)"
+      },
+      {
+        "name": "PLATFORM_ADMIN",
+        "description": "Full access across all suites and organisations"
+      },
+      {
+        "name": "HQ_ADMIN",
+        "description": "Symphony (all) with read access to Nexus and RetailPower; coordinator actions"
+      },
+      {
+        "name": "ACCOUNT_MANAGER",
+        "description": "Nexus (all) with read access to RetailPower and Symphony overviews"
+      },
+      {
+        "name": "FIELD_REPRESENTATIVE",
+        "description": "RetailPower only"
+      },
+      {
+        "name": "CLIENT_VIEWER",
+        "description": "Client portal only, own client"
       }
     ]
   },

@@ -1,3 +1,4 @@
+import { CoordinatorOnly } from '../auth/job-roles.js';
 import {
   BadRequestException, Body, Controller, Get, Header, Param, ParseUUIDPipe, Patch, Post, Query, StreamableFile, UploadedFile, UseFilters, UseInterceptors,
 } from '@nestjs/common';
@@ -86,6 +87,7 @@ export class OperationsController {
     return this.ops.crew();
   }
 
+  @CoordinatorOnly()
   @Post('crew')
   @ApiOperation({ summary: 'Add a crew profile for a user (audit: crew.created)' })
   @ApiBody(OBJ)
@@ -94,6 +96,7 @@ export class OperationsController {
     return this.ops.createCrew(crewFields(asObject(body), false) as CrewInput, identity);
   }
 
+  @CoordinatorOnly()
   @Patch('crew/:id')
   @ApiOperation({ summary: 'Edit a crew profile (audit: crew.updated)' })
   @ApiParam({ name: 'id', format: 'uuid' })
@@ -141,6 +144,7 @@ export class OperationsController {
     return this.ops.clockOut(position(asObject(body ?? {})), identity);
   }
 
+  @CoordinatorOnly()
   @Post('shifts')
   @ApiOperation({ summary: 'Record a shift by hand, e.g. a forgotten clock-in (audit: shift.recorded)' })
   @ApiBody(OBJ)
@@ -159,6 +163,7 @@ export class OperationsController {
     );
   }
 
+  @CoordinatorOnly()
   @Patch('shifts/:id/validation')
   @ApiOperation({ summary: 'Coordinator sign-off: approve or reject the hours of a finished shift (audit: shift.approved / shift.rejected)' })
   @ApiParam({ name: 'id', format: 'uuid' })
@@ -169,6 +174,7 @@ export class OperationsController {
     return this.ops.validateShift(id, oneOf('decision', raw.decision, SHIFT_DECISIONS), optionalString('reason', raw.reason, 1000), identity);
   }
 
+  @CoordinatorOnly()
   @Get('shifts/export.csv')
   @Header('Content-Type', 'text/csv; charset=utf-8')
   @Header('Cache-Control', 'private, no-store')
@@ -187,6 +193,7 @@ export class OperationsController {
     return this.ops.vehicles();
   }
 
+  @CoordinatorOnly()
   @Post('vehicles')
   @ApiOperation({ summary: 'Allocate a vehicle to a person; it stays "check pending" until four photos are uploaded (audit: vehicle.allocated)' })
   @ApiBody(OBJ)
@@ -253,6 +260,7 @@ export class OperationsController {
     );
   }
 
+  @CoordinatorOnly()
   @Post('vehicles/:id/return')
   @ApiOperation({ summary: 'Register that the vehicle was returned (audit: vehicle.returned)' })
   @ApiParam({ name: 'id', format: 'uuid' })
@@ -319,6 +327,7 @@ export class OperationsController {
     );
   }
 
+  @CoordinatorOnly()
   @Patch('rma/:id/status')
   @ApiOperation({ summary: 'Move a return case: open → approved → shipped → credited, or rejected (audit: rma.status_changed)' })
   @ApiParam({ name: 'id', format: 'uuid' })
@@ -354,6 +363,7 @@ export class OperationsController {
     );
   }
 
+  @CoordinatorOnly()
   @Patch('stock-claims/:id/status')
   @ApiOperation({ summary: 'Decide on a claim: submitted → approved / rejected, approved → paid (audit: stock_claim.status_changed)' })
   @ApiParam({ name: 'id', format: 'uuid' })

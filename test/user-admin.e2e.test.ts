@@ -33,7 +33,7 @@ describe('/users administration', () => {
     const res = await api<{ user: Account; temporaryPassword: string }>(admin, 'POST', '/users', { email, firstName: 'Ivo', lastName: 'Invite', role: 'user' });
     assert.equal(res.status, 201, JSON.stringify(res.body));
     assert.equal(res.body.user.email, email);
-    assert.equal(res.body.user.role, 'user');
+    assert.equal(res.body.user.role, 'ACCOUNT_MANAGER');
     assert.ok(res.body.temporaryPassword.length >= 12);
     invited = res.body.user;
     const again = await api(admin, 'POST', '/users', { email, firstName: 'Ivo', lastName: 'Invite', role: 'user' });
@@ -46,14 +46,14 @@ describe('/users administration', () => {
     assert.equal(page.body.managementAvailable, true);
     assert.deepEqual(page.body.items.map((u) => u.id), [invited.id]);
     const admins = await api<{ items: Account[] }>(admin, 'GET', '/users/accounts?role=platform-admin');
-    assert.ok(admins.body.items.every((u) => u.role === 'platform-admin'));
+    assert.ok(admins.body.items.every((u) => u.role === 'PLATFORM_ADMIN'));
     assert.equal((await api(admin, 'GET', '/users/accounts?role=boss')).status, 400);
   });
 
   it('changes the role and the status', async () => {
     const promoted = await api<Account>(admin, 'PATCH', `/users/${invited.id}/role`, { role: 'admin' });
     assert.equal(promoted.status, 200, JSON.stringify(promoted.body));
-    assert.equal(promoted.body.role, 'admin');
+    assert.equal(promoted.body.role, 'HQ_ADMIN');
     assert.equal((await api(admin, 'PATCH', `/users/${invited.id}/role`, { role: 'External_Client' })).status, 400);
     const off = await api<Account>(admin, 'PATCH', `/users/${invited.id}/status`, { isActive: false });
     assert.equal(off.status, 200);

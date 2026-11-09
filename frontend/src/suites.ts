@@ -23,7 +23,27 @@ export interface NavItem {
   description: string;
 }
 
+/** Suites the user's job role may open; accounts with only a legacy role see all three. */
+export function suitesFor(user: UserContext): Suite[] {
+  if (user.jobRole === 'FIELD_REPRESENTATIVE') return SUITES.filter((s) => s.id === 'retailpower');
+  return SUITES;
+}
+
+/** Suites the job role may only read; the backend refuses changes there. */
+export function readOnlySuite(suite: SuiteId, user: UserContext): boolean {
+  if (user.jobRole === 'HQ_ADMIN') return suite !== 'symphony';
+  if (user.jobRole === 'ACCOUNT_MANAGER') return suite !== 'nexus';
+  return false;
+}
+
+const MANAGER_HIDDEN = new Set(['/symphony/credit-control', '/symphony/automations', '/symphony/activity']);
+
 export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
+  const items = navItems(suite, user);
+  return user.jobRole === 'ACCOUNT_MANAGER' ? items.filter((i) => !MANAGER_HIDDEN.has(i.path)) : items;
+}
+
+function navItems(suite: SuiteId, user: UserContext): NavItem[] {
   switch (suite) {
     case 'symphony':
       return [

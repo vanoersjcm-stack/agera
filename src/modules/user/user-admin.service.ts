@@ -3,6 +3,7 @@ import { BadRequestException, ConflictException, ForbiddenException, HttpExcepti
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
+import { JOB_ROLES, type JobRole, jobRoleOf } from '../auth/job-roles.js';
 import { EXTERNAL_CLIENT_ROLE, PLATFORM_ADMIN_ROLE } from '../auth/roles.decorator.js';
 import { Client } from '../clients/entities/client.entity.js';
 import { AuditService } from '../core/audit/audit.service.js';
@@ -13,19 +14,24 @@ import { KeycloakAdminService, KeycloakRequestError } from './keycloak-admin.ser
 import { UserService } from './user.service.js';
 import { runForTenant } from '../core/tenancy/tenant-transaction.service.js';
 
-export const ACCOUNT_ROLES = ['platform-admin', 'admin', 'user', 'External_Client'] as const;
-export type AccountRole = (typeof ACCOUNT_ROLES)[number];
+export const ACCOUNT_ROLES = JOB_ROLES;
+export type AccountRole = JobRole;
 
-/** Realm roles granted per account role; higher internal roles include the lower ones. */
+/** Legacy account roles still accepted by the API and mapped onto job roles. */
+export const LEGACY_ROLES: Record<string, AccountRole> = { 'platform-admin': 'PLATFORM_ADMIN', admin: 'HQ_ADMIN', user: 'ACCOUNT_MANAGER', External_Client: 'CLIENT_VIEWER' };
+
+/** Realm roles granted per job role; the legacy roles are kept so existing @Roles checks keep working. */
 const ROLE_SETS: Record<AccountRole, string[]> = {
-  'platform-admin': ['platform-admin', 'admin', 'user'],
-  admin: ['admin', 'user'],
-  user: ['user'],
-  External_Client: ['External_Client'],
+  PLATFORM_ADMIN: ['PLATFORM_ADMIN', 'platform-admin', 'admin', 'user'],
+  HQ_ADMIN: ['HQ_ADMIN', 'admin', 'user'],
+  ACCOUNT_MANAGER: ['ACCOUNT_MANAGER', 'user'],
+  FIELD_REPRESENTATIVE: ['FIELD_REPRESENTATIVE', 'user'],
+  CLIENT_VIEWER: ['CLIENT_VIEWER', EXTERNAL_CLIENT_ROLE],
 };
+const MANAGED_ROLES: readonly string[] = [...JOB_ROLES, ...Object.keys(LEGACY_ROLES)];
 
 export function accountRole(realmRoles: string[]): AccountRole {
-  return ACCOUNT_ROLES.find((r) => realmRoles.includes(r)) ?? 'user';
+  return jobRoleOf(realmRoles) ?? (Object.entries(LEGACY_ROLES).find(([legacy]) => realmRoles.includes(legacy))?.[1] ?? 'ACCOUNT_MANAGER');
 }
 
 export interface AccountQuery {
@@ -81,7 +87,7 @@ export class UserAdminService {
   async invite(input: InviteInput, identity: AuthenticatedUser): Promise<{ user: User; temporaryPassword: string }> {
     const actor = await this.userService.resolveActor(identity);
     this.assertMayGrant(identity, input.role);
-    const external = input.role === EXTERNAL_CLIENT_ROLE;
+    const external = input.role === 'CLIENT_VIEWER';
     if (!external) await this.assertSeatAvailable();
     if (external && (!input.clientId || !(await this.clients.findOneBy({ id: input.clientId })))) {
       throw new BadRequestException('clientId must be a client of the active tenant for client users');
@@ -106,7 +112,7 @@ export class UserAdminService {
     const realmRoles = ROLE_SETS[input.role];
     let user: User;
     try {
-      await this.keycloak.setRealmRoles(keycloakId, realmRoles, ACCOUNT_ROLES);
+      await this.keycloak.setRealmRoles(keycloakId, realmRoles, MANAGED_ROLES);
       user = await this.users.save(
         this.users.create({ keycloakId, email: input.email, firstName: input.firstName, lastName: input.lastName, realmRoles: [...realmRoles].sort(), isActive: true }),
       );
@@ -122,14 +128,14 @@ export class UserAdminService {
     const actor = await this.userService.resolveActor(identity);
     const user = await this.target(id, actor);
     const previous = accountRole(user.realmRoles);
-    if ((previous === EXTERNAL_CLIENT_ROLE) !== (role === EXTERNAL_CLIENT_ROLE)) {
+    if ((previous === 'CLIENT_VIEWER') !== (role === 'CLIENT_VIEWER')) {
       throw new BadRequestException('Client users and internal users cannot be converted into each other; invite a new user instead');
     }
     this.assertMayGrant(identity, role);
     this.assertMayGrant(identity, previous);
     if (previous === role) return user;
-    await this.keycloak.setRealmRoles(user.keycloakId, ROLE_SETS[role], ACCOUNT_ROLES);
-    user.realmRoles = [...user.realmRoles.filter((r) => !(ACCOUNT_ROLES as readonly string[]).includes(r)), ...ROLE_SETS[role]].sort();
+    await this.keycloak.setRealmRoles(user.keycloakId, ROLE_SETS[role], MANAGED_ROLES);
+    user.realmRoles = [...user.realmRoles.filter((r) => !MANAGED_ROLES.includes(r)), ...ROLE_SETS[role]].sort();
     const saved = await this.users.save(user);
     this.audit.logAction(this.context.tenantId, actor.id, 'user.role_changed', { userId: id, previousRole: previous, newRole: role });
     return saved;
@@ -179,7 +185,7 @@ export class UserAdminService {
   }
 
   private assertMayGrant(identity: AuthenticatedUser, role: AccountRole): void {
-    if (role === PLATFORM_ADMIN_ROLE && !identity.roles.includes(PLATFORM_ADMIN_ROLE)) {
+    if (role === 'PLATFORM_ADMIN' && !identity.roles.includes(PLATFORM_ADMIN_ROLE)) {
       throw new ForbiddenException('Only platform administrators can manage platform administrators');
     }
   }

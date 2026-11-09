@@ -2,20 +2,21 @@ import { type FormEvent, useEffect, useState } from 'react';
 import { api, type AccountRole, type UserAccount } from '../api';
 import type { UserContext } from '../context';
 import { activeClients, useClients } from '../directory';
-import { formatDate, ROLE } from '../labels';
+import { formatDate, JOB_ROLE_LABEL } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { Drawer, ErrorText, Field, FilterChips, FormActions, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
 import { t, tf } from '../i18n';
 
-const ROLE_LABEL: Record<AccountRole, string> = { ...ROLE, External_Client: 'Client contact' };
+const ROLE_LABEL: Record<AccountRole, string> = JOB_ROLE_LABEL;
+const INTERNAL_ROLES: AccountRole[] = ['PLATFORM_ADMIN', 'HQ_ADMIN', 'ACCOUNT_MANAGER', 'FIELD_REPRESENTATIVE'];
 
 function InviteDrawer({ canGrantPlatformAdmin, onClose, onInvited }: { canGrantPlatformAdmin: boolean; onClose: () => void; onInvited: (email: string, password: string) => void }) {
   const clients = activeClients(useClients(true));
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', role: 'user' as AccountRole, clientId: '' });
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', role: 'ACCOUNT_MANAGER' as AccountRole, clientId: '' });
   const { busy, error, run } = useAction();
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
-  const external = form.role === 'External_Client';
+  const external = form.role === 'CLIENT_VIEWER';
   const submit = (e: FormEvent) => {
     e.preventDefault();
     void run(() =>
@@ -28,7 +29,7 @@ function InviteDrawer({ canGrantPlatformAdmin, onClose, onInvited }: { canGrantP
       }),
     ).then((r) => r && onInvited(r.user.email, r.temporaryPassword));
   };
-  const roles = (Object.keys(ROLE_LABEL) as AccountRole[]).filter((r) => r !== 'platform-admin' || canGrantPlatformAdmin);
+  const roles = [...INTERNAL_ROLES, 'CLIENT_VIEWER' as const].filter((r) => r !== 'PLATFORM_ADMIN' || canGrantPlatformAdmin);
   return (
     <Drawer title={t("Invite a person")} onClose={onClose}>
       <form onSubmit={submit}>
@@ -78,9 +79,9 @@ function ProfileDrawer({ account, onClose, onSaved }: { account: UserAccount; on
 function AccountRow({ account, self, canGrantPlatformAdmin, onChanged }: { account: UserAccount; self: boolean; canGrantPlatformAdmin: boolean; onChanged: (message: string) => void }) {
   const { busy, error, run } = useAction();
   const [editing, setEditing] = useState(false);
-  const locked = self || (account.role === 'platform-admin' && !canGrantPlatformAdmin);
-  const external = account.role === 'External_Client';
-  const roles = (external ? ['External_Client'] : ['platform-admin', 'admin', 'user']).filter((r) => r !== 'platform-admin' || canGrantPlatformAdmin || account.role === 'platform-admin') as AccountRole[];
+  const locked = self || (account.role === 'PLATFORM_ADMIN' && !canGrantPlatformAdmin);
+  const external = account.role === 'CLIENT_VIEWER';
+  const roles = (external ? ['CLIENT_VIEWER' as const] : INTERNAL_ROLES).filter((r) => r !== 'PLATFORM_ADMIN' || canGrantPlatformAdmin || account.role === 'PLATFORM_ADMIN');
   const changeRole = (role: AccountRole) => void run(() => api.setUserRole(account.id, role)).then((r) => r && onChanged(`${account.name} is now ${ROLE_LABEL[role]}`));
   const toggle = () => {
     if (account.isActive && !window.confirm(tf("Deactivate {name}? They can no longer sign in.", { name: account.name }))) return;
