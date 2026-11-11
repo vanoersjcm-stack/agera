@@ -14,6 +14,7 @@ import { ClientRoomDossier, ClientRoomsView } from './nexus/ClientRooms';
 import { ClientDossier, ClientsView } from './nexus/Clients';
 import { FinancialPlansView, PlanDossier } from './nexus/FinancialPlans';
 import { NexusOverview } from './nexus/NexusOverview';
+import { SideNav, SuiteMap } from './SideNav';
 import { ProfitLossView } from './nexus/ProfitLoss';
 import { PortalOverview } from './portal/PortalOverview';
 import { RetailOverview } from './retailpower/RetailOverview';
@@ -25,7 +26,7 @@ import { AuditRoundDossier, AuditRoundsView, FieldCalendarView, FieldOrderDossie
 import { DealDossier, DealsView, PipelineBoard } from './vanguard/Pipeline';
 import { navigate, type Route, useRoute } from './router';
 import { type NewDefaults, type NewKind, ShellContext } from './shell';
-import { editionName, LEGACY_ROUTES, lastSuite, type NavItem, navFor, readOnlySuite, suitesFor, PORTAL_NAV, previewTier, rememberSuite, setActiveTier, setPreviewTier, SUITES, type Suite, type SuiteId, suiteName } from './suites';
+import { editionName, LEGACY_ROUTES, lastSuite, navFor, topicsFor, readOnlySuite, suitesFor, PORTAL_NAV, previewTier, rememberSuite, setActiveTier, setPreviewTier, SUITES, type Suite, type SuiteId, suiteName } from './suites';
 import { CREDIT_HOLDS_CHANGED, CreditControlView } from './symphony/CreditControl';
 import { InvoicesView } from './symphony/Invoices';
 import { RetentionView } from './Idms';
@@ -62,7 +63,12 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
   const key = `${suite}/${section ?? ''}`;
   switch (key) {
     case 'symphony/':
-      return <SymphonyOverview />;
+      return (
+        <>
+          <SymphonyOverview />
+          <SuiteMap topics={topicsFor('symphony', user)} />
+        </>
+      );
     case 'symphony/approvals':
       return id ? <ApprovalDossier id={id} /> : <ApprovalsView route={route} />;
     case 'symphony/health':
@@ -106,7 +112,12 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
     case 'nexus/deals':
       return id ? <DealDossier id={id} /> : <DealsView route={route} />;
     case 'nexus/':
-      return <NexusOverview />;
+      return (
+        <>
+          <NexusOverview />
+          <SuiteMap topics={topicsFor('nexus', user)} />
+        </>
+      );
     case 'nexus/clients':
       return id ? <ClientDossier id={id} route={route} /> : <ClientsView route={route} />;
     case 'nexus/drafts':
@@ -130,7 +141,12 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
     case 'nexus/surveys':
       return id ? <SurveyDossier id={id} route={route} /> : <SurveysView route={route} />;
     case 'retailpower/':
-      return <RetailOverview />;
+      return (
+        <>
+          <RetailOverview />
+          <SuiteMap topics={topicsFor('retailpower', user)} />
+        </>
+      );
     case 'retailpower/work-orders':
       return id ? <WorkOrderDossier id={id} /> : <WorkOrdersView route={route} />;
     case 'retailpower/store-visits':
@@ -415,24 +431,6 @@ function initials(name: string): string {
   return ((parts[0]?.[0] ?? '') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase() || '?';
 }
 
-function SideNav({ items, path, heading, children }: { items: NavItem[]; path: string; heading: string; children?: ReactNode }) {
-  useLanguage();
-  const active = items
-    .filter((i) => path === i.path || path.startsWith(`${i.path}/`))
-    .sort((a, b) => b.path.length - a.path.length)[0];
-  return (
-    <nav className="sidenav" aria-label={`${heading} navigation`}>
-      <span className="sidenav-heading">{heading}</span>
-      {items.map((i) => (
-        <a key={i.path} href={`#${i.path}`} className={i === active ? 'active' : undefined} title={i.description} aria-current={i === active ? 'page' : undefined}>
-          {t(i.label)}
-        </a>
-      ))}
-      {children}
-    </nav>
-  );
-}
-
 /** Resolves start page and old bookmarks; returns null when the current route can be shown as is. */
 function redirectFor(route: Route, external: boolean): string | null {
   const legacy = LEGACY_ROUTES[route.path];
@@ -656,7 +654,7 @@ export function App() {
           {external ? (
             <SideNav items={PORTAL_NAV} path={route.path} heading={tr("Client portal")} />
           ) : (
-            <SideNav items={navFor(suite.id, user)} path={route.path} heading={`${brand} · ${suite.tagline}`}>
+            <SideNav topics={topicsFor(suite.id, user)} path={route.path} heading={`${brand} · ${suite.tagline}`}>
               <Navigator user={user} readOnlyTenant={!!tenant?.readOnly} />
             </SideNav>
           )}

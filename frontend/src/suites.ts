@@ -177,3 +177,51 @@ export const LEGACY_ROUTES: Record<string, { internal: string; external: string 
 export function currentTier(): LicenseTier {
   return activeTier;
 }
+
+export type TopicId = 'overview' | 'finance' | 'clients' | 'workflow' | 'governance' | 'sales' | 'documents' | 'issues' | 'field' | 'stores' | 'people' | 'fleet';
+
+export interface NavTopic {
+  id: TopicId;
+  label: string;
+  items: NavItem[];
+}
+
+const TOPICS: Record<SuiteId, [TopicId, string, string[]][]> = {
+  symphony: [
+    ['overview', 'Overview', ['/symphony']],
+    ['finance', 'Finance', ['/symphony/prognosis', '/symphony/invoices', '/symphony/credit-control', '/symphony/reports']],
+    ['clients', 'Clients', ['/symphony/clients', '/symphony/health', '/symphony/feedback']],
+    ['workflow', 'Workflow', ['/symphony/approvals', '/symphony/automations']],
+    ['governance', 'Governance & admin', ['/symphony/activity', '/symphony/retention', '/symphony/people', '/symphony/organisations', '/symphony/integrations', '/symphony/connections']],
+  ],
+  nexus: [
+    ['overview', 'Overview', ['/nexus']],
+    ['clients', 'Clients', ['/nexus/clients', '/nexus/client-rooms', '/nexus/surveys']],
+    ['sales', 'Sales', ['/nexus/pipeline', '/nexus/deals', '/nexus/agreements', '/nexus/price-lists']],
+    ['finance', 'Finance', ['/nexus/financial-plans', '/nexus/profit-loss']],
+    ['documents', 'Documents & mail', ['/nexus/templates', '/nexus/mail-merge', '/nexus/print']],
+    ['issues', 'Issues', ['/nexus/exceptions', '/nexus/alerts']],
+  ],
+  retailpower: [
+    ['overview', 'Overview', ['/retailpower', '/retailpower/back-office']],
+    ['field', 'Field work', ['/retailpower/work-orders', '/retailpower/store-visits', '/retailpower/calendar', '/retailpower/audit-rounds', '/retailpower/scan']],
+    ['stores', 'Stores & products', ['/retailpower/stores', '/retailpower/products', '/retailpower/planograms', '/retailpower/orders']],
+    ['people', 'People', ['/retailpower/crew', '/retailpower/hours']],
+    ['fleet', 'Fleet & returns', ['/retailpower/fleet']],
+  ],
+};
+
+/** The suite menu grouped into topics; a topic the role has no items in is left out, unlisted items land in a last topic. */
+export function topicsFor(suite: SuiteId, user: UserContext): NavTopic[] {
+  const items = navFor(suite, user);
+  const byPath = new Map(items.map((i) => [i.path, i]));
+  const topics = TOPICS[suite].map(([id, label, paths]) => ({
+    id,
+    label: t(label),
+    items: paths.map((p) => byPath.get(p)).filter((i): i is NavItem => !!i),
+  }));
+  const listed = new Set(TOPICS[suite].flatMap(([, , paths]) => paths));
+  const rest = items.filter((i) => !listed.has(i.path));
+  if (rest.length) topics[topics.length - 1].items.push(...rest);
+  return topics.filter((tp) => tp.items.length > 0);
+}

@@ -995,6 +995,17 @@ const NL: Record<string, string> = {
   "Scans straight into the client's document vault": "Scans direct in de documentkluis van de klant",
   "Pull printing with a release code, and scans into the client's document vault": "Pull-printing met een vrijgavecode, en scans in de documentkluis van de klant",
   "Photograph or upload a signed form; it is stored with the client as a Draft document": "Fotografeer of upload een getekend formulier; het wordt bij de klant opgeslagen als conceptdocument",
+  // Topic menu
+  "Finance": "Financiën",
+  "Workflow": "Workflow",
+  "Governance & admin": "Governance & beheer",
+  "Sales": "Verkoop",
+  "Documents & mail": "Documenten & mail",
+  "Field work": "Veldwerk",
+  "Stores & products": "Winkels & producten",
+  "People": "Mensen",
+  "Fleet & returns": "Wagenpark & retouren",
+  "All topics": "Alle onderwerpen",
 };
 const DICTIONARIES: Partial<Record<Language, Record<string, string>>> = { nl: NL };
 

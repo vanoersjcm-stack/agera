@@ -5,9 +5,9 @@ import type { UserContext } from './context';
 import { activeClients, type ClientRef, useClients } from './directory';
 import { t, useLanguage } from './i18n';
 import { useShell } from './shell';
+import { NavTopic } from './SideNav';
 import { navFor, readOnlySuite, type SuiteId, suitesFor } from './suites';
 
-const OPEN_KEY = 'agera.navigator.open';
 const VIEWS_EVENT = 'agera:client-views';
 
 interface ClientView { name: string; count: number; last: number }
@@ -97,11 +97,10 @@ function Customers({ dossier }: { dossier: string }) {
   );
 }
 
-/** Collapsible cross-suite tree under the suite menu; every node follows the job role and edition. */
+/** Cross-suite tree in a flyout topic under the suite menu; every node follows the job role and edition. */
 export function Navigator({ user, readOnlyTenant }: { user: UserContext; readOnlyTenant: boolean }) {
   useLanguage();
   const { openNew } = useShell();
-  const [open, setOpen] = useState(() => localStorage.getItem(OPEN_KEY) !== '0');
   if (user.scope === 'external' || user.jobRole === 'CLIENT_VIEWER') return null;
 
   const dossier = allowed(user, '/nexus/clients') ? '/nexus/clients' : allowed(user, '/symphony/clients') ? '/symphony/clients' : null;
@@ -118,8 +117,7 @@ export function Navigator({ user, readOnlyTenant }: { user: UserContext; readOnl
   const canCreate = documents && !readOnlyTenant && !readOnlySuite('nexus', user);
 
   return (
-    <details className="navigator" open={open} onToggle={(e) => (setOpen(e.currentTarget.open), localStorage.setItem(OPEN_KEY, e.currentTarget.open ? '1' : '0'))}>
-      <summary>{t("Navigator")}</summary>
+    <NavTopic label={t("Navigator")} className="navigator">
       <div className="nav-children">
         {actions.length > 0 && <Node label={t("Actions")}>{actions}</Node>}
         {dossier && <Customers dossier={dossier} />}
@@ -138,6 +136,6 @@ export function Navigator({ user, readOnlyTenant }: { user: UserContext; readOnl
           </Node>
         )}
       </div>
-    </details>
+    </NavTopic>
   );
 }
