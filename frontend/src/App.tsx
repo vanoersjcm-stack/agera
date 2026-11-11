@@ -2,6 +2,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { api, type Client, type SearchHit, type Tenant, switchOrganisation, viewingOrganisation, type UserProfile, type LicenseTier } from './api';
 import { AssistantTip, useAssistant } from './Assistant';
 import { keycloak } from './auth';
+import { IdleLock, logout, PreferencesDrawer, usePreferencesOpen } from './Preferences';
 import { displayName, type UserContext, userContext } from './context';
 import { EmptyState, ViewFrame } from './Layout';
 import { NEW_ITEMS, NewDrawer } from './NewForms';
@@ -36,7 +37,7 @@ import { ReportBuilderView, ReportsView } from './symphony/Reports';
 import { IntegrationsView as ExternalSystemsView } from './symphony/Integrations';
 import { GoldenThreadTour, startTour } from './tour';
 import { getTheme, setTheme } from './theme';
-import { availableLanguages, getLanguage, setLanguage, t, useLanguage, t as tr, tf, live } from './i18n';
+import { t, useLanguage, t as tr, tf, live } from './i18n';
 import { DraftDocumentsView, OfficeEditorHost } from './office';
 import { Navigator } from './Navigator';
 import { startOfflineSync, useOfflineQueue } from './offlineQueue';
@@ -360,6 +361,7 @@ function UserMenu({ user, tenant, tier, tipsOn, onToggleTips }: { user: UserCont
     api.me().then(setProfile, () => setProfile(null));
   }, []);
   const subtitle = [profile?.title, profile?.zone].filter(Boolean).join(' · ');
+  const [prefs, setPrefs] = usePreferencesOpen();
   return (
     <div className="dropdown" ref={ref}>
       <button className="user-button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
@@ -386,13 +388,12 @@ function UserMenu({ user, tenant, tier, tipsOn, onToggleTips }: { user: UserCont
           {user.isPlatformAdmin && previewTier() && <button role="menuitem" onClick={() => setPreviewTier(null)}>{tr("Stop edition preview")}</button>}
           <button role="menuitem" onClick={() => (setOpen(false), startTour())}>{t('Take the Golden Thread tour')}</button>
           <button role="menuitem" onClick={() => (setOpen(false), setTheme(getTheme() === 'dark' ? 'light' : 'dark'))}>{getTheme() === 'dark' ? tr("Appearance: dark → light") : tr("Appearance: light → dark")}</button>
-          {availableLanguages().filter((l) => l.code !== getLanguage()).map((l) => (
-            <button key={l.code} role="menuitem" lang={l.code} onClick={() => (setOpen(false), setLanguage(l.code))}>{tf("Language: {name}", { name: l.name })}</button>
-          ))}
+          <button role="menuitem" onClick={() => (setOpen(false), setPrefs(true))}>{tr("Preferences")}</button>
           <button role="menuitem" onClick={onToggleTips}>{t(tipsOn ? 'Hide page tips' : 'Show page tips')}</button>
-          <button role="menuitem" onClick={() => void keycloak.logout({ redirectUri: window.location.origin + '/' })}>{t('Log out')}</button>
+          <button role="menuitem" onClick={logout}>{t('Log out')}</button>
         </div>
       )}
+      {prefs && <PreferencesDrawer onClose={() => setPrefs(false)} />}
     </div>
   );
 }
@@ -587,6 +588,8 @@ export function App() {
   }, [toast]);
 
   useEffect(() => setCreating(null), [route.path]);
+  const mainRef = useRef<HTMLElement>(null);
+  useEffect(() => mainRef.current?.scrollTo?.(0, 0), [route.path]);
 
   const openNew = useCallback((kind: NewKind, defaults: NewDefaults = {}) => {
     if (kind === 'automation') return navigate('/symphony/automations?new=1');
@@ -630,7 +633,10 @@ export function App() {
         </header>
         <div className="actionbar">
           <div className="actionbar-crumbs">
-            <strong>{tr("Agera Platform")}</strong>
+            <button type="button" className="back-button" onClick={() => window.history.back()} title={tr("Go back to the previous page")}>
+              <span className="back-arrow" aria-hidden>‹</span> {tr("Back")}
+            </button>
+            <strong>{tr("Agera Suite")}</strong>
             <span className="sep" aria-hidden>›</span>
             <span id="actionbar-crumbs" className="crumbs-slot" data-fallback={external ? 'Client portal' : brand} />
           </div>
@@ -649,7 +655,8 @@ export function App() {
               <Navigator user={user} readOnlyTenant={!!tenant?.readOnly} />
             </SideNav>
           )}
-          <main>
+          <main ref={mainRef}>
+            <div className="main-inner">
             {preview && preview !== tenant?.licenseTier && (
               <p className="callout readonly-banner">
                 {tr("Previewing the interface of")} <strong>{editionName(preview)}</strong>{tr(". Server-side limits still follow this organisation’s real edition.")}{' '}
@@ -665,6 +672,7 @@ export function App() {
             )}
             <AssistantTip path={route.path} assistant={assistant} />
             {external ? <PortalView route={route} /> : <InternalView route={route} user={user} />}
+            </div>
           </main>
         </div>
         {creating && (
@@ -678,6 +686,7 @@ export function App() {
         )}
         {!external && <OfficeEditorHost />}
         {toast && <div className="toast" role="status">{toast}</div>}
+        <IdleLock />
       </div>
     </ShellContext.Provider>
   );

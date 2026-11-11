@@ -212,6 +212,7 @@ kc add-roles -r agera --uusername service-account-agera-backend --cclientid real
 for role in PLATFORM_ADMIN HQ_ADMIN ACCOUNT_MANAGER FIELD_REPRESENTATIVE CLIENT_VIEWER; do
   kc get "roles/$role" -r agera >/dev/null 2>&1 || kc create roles -r agera -s name="$role" >/dev/null
 done
+kc update realms/agera -s 'displayName=Agera Suite' -s 'displayNameHtml=Agera Suite'
 KCADM
   info "Adding the edition claim (tenant_license_tier) to Keycloak tokens"
   local claim_out

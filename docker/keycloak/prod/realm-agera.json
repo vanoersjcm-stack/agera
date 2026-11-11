@@ -1,7 +1,7 @@
 {
   "realm": "agera",
   "enabled": true,
-  "displayName": "Agera Symphony",
+  "displayName": "Agera Suite",
   "sslRequired": "external",
   "registrationAllowed": false,
   "loginWithEmailAllowed": true,

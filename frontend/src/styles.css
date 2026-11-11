@@ -768,3 +768,24 @@ button.wide { width: 100%; }
 .navigator input[type='search'] { width: 100%; box-sizing: border-box; margin: 0.25rem 0; font-size: 0.85rem; }
 .navigator button.nav-link { background: none; border: 0; text-align: start; padding: 0.3rem 0.6rem; color: var(--text); font: inherit; cursor: pointer; border-radius: 6px; }
 .navigator button.nav-link:hover { background: var(--hover); }
+
+/* Shell: the viewport height is fixed so the sidebar and the page scroll independently */
+.shell { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+.shell > .topbar, .shell > .actionbar { flex-shrink: 0; position: relative; top: auto; }
+.shell > .workspace { flex: 1; min-height: 0; }
+.workspace > .sidenav { overflow-y: auto; overscroll-behavior: contain; }
+.workspace > main { overflow-y: auto; max-width: none; }
+.main-inner { max-width: 1280px; }
+@media (max-width: 900px) { .shell { height: auto; overflow: visible; } .workspace > main, .workspace > .sidenav { overflow: visible; } }
+@media print { .shell { height: auto; overflow: visible; } .workspace > main, .workspace > .sidenav { overflow: visible; } }
+.back-button { display: inline-flex; align-items: center; gap: 0.25rem; background: var(--surface-3); color: var(--text-2); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem 0.55rem; font: inherit; font-size: 0.78rem; cursor: pointer; flex-shrink: 0; }
+.back-button:hover { background: var(--hover); }
+.back-arrow { font-size: 1rem; line-height: 1; }
+[dir='rtl'] .back-arrow { transform: scaleX(-1); }
+/* Search keeps the page behind it sharp */
+.palette-backdrop { backdrop-filter: none; background: rgba(15, 23, 42, 0.15); }
+/* Idle auto-lock */
+.lock-screen { position: fixed; inset: 0; z-index: 2000; background: var(--surface); display: flex; align-items: center; justify-content: center; }
+.lock-card { display: flex; flex-direction: column; gap: 0.75rem; width: min(320px, 90vw); padding: 2rem; border: 1px solid var(--border); border-radius: 12px; background: var(--surface); box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); text-align: center; }
+.lock-card input { font-size: 1.5rem; letter-spacing: 0.6em; text-align: center; }
+.lock-card h2 { margin: 0; }
