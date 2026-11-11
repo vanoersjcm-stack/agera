@@ -29,6 +29,7 @@ function toAgreementResponse(a: Agreement, external = false): AgreementDto {
     clientId: a.clientId,
     title: a.title,
     status: a.status,
+    idmsStatus: a.idmsStatus,
     documentUrl: a.documentUrl,
     annualValue: a.annualValue,
     churnRisk: external ? null : a.churnRisk,

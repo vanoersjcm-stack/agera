@@ -7,6 +7,7 @@ import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
 import { t, tf, live } from '../i18n';
+import { IdmsControl } from '../Idms';
 
 export const INVOICE_STATUS: Record<InvoiceStatus, string> = { draft: 'Draft', issued: 'Sent', paid: 'Paid', cancelled: 'Cancelled' };
 const NEXT: Record<InvoiceStatus, { status: InvoiceStatus; label: string }[]> = live(() => ({
@@ -39,6 +40,7 @@ export function InvoiceTable({ invoices, showClient, onChanged }: { invoices: In
             <th>{t("Date")}</th>
             <th>{t("Due")}</th>
             <th>{t("Status")}</th>
+            <th>{t("Lifecycle")}</th>
             <th className="num">{t("Excl. VAT")}</th>
             <th className="num">{t("Total")}</th>
             <th />
@@ -52,10 +54,11 @@ export function InvoiceTable({ invoices, showClient, onChanged }: { invoices: In
               <td>{formatDate(i.issueDate)}</td>
               <td>{i.dueDate ? formatDate(i.dueDate) : '—'}</td>
               <td>{badge(i)}{i.paidAt && <div className="muted small">{formatDate(i.paidAt)}</div>}</td>
+              <td><IdmsControl kind="invoices" id={i.id} status={i.idmsStatus} onChanged={onChanged} compact /></td>
               <td className="num">{money(i.amountExclVat)}</td>
               <td className="num">{money(i.totalAmount)}</td>
               <td className="row-actions">
-                {NEXT[i.status].map((n) => (
+                {(i.idmsStatus === 'ARCHIVED_WORM' || i.idmsStatus === 'EXPIRED_PURGE' ? [] : NEXT[i.status]).map((n) => (
                   <button key={n.status} className={n.status === 'cancelled' ? 'link-button danger' : 'link-button'} disabled={action.busy} onClick={() => change(i, n.status)}>
                     {n.label}
                   </button>

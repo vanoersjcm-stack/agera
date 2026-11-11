@@ -28,6 +28,10 @@ export class FinancialModel {
   @Column({ type: 'jsonb', default: () => "'{}'" })
   metadata!: Record<string, unknown>;
 
+  /** IDMS lifecycle (V28); changed only through /v1/idms transitions and the retention job. */
+  @Column({ name: 'idms_status', type: 'varchar', length: 15, default: 'DRAFT', insert: false, update: false })
+  idmsStatus!: string;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz', precision: 3 })
   createdAt!: Date;
 

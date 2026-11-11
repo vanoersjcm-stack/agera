@@ -38,6 +38,7 @@ export class FinancialModelDto {
 
   @ApiProperty({ enum: FINANCIAL_MODEL_STATUSES })
   status!: FinancialModelStatus;
+  @ApiProperty({ enum: ['DRAFT', 'IN_REVIEW', 'FINAL_LOCKED', 'ARCHIVED_WORM', 'EXPIRED_PURGE'], description: 'IDMS lifecycle' }) idmsStatus!: string;
 
   @ApiProperty({ type: 'object', additionalProperties: true })
   metadata!: Record<string, unknown>;

@@ -47,6 +47,10 @@ export class Invoice {
   @Column({ name: 'paid_at', type: 'timestamptz', precision: 3, nullable: true })
   paidAt!: Date | null;
 
+  /** IDMS lifecycle (V28); changed only through /v1/idms transitions and the retention job. */
+  @Column({ name: 'idms_status', type: 'varchar', length: 15, default: 'DRAFT', insert: false, update: false })
+  idmsStatus!: string;
+
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz', precision: 3 })
   createdAt!: Date;
 

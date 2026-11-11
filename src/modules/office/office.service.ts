@@ -2,7 +2,7 @@ import { createHash, createHmac, randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { Readable } from 'node:stream';
-import { BadRequestException, Injectable, NotFoundException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException, ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { jwtVerify, SignJWT } from 'jose';
 import type { EntityManager } from 'typeorm';
@@ -10,6 +10,7 @@ import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import type { OfficeConfig } from '../../config/configuration.js';
 import { CommercialService } from '../commercial/commercial.service.js';
 import { AuditService } from '../core/audit/audit.service.js';
+import { LOCKED_STATUSES } from '../core/idms/idms.js';
 import { StorageService } from '../core/storage/storage.service.js';
 import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
@@ -42,6 +43,7 @@ export interface OfficeDocumentView {
   sizeBytes: number;
   sha256: string;
   currentVersion: number;
+  idmsStatus: string;
   editable: boolean;
   lastModifiedByName: string | null;
   createdAt: Date;
@@ -96,7 +98,7 @@ interface Discovery {
 const VIEW_SQL = `
   SELECT d.id, d.title, d.client_id AS "clientId", c.name AS "clientName", d.client_room_id AS "clientRoomId", r.room_name AS "roomName",
          d.contact_id AS "contactId", NULLIF(btrim(concat_ws(' ', ct.first_name, ct.last_name)), '') AS "contactName",
-         d.deal_id AS "dealId", dl.title AS "dealName", d.file_format AS "fileFormat",
+         d.deal_id AS "dealId", dl.title AS "dealName", d.file_format AS "fileFormat", d.idms_status AS "idmsStatus",
          v.file_name AS "fileName", v.mime_type AS "mimeType", v.size_bytes AS "sizeBytes", v.sha256, d.current_version AS "currentVersion",
          ${PERSON('u')} AS "lastModifiedByName", d.created_at AS "createdAt", d.updated_at AS "updatedAt"
     FROM room_documents d
@@ -176,15 +178,15 @@ export class OfficeService {
         this.context.tenantId,
         clientId,
       ]);
-      return rows.map((r) => ({ ...r, editable: EDITABLE_FORMATS.has(r.fileFormat ?? '') }));
+      return rows.map((r) => ({ ...r, editable: EDITABLE_FORMATS.has(r.fileFormat ?? '') && !LOCKED_STATUSES.has(r.idmsStatus) }));
     });
   }
 
-  /** Documents not yet shared in a client room, newest first. */
+  /** Documents in IDMS status DRAFT, newest first. */
   drafts(): Promise<OfficeDocumentView[]> {
     return this.tx.run(async (manager) => {
-      const rows: OfficeDocumentView[] = await manager.query(`${VIEW_SQL} WHERE d.tenant_id = $1 AND d.client_room_id IS NULL ORDER BY d.updated_at DESC LIMIT 100`, [this.context.tenantId]);
-      return rows.map((r) => ({ ...r, editable: EDITABLE_FORMATS.has(r.fileFormat ?? '') }));
+      const rows: OfficeDocumentView[] = await manager.query(`${VIEW_SQL} WHERE d.tenant_id = $1 AND d.idms_status = 'DRAFT' ORDER BY d.updated_at DESC LIMIT 100`, [this.context.tenantId]);
+      return rows.map((r) => ({ ...r, editable: EDITABLE_FORMATS.has(r.fileFormat ?? '') && !LOCKED_STATUSES.has(r.idmsStatus) }));
     });
   }
 
@@ -300,7 +302,7 @@ export class OfficeService {
   private async view(manager: EntityManager, id: string): Promise<OfficeDocumentView> {
     const [row] = await manager.query(`${VIEW_SQL} WHERE d.tenant_id = $1 AND d.id = $2`, [this.context.tenantId, id]);
     if (!row) throw new NotFoundException('Document not found');
-    return { ...row, editable: EDITABLE_FORMATS.has(row.fileFormat ?? '') };
+    return { ...row, editable: EDITABLE_FORMATS.has(row.fileFormat ?? '') && !LOCKED_STATUSES.has(row.idmsStatus) };
   }
 
   // Editor session ----------------------------------------------------------------------------------------------
@@ -318,7 +320,7 @@ export class OfficeService {
     const path = urls.get(format);
     if (!path || !EDITABLE_FORMATS.has(format)) throw new BadRequestException(`.${format || '?'} files cannot be opened in the editor`);
     const exp = Math.floor(Date.now() / 1000) + TOKEN_TTL_SECONDS;
-    const accessToken = await new SignJWT({ tid: this.context.tenantId, doc: id, name, write: true })
+    const accessToken = await new SignJWT({ tid: this.context.tenantId, doc: id, name, write: !LOCKED_STATUSES.has(doc.idmsStatus) })
       .setProtectedHeader({ alg: 'HS256' })
       .setSubject(actor.id)
       .setAudience('agera-wopi')
@@ -365,7 +367,8 @@ export class OfficeService {
       UserFriendlyName: c.name,
       Version: String(doc.currentVersion),
       LastModifiedTime: new Date(doc.updatedAt).toISOString(),
-      UserCanWrite: c.write,
+      UserCanWrite: c.write && !LOCKED_STATUSES.has(doc.idmsStatus),
+      ReadOnly: !c.write || LOCKED_STATUSES.has(doc.idmsStatus),
       UserCanNotWriteRelative: true,
       UserCanRename: false,
       SupportsUpdate: true,
@@ -395,7 +398,14 @@ export class OfficeService {
   /** Saves the editor's file as a new version. Returns `conflict` with the current lock when another editor holds it. */
   async putFile(fileId: string, token: string | undefined, data: Buffer, lock: string | undefined): Promise<{ conflict: string } | { version: number; lastModified: string }> {
     const c = await this.claims(token, fileId);
-    if (!c.write) throw new UnauthorizedException('Read-only access');
+    const [state] = await this.as(c, (m) => m.query('SELECT idms_status FROM room_documents WHERE tenant_id = $1 AND id = $2', [c.tid, fileId]));
+    if (!state) throw new NotFoundException('Document not found');
+    if (!c.write || LOCKED_STATUSES.has(state.idms_status)) {
+      // The WOPI routes are public (token-authenticated), so the 403 audit filter cannot see the organisation: log here.
+      const reason = c.write ? `Document is ${state.idms_status} and opens read-only` : 'Read-only access';
+      this.audit.logAction(c.tid, c.sub, 'access.denied', { method: 'POST', path: `/v1/wopi/files/${fileId}/contents`, reason, documentId: fileId });
+      throw new ForbiddenException(reason);
+    }
     if (data.length > MAX_DOCUMENT_BYTES) throw new BadRequestException('File too large');
     const versionId = randomUUID();
     let key = '';

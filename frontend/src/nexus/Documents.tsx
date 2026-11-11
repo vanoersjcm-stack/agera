@@ -5,6 +5,7 @@ import { useShell } from '../shell';
 import { ErrorText, Loading, useAction, useLoad } from '../ui';
 import { GenerateDocumentDrawer } from './Commercial';
 import { t, tf } from '../i18n';
+import { IdmsBadge, IdmsControl, isLocked } from '../Idms';
 
 const ACCEPT = '.pdf,.docx,.xlsx,.pptx,.doc,.xls,.csv,.txt,.png,.jpg,.jpeg';
 
@@ -91,7 +92,7 @@ export function RoomDocumentsPanel({ roomId, external, active, compact = false }
               <div className="doc-main">
                 <button className="link-button doc-title" onClick={() => void run(() => api.downloadRoomDocument(roomId, d.id, d.fileName))}>{d.title}</button>
                 <span className="muted small">
-                  v{d.currentVersion} · {d.fileName} · {size(d.sizeBytes)}
+                  {external ? <IdmsBadge status={d.idmsStatus} /> : <IdmsControl kind="documents" id={d.id} status={d.idmsStatus} onChanged={docs.reload} compact />} v{d.currentVersion} · {d.fileName} · {size(d.sizeBytes)}
                   {!external && ` · ${d.downloads} client download${d.downloads === 1 ? '' : 's'}`}
                 </span>
               </div>
@@ -99,9 +100,9 @@ export function RoomDocumentsPanel({ roomId, external, active, compact = false }
                 <div className="doc-actions">
                   <button className="secondary small" onClick={() => void run(() => api.downloadRoomDocument(roomId, d.id, d.fileName))}>{t("Download")}</button>
                   <button className="secondary small" onClick={() => setOpen(open === d.id ? null : d.id)}>{open === d.id ? t("Hide versions") : t("Versions")}</button>
-                  {canEdit && <button className="secondary small" disabled={busy} onClick={() => pick(d.id)}>{t("Upload new version")}</button>}
-                  {canEdit && <button className="secondary small" onClick={() => rename(d)}>{t("Rename")}</button>}
-                  {canEdit && <button className="secondary small danger" onClick={() => remove(d)}>{t("Delete")}</button>}
+                  {canEdit && !isLocked(d.idmsStatus) && <button className="secondary small" disabled={busy} onClick={() => pick(d.id)}>{t("Upload new version")}</button>}
+                  {canEdit && !isLocked(d.idmsStatus) && <button className="secondary small" onClick={() => rename(d)}>{t("Rename")}</button>}
+                  {canEdit && !isLocked(d.idmsStatus) && <button className="secondary small danger" onClick={() => remove(d)}>{t("Delete")}</button>}
                 </div>
               )}
               {open === d.id && <Versions roomId={roomId} doc={d} />}

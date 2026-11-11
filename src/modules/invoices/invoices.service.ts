@@ -8,6 +8,7 @@ import { TenantRepository } from '../core/tenancy/tenant-repository.js';
 import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
 import { UserService } from '../user/user.service.js';
 import { Invoice, INVOICE_TRANSITIONS, type InvoiceStatus } from './invoice.entity.js';
+import { assertStatusWritable } from '../core/idms/idms.js';
 
 export interface InvoiceInput {
   clientId: string;
@@ -26,6 +27,7 @@ export interface InvoiceView {
   clientId: string;
   clientName: string;
   invoiceNumber: string;
+  idmsStatus: string;
   description: string | null;
   issueDate: string;
   dueDate: string | null;
@@ -43,7 +45,7 @@ const INVOICE_SQL = `
   SELECT i.id, i.client_id AS "clientId", c.name AS "clientName", i.invoice_number AS "invoiceNumber", i.description,
          to_char(i.issue_date, 'YYYY-MM-DD') AS "issueDate", to_char(i.due_date, 'YYYY-MM-DD') AS "dueDate",
          i.amount_excl_vat::text AS "amountExclVat", i.vat_amount::text AS "vatAmount", (i.amount_excl_vat + i.vat_amount)::text AS "totalAmount",
-         i.status, (i.status = 'issued' AND i.due_date < current_date) AS overdue,
+         i.status, i.idms_status AS "idmsStatus", (i.status = 'issued' AND i.due_date < current_date) AS overdue,
          i.paid_at AS "paidAt", i.created_at AS "createdAt", i.updated_at AS "updatedAt"
     FROM invoices i JOIN clients c ON c.tenant_id = i.tenant_id AND c.id = i.client_id
    WHERE i.tenant_id = $1`;
@@ -103,6 +105,7 @@ export class InvoicesService {
       const repository = this.invoices.withManager(manager);
       const invoice = await repository.findOneBy({ id });
       if (!invoice) throw new NotFoundException('Invoice not found');
+      assertStatusWritable(invoice.idmsStatus);
       if (invoice.status !== 'draft') throw new ConflictException('Only draft invoices can be edited');
       Object.assign(invoice, changes);
       if (invoice.dueDate && invoice.dueDate < invoice.issueDate) throw new BadRequestException('dueDate must be on or after issueDate');
@@ -120,6 +123,7 @@ export class InvoicesService {
       const repository = this.invoices.withManager(manager);
       const invoice = await repository.findOne({ where: { id }, lock: { mode: 'pessimistic_write' } });
       if (!invoice) throw new NotFoundException('Invoice not found');
+      assertStatusWritable(invoice.idmsStatus, true);
       previous = invoice.status;
       if (!INVOICE_TRANSITIONS[invoice.status].includes(status)) {
         throw new ConflictException(`An invoice that is ${invoice.status} cannot become ${status}`);

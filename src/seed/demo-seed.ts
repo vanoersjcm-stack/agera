@@ -365,6 +365,7 @@ async function generate(db: pg.Client, spec: TenantSpec, logins: Login[], keyclo
     await w.insert('agreements', {
       id: aid, tenant_id: t, client_id: c.id, title: `Jaarovereenkomst ${status === 'expired' ? year - 1 : year} – ${c.name}`, status, document_url: `https://docs.agera-demo.nl/agreements/${aid}.pdf`,
       annual_value: annual, churn_risk: churn, end_date: status === 'expired' ? `${year - 1}-12-31` : `${year}-12-31`, created_at: daysAgo(r.int(60, 400)),
+      idms_status: status === 'pending_approval' ? 'IN_REVIEW' : status === 'expired' ? 'ARCHIVED_WORM' : 'FINAL_LOCKED', idms_archived_at: status === 'expired' ? daysAgo(r.int(10, 60)) : null,
     });
     await w.insert('digital_sales_rooms', {
       id: roomId, tenant_id: t, client_id: c.id, agreement_id: aid, room_name: `Joint Business Plan ${year} – ${c.name}`, status: status === 'expired' ? 'archived' : 'active', created_at: daysAgo(r.int(30, 300)),
@@ -424,6 +425,7 @@ async function generate(db: pg.Client, spec: TenantSpec, logins: Login[], keyclo
         id: id(`invoice:${invNo}`), tenant_id: t, client_id: a.client.id, invoice_number: `${spec.key === 'symphony' ? 'AD' : 'AV'}-${issue.getUTCFullYear()}-${String(invNo).padStart(5, '0')}`,
         description: `Fee ${issue.toLocaleString('nl-NL', { month: 'long', year: 'numeric' })} – ${a.client.name}`, issue_date: dateOnly(issue), due_date: dateOnly(due),
         amount_excl_vat: money(amount), vat_amount: money(amount * 0.21), status, paid_at: status === 'paid' ? new Date(issue.getTime() + r.int(12, 40) * DAY) : null,
+        idms_status: 'FINAL_LOCKED',
       });
       invNo++;
     }
@@ -442,7 +444,7 @@ async function generate(db: pg.Client, spec: TenantSpec, logins: Login[], keyclo
     const a = agreements[i % agreements.length];
     const mid = id(`plan:${i}`);
     const fy = i % 4 === 3 ? year - 1 : year;
-    await w.insert('financial_models', { id: mid, tenant_id: t, model_name: `${a.client.name} – Joint Business Plan ${fy}`, fiscal_year: fy, status: i % 5 === 4 ? 'draft' : 'approved', metadata: { source: 'agera-demo', clientId: a.client.id } });
+    await w.insert('financial_models', { id: mid, tenant_id: t, model_name: `${a.client.name} – Joint Business Plan ${fy}`, fiscal_year: fy, status: i % 5 === 4 ? 'draft' : 'approved', idms_status: i % 5 === 4 ? 'DRAFT' : 'FINAL_LOCKED', metadata: { source: 'agera-demo', clientId: a.client.id } });
     const currentQ = Math.floor(NOW.getUTCMonth() / 3) + 1;
     for (let q = 1; q <= 4; q++) {
       for (const [cat, share] of [['revenue', 0.25], ['cogs', 0.15], ['opex', 0.04]] as const) {
@@ -769,6 +771,7 @@ async function generate(db: pg.Client, spec: TenantSpec, logins: Login[], keyclo
       await w.insert('room_documents', {
         id: docId, tenant_id: t, client_room_id: k === 0 && a.status !== 'expired' ? a.roomId : null, client_id: a.client.id, contact_id: a.client.contacts[0]?.id ?? null, title, current_version: 1,
         file_format: fmt, created_by: a.client.am, last_modified_by: a.client.am, created_at: daysAgo(r.int(5, 90)),
+        idms_status: k === 0 && a.status !== 'expired' ? 'IN_REVIEW' : k === 1 && i % 4 === 1 ? 'FINAL_LOCKED' : 'DRAFT',
       });
       await w.insert('room_document_versions', {
         id: versionId, tenant_id: t, document_id: docId, version: 1, file_name: fileName, mime_type: docTypes[fmt], size_bytes: data.length,

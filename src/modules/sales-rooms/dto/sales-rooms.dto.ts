@@ -56,6 +56,7 @@ export class AgreementDto {
   @ApiProperty({ format: 'uuid' }) clientId!: string;
   @ApiProperty() title!: string;
   @ApiProperty({ enum: AGREEMENT_STATUSES }) status!: AgreementStatus;
+  @ApiProperty({ enum: ['DRAFT', 'IN_REVIEW', 'FINAL_LOCKED', 'ARCHIVED_WORM', 'EXPIRED_PURGE'], description: 'IDMS lifecycle' }) idmsStatus!: string;
   @ApiProperty() documentUrl!: string;
   @ApiProperty({ example: '120000.00' }) annualValue!: string;
   @ApiProperty({ type: String, nullable: true, description: 'Hidden (null) for client contacts', example: '20000.00' }) churnRisk!: string | null;

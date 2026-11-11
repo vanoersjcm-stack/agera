@@ -36,7 +36,7 @@ export function readOnlySuite(suite: SuiteId, user: UserContext): boolean {
   return false;
 }
 
-const MANAGER_HIDDEN = new Set(['/symphony/credit-control', '/symphony/automations', '/symphony/activity']);
+const MANAGER_HIDDEN = new Set(['/symphony/credit-control', '/symphony/automations', '/symphony/activity', '/symphony/retention']);
 
 export function navFor(suite: SuiteId, user: UserContext): NavItem[] {
   const items = navItems(suite, user);
@@ -58,6 +58,7 @@ function navItems(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/symphony/reports', label: t("Reports"), description: t("KPI dashboard, CSV exports and the report builder") },
         { path: '/symphony/clients', label: t("Client dossiers"), description: t("Open360: master data, contacts, contracts and stores per client") },
         { path: '/symphony/activity', label: t("Activity log"), description: t("Who did what, and when") },
+        { path: '/symphony/retention', label: t("Retention & erasure"), description: t("Document lifecycle, retention periods and GDPR erasure") },
         ...(user.role === 'admin' || user.isPlatformAdmin
           ? [{ path: '/symphony/people', label: t("People & access"), description: t("Invite colleagues and clients, roles, deactivate accounts") }]
           : []),

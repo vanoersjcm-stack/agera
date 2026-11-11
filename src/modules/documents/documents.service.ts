@@ -7,6 +7,7 @@ import { AuditService } from '../core/audit/audit.service.js';
 import { StorageService } from '../core/storage/storage.service.js';
 import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
+import { assertStatusWritable, assertWritable } from '../core/idms/idms.js';
 import { UserService } from '../user/user.service.js';
 
 export const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
@@ -37,6 +38,7 @@ export interface DocumentView {
   clientRoomId: string;
   title: string;
   currentVersion: number;
+  idmsStatus: string;
   fileName: string;
   mimeType: string;
   sizeBytes: number;
@@ -132,10 +134,11 @@ export class DocumentsService {
         let version = 1;
         if (docId) {
           const [doc] = await manager.query(
-            'SELECT current_version FROM room_documents WHERE tenant_id = $1 AND client_room_id = $2 AND id = $3 FOR UPDATE',
+            'SELECT current_version, idms_status FROM room_documents WHERE tenant_id = $1 AND client_room_id = $2 AND id = $3 FOR UPDATE',
             [this.context.tenantId, roomId, docId],
           );
           if (!doc) throw new NotFoundException('Document not found');
+          assertStatusWritable(doc.idms_status);
           version = doc.current_version + 1;
           await manager.query('UPDATE room_documents SET current_version = $2, last_modified_by = $3, file_format = $4 WHERE id = $1', [docId, version, actor.id, fileName.toLowerCase().split('.').pop()]);
         } else {
@@ -171,6 +174,7 @@ export class DocumentsService {
     const actor = await this.userService.resolveActor(identity);
     const view = await this.tx.run(async (manager) => {
       await this.assertDocument(manager, roomId, documentId);
+      await assertWritable(manager, 'room_documents', this.context.tenantId, documentId);
       await manager.query('UPDATE room_documents SET title = $2 WHERE id = $1', [documentId, title]);
       return (await this.query(manager, roomId, documentId))[0];
     });
@@ -182,6 +186,7 @@ export class DocumentsService {
     const actor = await this.userService.resolveActor(identity);
     const keys = await this.tx.run(async (manager) => {
       await this.assertDocument(manager, roomId, documentId);
+      await assertWritable(manager, 'room_documents', this.context.tenantId, documentId);
       const rows: { storage_key: string }[] = await manager.query('SELECT storage_key FROM room_document_versions WHERE document_id = $1', [documentId]);
       await manager.query('DELETE FROM room_documents WHERE id = $1', [documentId]);
       return rows.map((r) => r.storage_key);
@@ -310,7 +315,7 @@ export class DocumentsService {
   private query(manager: EntityManager, roomId: string, id?: string): Promise<DocumentView[]> {
     const params: unknown[] = [this.context.tenantId, roomId];
     return manager.query(
-      `SELECT d.id, d.client_room_id AS "clientRoomId", d.title, d.current_version AS "currentVersion",
+      `SELECT d.id, d.client_room_id AS "clientRoomId", d.title, d.current_version AS "currentVersion", d.idms_status AS "idmsStatus",
               v.file_name AS "fileName", v.mime_type AS "mimeType", v.size_bytes AS "sizeBytes", ${PERSON('u')} AS "uploadedByName",
               (SELECT count(*)::int FROM dsr_activities a
                 WHERE a.tenant_id = d.tenant_id AND a.dsr_id = d.client_room_id AND a.activity_type = 'download' AND a.details->>'documentId' = d.id::text) AS downloads,

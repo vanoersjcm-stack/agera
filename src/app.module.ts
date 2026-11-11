@@ -17,6 +17,7 @@ import { AutomationModule } from './modules/automation/automation.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
 import { SurveysModule } from './modules/surveys/surveys.module.js';
 import { GovernanceModule } from './modules/governance/governance.module.js';
+import { IdmsModule } from './modules/idms/idms.module.js';
 import { InvoicesModule } from './modules/invoices/invoices.module.js';
 import { FinancialsModule } from './modules/financials/financials.module.js';
 import { NexusModule } from './modules/nexus/nexus.module.js';
@@ -54,6 +55,7 @@ import { WorkOrdersModule } from './modules/work-orders/work-orders.module.js';
     ClientsModule,
     DealsModule,
     InvoicesModule,
+    IdmsModule,
     GovernanceModule,
   ],
 })

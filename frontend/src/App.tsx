@@ -28,6 +28,7 @@ import { type NewDefaults, type NewKind, ShellContext } from './shell';
 import { editionName, LEGACY_ROUTES, lastSuite, type NavItem, navFor, readOnlySuite, suitesFor, PORTAL_NAV, previewTier, rememberSuite, setActiveTier, setPreviewTier, SUITES, type Suite, type SuiteId, suiteName } from './suites';
 import { CREDIT_HOLDS_CHANGED, CreditControlView } from './symphony/CreditControl';
 import { InvoicesView } from './symphony/Invoices';
+import { RetentionView } from './Idms';
 import { PeopleView } from './symphony/People';
 import { PrognosisView } from './symphony/Prognosis';
 import { setClientFilter, useClientFilter } from './clientFilter';
@@ -87,6 +88,8 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return <InvoicesView route={route} />;
     case 'symphony/clients':
       return id ? <ClientDossier id={id} route={route} /> : <ClientsView route={route} />;
+    case 'symphony/retention':
+      return <RetentionView />;
     case 'symphony/activity':
       return <ActivityLogView route={route} />;
     case 'symphony/people':

@@ -10,6 +10,7 @@ import { UserService } from '../user/user.service.js';
 import { type FinancialCategory, FinancialLineItem } from './entities/financial-line-item.entity.js';
 import { FinancialModel, type FinancialModelStatus } from './entities/financial-model.entity.js';
 import type { PeriodFilter } from './period.js';
+import { assertStatusWritable } from '../core/idms/idms.js';
 
 export interface CreateModelInput {
   modelName: string;
@@ -138,6 +139,7 @@ export class FinancialsService {
     const actor = await this.userService.resolveActor(identity);
     const { model, previous } = await this.tx.run(async (manager) => {
       const current = await this.requireModel(manager, id);
+      assertStatusWritable(current.idmsStatus, true);
       const previousStatus = current.status;
       current.status = status;
       await this.models.withManager(manager).save(current);
@@ -164,7 +166,7 @@ export class FinancialsService {
   async addLineItem(modelId: string, input: CreateLineItemInput, identity: AuthenticatedUser): Promise<FinancialLineItem> {
     const actor = await this.userService.resolveActor(identity);
     const item = await this.tx.run(async (manager) => {
-      await this.requireModel(manager, modelId);
+      assertStatusWritable((await this.requireModel(manager, modelId)).idmsStatus);
       const items = this.lineItems.withManager(manager);
       const saved = await items.save(items.create({ ...input, modelId }));
       return this.requireLineItem(manager, saved.id);
@@ -182,6 +184,7 @@ export class FinancialsService {
     const actor = await this.userService.resolveActor(identity);
     const item = await this.tx.run(async (manager) => {
       const current = await this.requireLineItem(manager, id);
+      assertStatusWritable((await this.requireModel(manager, current.modelId)).idmsStatus);
       if (input.projectedAmount !== undefined) {
         current.projectedAmount = input.projectedAmount;
       }

@@ -791,3 +791,7 @@ button.wide { width: 100%; }
 .lock-card h2 { margin: 0; }
 /* Drawers opened from the top bar (Preferences) must not inherit its white text */
 .drawer { color: var(--text); }
+
+/* IDMS lifecycle */
+.idms-control { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.idms-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }

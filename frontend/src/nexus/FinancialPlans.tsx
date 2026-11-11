@@ -3,6 +3,7 @@ import { type FormEvent, useState } from 'react';
 import { api, type Category, type LineItem, type PlanStatus } from '../api';
 import { formatAmount, varianceTone } from '../format';
 import { CATEGORY, formatDate, PLAN_STATUS } from '../labels';
+import { IdmsBadge, IdmsControl } from '../Idms';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
@@ -53,6 +54,7 @@ export function FinancialPlansView({ route }: { route: Route }) {
               <th>{tr("Client")}</th>
               <th>{tr("Fiscal year")}</th>
               <th>{tr("Status")}</th>
+              <th>{tr("Lifecycle")}</th>
               <th>{tr("Last change")}</th>
             </tr>
           </thead>
@@ -63,6 +65,7 @@ export function FinancialPlansView({ route }: { route: Route }) {
                 <td>{planClient(m.metadata)}</td>
                 <td>{m.fiscalYear}</td>
                 <td><StatusBadge status={m.status} label={PLAN_STATUS[m.status]} /></td>
+                <td><IdmsBadge status={m.idmsStatus} /></td>
                 <td>{formatDate(m.updatedAt)}</td>
               </tr>
             ))}
@@ -211,7 +214,7 @@ export function PlanDossier({ id }: { id: string }) {
   return (
     <ViewFrame
       title={m.modelName}
-      subtitle={<StatusBadge status={m.status} label={PLAN_STATUS[m.status]} />}
+      subtitle={<><StatusBadge status={m.status} label={PLAN_STATUS[m.status]} /> <IdmsControl kind="financial_models" id={id} status={m.idmsStatus} onChanged={plan.reload} /></>}
       crumbs={[SUITE_CRUMB, LIST_CRUMB, { label: m.modelName }]}
       actions={
         <>

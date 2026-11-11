@@ -41,6 +41,7 @@ function toModelResponse(model: FinancialModel): FinancialModelDto {
     modelName: model.modelName,
     fiscalYear: model.fiscalYear,
     status: model.status,
+    idmsStatus: model.idmsStatus,
     metadata: model.metadata,
     createdAt: model.createdAt,
     updatedAt: model.updatedAt,

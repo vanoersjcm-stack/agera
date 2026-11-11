@@ -13,6 +13,7 @@ import { EditAgreementDrawer } from '../EditForms';
 import { money } from './Clients';
 import { DetailList, ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
 import { t, tf, live } from '../i18n';
+import { IdmsBadge, IdmsControl, isLocked } from '../Idms';
 
 const NEXT: Record<AgreementStatus, { status: AgreementStatus; label: string; confirm?: string }[]> = live(() => ({
   pending_approval: [
@@ -76,6 +77,7 @@ export function AgreementsView({ route, external }: { route: Route; external: bo
               <th>{t("Title")}</th>
               {!external && <th>{t("Client")}</th>}
               <th>{t("Status")}</th>
+              <th>{t("Lifecycle")}</th>
               <th>{t("Created")}</th>
               <th>{t("Document")}</th>
             </tr>
@@ -86,6 +88,7 @@ export function AgreementsView({ route, external }: { route: Route; external: bo
                 <td><a href={`#${base}/${a.id}`}>{a.title}</a></td>
                 {!external && <td>{clientName(clients, a.clientId)}</td>}
                 <td><StatusBadge status={a.status} label={AGREEMENT_STATUS[a.status]} /></td>
+                <td><IdmsBadge status={a.idmsStatus} /></td>
                 <td>{formatDate(a.createdAt)}</td>
                 <td><a href={a.documentUrl} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>{t("Open document")}</a></td>
               </tr>
@@ -154,12 +157,12 @@ export function AgreementDossier({ id, external }: { id: string; external: boole
   return (
     <ViewFrame
       title={a.title}
-      subtitle={<StatusBadge status={a.status} label={AGREEMENT_STATUS[a.status]} />}
+      subtitle={<><StatusBadge status={a.status} label={AGREEMENT_STATUS[a.status]} /> {external ? <IdmsBadge status={a.idmsStatus} /> : <IdmsControl kind="agreements" id={id} status={a.idmsStatus} onChanged={agreement.reload} />}</>}
       crumbs={[c.suite, c.list, { label: a.title }]}
       actions={
         <>
           <a className="button-link" href={a.documentUrl} target="_blank" rel="noreferrer">{t("Open document")}</a>
-          {!external && a.status !== 'expired' && <button className="secondary" onClick={() => setEditing(true)}>{t("Edit")}</button>}
+          {!external && a.status !== 'expired' && !isLocked(a.idmsStatus) && <button className="secondary" onClick={() => setEditing(true)}>{t("Edit")}</button>}
           {!external &&
             NEXT[a.status].map((n) => (
               <button key={n.status} className={n.status === 'active' ? 'primary' : 'secondary'} disabled={action.busy} onClick={() => setStatus(n.status, n.label, n.confirm)}>

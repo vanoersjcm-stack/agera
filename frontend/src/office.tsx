@@ -6,6 +6,7 @@ import { getLanguage, t as tr, tf } from './i18n';
 import type { NewDefaults, NewKind } from './shell';
 import { ErrorText, Field, Tabs, useAction } from './ui';
 import { ViewFrame } from './Layout';
+import { IdmsControl } from './Idms';
 
 type Format = 'docx' | 'xlsx' | 'pptx';
 const OPEN_EVENT = 'agera:office-open';
@@ -269,10 +270,10 @@ export function ClientOfficeDocuments({ clientId, canCreate, openNew }: { client
       <ErrorText error={error} />
       {docs === null ? <p className="muted">{tr("Loading…")}</p> : shown.length === 0 ? <p className="muted">{tr("No documents of this type yet.")}</p> : (
         <table className="grid">
-          <thead><tr><th>{tr("Document")}</th><th>{tr("Linked to")}</th><th>{tr("Version")}</th><th>{tr("Last edited")}</th><th /></tr></thead>
+          <thead><tr><th>{tr("Document")}</th><th>{tr("Linked to")}</th><th>{tr("Lifecycle")}</th><th>{tr("Version")}</th><th>{tr("Last edited")}</th><th /></tr></thead>
           <tbody>
             {shown.map((d) => (
-              <DocRow key={d.id} doc={d} canEdit={connected === true && d.editable && KNOWN.has(d.fileFormat ?? '')} showHistory={history === d.id} onHistory={() => setHistory(history === d.id ? null : d.id)} />
+              <DocRow key={d.id} doc={d} onChanged={() => void load()} canEdit={connected === true && d.editable && KNOWN.has(d.fileFormat ?? '')} showHistory={history === d.id} onHistory={() => setHistory(history === d.id ? null : d.id)} />
             ))}
           </tbody>
         </table>
@@ -298,10 +299,10 @@ export function DraftDocumentsView() {
       <ErrorText error={error} />
       {docs === null ? <p className="muted">{tr("Loading…")}</p> : docs.length === 0 ? <p className="muted">{tr("No draft documents.")}</p> : (
         <table className="grid">
-          <thead><tr><th>{tr("Document")}</th><th>{tr("Linked to")}</th><th>{tr("Version")}</th><th>{tr("Last edited")}</th><th /></tr></thead>
+          <thead><tr><th>{tr("Document")}</th><th>{tr("Linked to")}</th><th>{tr("Lifecycle")}</th><th>{tr("Version")}</th><th>{tr("Last edited")}</th><th /></tr></thead>
           <tbody>
             {docs.map((d) => (
-              <DocRow key={d.id} doc={d} showClient canEdit={connected === true && d.editable && KNOWN.has(d.fileFormat ?? '')} showHistory={history === d.id} onHistory={() => setHistory(history === d.id ? null : d.id)} />
+              <DocRow key={d.id} doc={d} onChanged={() => void load()} showClient canEdit={connected === true && d.editable && KNOWN.has(d.fileFormat ?? '')} showHistory={history === d.id} onHistory={() => setHistory(history === d.id ? null : d.id)} />
             ))}
           </tbody>
         </table>
@@ -310,7 +311,7 @@ export function DraftDocumentsView() {
   );
 }
 
-function DocRow({ doc, canEdit, showHistory, onHistory, showClient = false }: { doc: OfficeDocument; canEdit: boolean; showHistory: boolean; onHistory: () => void; showClient?: boolean }) {
+function DocRow({ doc, canEdit, showHistory, onHistory, onChanged, showClient = false }: { doc: OfficeDocument; canEdit: boolean; onChanged: () => void; showHistory: boolean; onHistory: () => void; showClient?: boolean }) {
   const [versions, setVersions] = useState<OfficeVersion[] | null>(null);
   useEffect(() => {
     if (showHistory) api.officeVersions(doc.id).then(setVersions, () => setVersions([]));
@@ -324,6 +325,7 @@ function DocRow({ doc, canEdit, showHistory, onHistory, showClient = false }: { 
           {showClient && doc.clientName && <div><a href={`#/nexus/clients/${doc.clientId}?tab=documents`}>{doc.clientName}</a></div>}
           {links || <span className="muted">{tr("Client dossier")}</span>}
         </td>
+        <td><IdmsControl kind="documents" id={doc.id} status={doc.idmsStatus} onChanged={onChanged} compact /></td>
         <td>v{doc.currentVersion}</td>
         <td>{formatDateTime(doc.updatedAt)}<div className="muted small">{doc.lastModifiedByName ?? '—'}</div></td>
         <td className="row-actions">
@@ -334,7 +336,7 @@ function DocRow({ doc, canEdit, showHistory, onHistory, showClient = false }: { 
       </tr>
       {showHistory && (
         <tr className="history-row">
-          <td colSpan={5}>
+          <td colSpan={6}>
             {versions === null ? <p className="muted">{tr("Loading…")}</p> : (
               <table className="grid compact">
                 <thead><tr><th>{tr("Version")}</th><th>{tr("Saved")}</th><th>{tr("By")}</th><th>{tr("Size")}</th><th>{tr("SHA-256 fingerprint")}</th><th /></tr></thead>

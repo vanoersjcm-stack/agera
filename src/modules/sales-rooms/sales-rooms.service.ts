@@ -11,6 +11,7 @@ import { UserService } from '../user/user.service.js';
 import type { AnomalyType } from './dto/sales-rooms.dto.js';
 import { Agreement, type AgreementStatus } from './entities/agreement.entity.js';
 import { DigitalSalesRoom, type DsrStatusValue } from './entities/digital-sales-room.entity.js';
+import { assertStatusWritable } from '../core/idms/idms.js';
 
 const PG_FOREIGN_KEY_VIOLATION = '23503';
 export const MAX_ANOMALIES = 500;
@@ -106,6 +107,7 @@ export class SalesRoomsService {
       if (!current) {
         throw new NotFoundException('Agreement not found');
       }
+      assertStatusWritable(current.idmsStatus);
       if (current.status === 'expired') {
         throw new ConflictException('Cannot edit an expired agreement');
       }
@@ -128,6 +130,7 @@ export class SalesRoomsService {
       if (!current) {
         throw new NotFoundException('Agreement not found');
       }
+      assertStatusWritable(current.idmsStatus, true);
       if (current.status === status) {
         return { agreement: current, previous: current.status };
       }

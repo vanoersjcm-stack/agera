@@ -16,7 +16,7 @@ export const CoordinatorOnly = () => SetMetadata(COORDINATOR_KEY, true);
 
 type Area = 'symphony' | 'nexus' | 'retailpower' | 'workflow';
 const AREA: Record<string, Area> = {
-  InvoicesController: 'symphony', AutomationController: 'symphony', CreditHoldsController: 'symphony', ReportsController: 'symphony', AuditController: 'symphony',
+  InvoicesController: 'symphony', AutomationController: 'symphony', CreditHoldsController: 'symphony', ReportsController: 'symphony', AuditController: 'symphony', RetentionController: 'symphony',
   WorkflowController: 'workflow',
   ClientsController: 'nexus', SurveysController: 'nexus', DealsController: 'nexus', MilestonesController: 'nexus', PriceListsController: 'nexus',
   DocumentTemplatesController: 'nexus', RoomTemplateDocumentsController: 'nexus', NexusController: 'nexus', RoomDocumentsController: 'nexus',

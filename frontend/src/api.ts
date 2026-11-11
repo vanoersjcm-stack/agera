@@ -31,6 +31,7 @@ export interface RoomDocument {
   sizeBytes: number;
   uploadedByName: string | null;
   downloads: number;
+  idmsStatus: IdmsStatus;
   createdAt: string;
   updatedAt: string;
 }
@@ -372,6 +373,7 @@ export interface FinancialModel {
   modelName: string;
   fiscalYear: number;
   status: PlanStatus;
+  idmsStatus: IdmsStatus;
   metadata: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
@@ -531,11 +533,34 @@ export interface UserAccountPage {
   managementAvailable: boolean;
 }
 
+export type IdmsStatus = 'DRAFT' | 'IN_REVIEW' | 'FINAL_LOCKED' | 'ARCHIVED_WORM' | 'EXPIRED_PURGE';
+export type IdmsKind = 'documents' | 'agreements' | 'financial_models' | 'invoices';
+export type DocumentClass = 'invoice' | 'agreement' | 'financial_plan' | 'office_doc' | 'visit_report' | 'survey_response';
+export type ErasureMode = 'pseudonymize' | 'hard_delete';
+
+export interface RetentionPolicy {
+  documentClass: DocumentClass;
+  lifecycle: boolean;
+  wormRetentionYears: number;
+  autoPurgeDays: number | null;
+  erasureMode: ErasureMode;
+  updatedByName: string | null;
+  updatedAt: string;
+}
+
+export interface RetentionRun {
+  expired: number;
+  pseudonymized: number;
+  deleted: number;
+  byClass: Partial<Record<DocumentClass, number>>;
+}
+
 export interface Agreement {
   id: string;
   clientId: string;
   title: string;
   status: AgreementStatus;
+  idmsStatus: IdmsStatus;
   documentUrl: string;
   annualValue: string;
   churnRisk: string | null;
@@ -558,6 +583,7 @@ export interface Invoice {
   vatAmount: string;
   totalAmount: string;
   status: InvoiceStatus;
+  idmsStatus: IdmsStatus;
   overdue: boolean;
   paidAt: string | null;
   createdAt: string;
@@ -911,6 +937,11 @@ export const api = {
   editorStatus: () => request<{ connected: boolean; editor: string }>('GET', '/v1/documents/editor-status'),
   officeDocuments: (clientId: string) => request<OfficeDocument[]>('GET', `/v1/documents?clientId=${clientId}`),
   officeDrafts: () => request<OfficeDocument[]>('GET', '/v1/documents?drafts=true'),
+  idmsTransition: (kind: IdmsKind, id: string, to: IdmsStatus) => request<{ id: string; idmsStatus: IdmsStatus }>('POST', `/v1/idms/${kind}/${id}/transition`, { to }),
+  retentionPolicies: () => request<RetentionPolicy[]>('GET', '/v1/idms/retention-policies'),
+  updateRetentionPolicy: (documentClass: DocumentClass, body: { wormRetentionYears: number; autoPurgeDays: number | null; erasureMode: ErasureMode }) =>
+    request<RetentionPolicy>('PUT', `/v1/idms/retention-policies/${documentClass}`, body),
+  runRetention: () => request<RetentionRun>('POST', '/v1/idms/retention/run'),
   createOfficeDocument: (body: NewOfficeDocument) => request<OfficeDocument>('POST', '/v1/documents', body),
   officeVersions: (id: string) => request<OfficeVersion[]>('GET', `/v1/documents/${id}/versions`),
   officeSession: (id: string) => request<EditorSession>('POST', `/v1/documents/${id}/session`),
@@ -952,6 +983,7 @@ export interface OfficeDocument {
   sizeBytes: number;
   sha256: string;
   currentVersion: number;
+  idmsStatus: IdmsStatus;
   editable: boolean;
   lastModifiedByName: string | null;
   createdAt: string;
