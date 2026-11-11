@@ -671,9 +671,10 @@ export type VehicleSide = 'front' | 'back' | 'left' | 'right';
 export interface VehicleAllocation { id: string; userId: string; userName: string; vehicleId: string; description: string | null; allocatedFrom: string; allocatedUntil: string | null; status: 'pending_check' | 'active' | 'returned'; checkCompletedAt: string | null; odometerKm: number | null; damageNotes: string | null; returnedAt: string | null; photos: Record<VehicleSide, boolean> }
 export interface ApparelAssignment { id: string; userId: string; userName: string; item: string; size: string | null; quantity: number; issuedOn: string; returnedOn: string | null; notes: string | null }
 export type RmaStatus = 'open' | 'approved' | 'shipped' | 'credited' | 'rejected';
-export interface RmaCase { id: string; caseNumber: string; storeId: string; storeName: string; productName: string | null; clientName: string | null; quantity: number; reason: string; status: RmaStatus; description: string | null; openedByName: string; createdAt: string }
+export interface RmaCase { id: string; caseNumber: string; storeId: string; storeName: string; productName: string | null; clientName: string | null; quantity: number; reason: string; status: RmaStatus; description: string | null; returnChannel: ReturnChannel; trackingReference: string | null; openedByName: string; createdAt: string }
+export type ReturnChannel = 'merchandiser' | 'store';
 export type ClaimStatus = 'submitted' | 'approved' | 'rejected' | 'paid';
-export interface StockClaim { id: string; storeId: string; storeName: string; productName: string | null; clientName: string | null; claimType: string; quantity: number; amount: string; status: ClaimStatus; description: string | null; submittedByName: string; decidedByName: string | null; createdAt: string }
+export interface StockClaim { id: string; storeId: string; storeName: string; productName: string | null; clientName: string | null; claimType: string; quantity: number; amount: string; status: ClaimStatus; description: string | null; returnChannel: ReturnChannel; trackingReference: string | null; submittedByName: string; decidedByName: string | null; createdAt: string }
 export interface OpsChainRow { clientId: string | null; chain: string; stores: number; visits30: number; completed30: number; nonCompliant: number; compliant: number; photos30: number; lastVisit: string | null }
 export interface OpsDashboard {
   kpis: { chains: number; stores: number; visits30: number; completed30: number; compliancePercent: number | null; photos30: number; openRma: number; openClaims: number; pendingShifts: number; availableCrew: number };
@@ -743,10 +744,10 @@ export const api = {
   issueApparel: (body: { userId: string; item: string; size: string | null; quantity: number; issuedOn: string | null; notes: string | null }) => request<{ id: string }>('POST', '/v1/operations/apparel', body),
   returnApparel: (id: string) => request<{ id: string }>('POST', `/v1/operations/apparel/${id}/return`),
   rmaCases: () => request<RmaCase[]>('GET', '/v1/operations/rma'),
-  openRma: (body: { storeId: string; productId: string | null; clientId: string | null; quantity: number; reason: string; description: string | null }) => request<RmaCase>('POST', '/v1/operations/rma', body),
+  openRma: (body: { storeId: string; productId: string | null; clientId: string | null; quantity: number; reason: string; description: string | null; returnChannel: ReturnChannel; trackingReference: string | null }) => request<RmaCase>('POST', '/v1/operations/rma', body),
   setRmaStatus: (id: string, status: RmaStatus) => request<RmaCase>('PATCH', `/v1/operations/rma/${id}/status`, { status }),
   stockClaims: () => request<StockClaim[]>('GET', '/v1/operations/stock-claims'),
-  submitClaim: (body: { storeId: string; productId: string | null; clientId: string | null; claimType: string; quantity: number; amount: string | number; description: string | null }) => request<StockClaim>('POST', '/v1/operations/stock-claims', body),
+  submitClaim: (body: { storeId: string; productId: string | null; clientId: string | null; claimType: string; quantity: number; amount: string | number; description: string | null; returnChannel: ReturnChannel; trackingReference: string | null }) => request<StockClaim>('POST', '/v1/operations/stock-claims', body),
   setClaimStatus: (id: string, status: ClaimStatus) => request<StockClaim>('PATCH', `/v1/operations/stock-claims/${id}/status`, { status }),
   mailStatus: () => request<MailStatus>('GET', '/v1/mail/status'),
   sendMail: (input: { to: string; subject: string; text: string; clientId?: string }) => request<{ messageId: string }>('POST', '/v1/mail/send', input),

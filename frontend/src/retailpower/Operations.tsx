@@ -1,7 +1,7 @@
 /** Wave B: RetailPower back office — dashboard, crew directory, validated hours, fleet, apparel, RMA and stock-protection claims. */
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import {
-  api, type ApparelAssignment, type ClaimStatus, type CrewAvailability, type CrewMember, type OpsDashboard, type RmaCase, type RmaStatus, type Shift, type StockClaim,
+  api, type ApparelAssignment, type ClaimStatus, type CrewAvailability, type CrewMember, type OpsDashboard, type ReturnChannel, type RmaCase, type RmaStatus, type Shift, type StockClaim,
   type VehicleAllocation, type VehicleSide,
 } from '../api';
 import { useClients, useUsers } from '../directory';
@@ -16,7 +16,25 @@ const SIDE_LABEL: Record<VehicleSide, string> = live(() => ({ front: t("Front"),
 const AVAILABILITY_LABEL: Record<CrewAvailability, string> = live(() => ({ available: t("Available"), busy: t("Busy"), on_leave: t("On leave"), inactive: t("Inactive") }));
 const DAY_LABEL = live(() => ([t("Mon"), t("Tue"), t("Wed"), t("Thu"), t("Fri"), t("Sat"), t("Sun")]));
 const SHIFT_LABEL: Record<string, string> = live(() => ({ pending: t("Awaiting sign-off"), approved: t("Approved"), rejected: t("Rejected") }));
-const VEHICLE_LABEL: Record<string, string> = live(() => ({ pending_check: t("Pre-trip check pending"), active: t("Active"), returned: t("Returned") }));
+const VEHICLE_LABEL: Record<string, string> = live(() => ({ pending_check: t("Pending 4-photo check"), active: t("Vehicle active"), returned: t("Vehicle returned") }));
+const CHANNEL_LABEL: Record<ReturnChannel, string> = live(() => ({ merchandiser: t("Merchandiser / rackjobber"), store: t("Direct return by store") }));
+
+/** Return channel picker; the tracking/reference field only appears for direct returns by the store. */
+function ChannelFields({ channel, tracking, onChannel, onTracking }: { channel: ReturnChannel; tracking: string; onChannel: (c: ReturnChannel) => void; onTracking: (v: string) => void }) {
+  return (
+    <>
+      <select aria-label={t("Return channel")} value={channel} onChange={(e) => onChannel(e.target.value as ReturnChannel)}>
+        {(Object.keys(CHANNEL_LABEL) as ReturnChannel[]).map((c) => <option key={c} value={c}>{CHANNEL_LABEL[c]}</option>)}
+      </select>
+      {channel === 'store' && <input aria-label={t("Tracking / reference")} placeholder={t("Tracking / reference (optional)")} maxLength={100} value={tracking} onChange={(e) => onTracking(e.target.value)} />}
+    </>
+  );
+}
+
+function ChannelCell({ channel, tracking }: { channel: ReturnChannel; tracking: string | null }) {
+  return <td>{CHANNEL_LABEL[channel]}{tracking && <><br /><span className="muted small">{tracking}</span></>}</td>;
+}
+
 const RMA_LABEL: Record<RmaStatus, string> = live(() => ({ open: t("Open"), approved: t("Approved"), shipped: t("Shipped back"), credited: t("Credited"), rejected: t("Rejected") }));
 const RMA_NEXT: Record<RmaStatus, RmaStatus[]> = { open: ['approved', 'rejected'], approved: ['shipped', 'rejected'], shipped: ['credited', 'rejected'], credited: [], rejected: [] };
 const RMA_REASON: Record<string, string> = live(() => ({ damaged: t("Damaged"), defective: t("Defective"), wrong_delivery: t("Wrong delivery"), expired: t("Expired"), recall: t("Recall"), other: t("Other") }));
@@ -450,7 +468,7 @@ function FleetTab() {
   return (
     <>
       <div className="list-toolbar">
-        <FilterChips value={show} onChange={setShow} chips={[{ value: 'current', label: t("Current") }, { value: 'returned', label: t("Returned") }]} />
+        <FilterChips value={show} onChange={setShow} chips={[{ value: 'current', label: t("Current") }, { value: 'returned', label: t("Returned vehicles") }]} />
         <button className="primary" onClick={() => setAdding(true)}>{t("+ Allocate vehicle")}</button>
       </div>
       {!list.data && <Loading error={list.error} />}
@@ -519,10 +537,12 @@ function RmaTab() {
   const [reason, setReason] = useState('damaged');
   const [quantity, setQuantity] = useState('1');
   const [description, setDescription] = useState('');
+  const [channel, setChannel] = useState<ReturnChannel>('merchandiser');
+  const [tracking, setTracking] = useState('');
   const { busy, error, run } = useAction();
   const open = async (e: FormEvent) => {
     e.preventDefault();
-    if (await run(() => api.openRma({ storeId: ref.storeId, productId: ref.productId || null, clientId: ref.clientId || null, quantity: Number(quantity), reason, description: description || null }))) { setDescription(''); list.reload(); }
+    if (await run(() => api.openRma({ storeId: ref.storeId, productId: ref.productId || null, clientId: ref.clientId || null, quantity: Number(quantity), reason, description: description || null, returnChannel: channel, trackingReference: channel === 'store' ? tracking || null : null }))) { setDescription(''); setTracking(''); list.reload(); }
   };
   return (
     <>
@@ -531,6 +551,7 @@ function RmaTab() {
         <select aria-label={t("Reason")} value={reason} onChange={(e) => setReason(e.target.value)}>{Object.entries(RMA_REASON).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         <input aria-label={t("Quantity")} type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} style={{ width: '5rem' }} />
         <input aria-label={t("Description")} placeholder={t("Description")} maxLength={2000} value={description} onChange={(e) => setDescription(e.target.value)} />
+        <ChannelFields channel={channel} tracking={tracking} onChannel={setChannel} onTracking={setTracking} />
         <button className="primary" disabled={busy}>{t("Open return case")}</button>
       </form>
       <ErrorText error={error} />
@@ -538,10 +559,10 @@ function RmaTab() {
       {list.data?.length === 0 && <EmptyState title={t("No return cases yet")} />}
       {list.data && list.data.length > 0 && (
         <div className="table-wrap"><table className="grid">
-          <thead><tr><th>{t("Case")}</th><th>{t("Store")}</th><th>{t("Product")}</th><th>{t("Client")}</th><th>{t("Quantity")}</th><th>{t("Reason")}</th><th>{t("Status")}</th><th>{t("Opened")}</th><th /></tr></thead>
+          <thead><tr><th>{t("Case")}</th><th>{t("Store")}</th><th>{t("Product")}</th><th>{t("Client")}</th><th>{t("Quantity")}</th><th>{t("Reason")}</th><th>{t("Return channel")}</th><th>{t("Status")}</th><th>{t("Opened")}</th><th /></tr></thead>
           <tbody>{list.data.map((r: RmaCase) => (
             <tr key={r.id}>
-              <td>{r.caseNumber}</td><td>{r.storeName}</td><td>{r.productName ?? '—'}</td><td>{r.clientName ?? '—'}</td><td>{r.quantity}</td><td>{RMA_REASON[r.reason] ?? r.reason}</td>
+              <td>{r.caseNumber}</td><td>{r.storeName}</td><td>{r.productName ?? '—'}</td><td>{r.clientName ?? '—'}</td><td>{r.quantity}</td><td>{RMA_REASON[r.reason] ?? r.reason}</td><ChannelCell channel={r.returnChannel} tracking={r.trackingReference} />
               <td><StatusBadge status={r.status === 'credited' ? 'approved' : r.status} label={RMA_LABEL[r.status]} /></td>
               <td>{formatDate(r.createdAt)} · {r.openedByName}</td>
               <td>{RMA_NEXT[r.status].map((s) => <button key={s} disabled={busy} onClick={async () => { if (await run(() => api.setRmaStatus(r.id, s))) list.reload(); }}>{RMA_LABEL[s]}</button>)}</td>
@@ -559,10 +580,12 @@ function ClaimsTab() {
   const [claimType, setClaimType] = useState('price_protection');
   const [quantity, setQuantity] = useState('1');
   const [amount, setAmount] = useState('');
+  const [channel, setChannel] = useState<ReturnChannel>('merchandiser');
+  const [tracking, setTracking] = useState('');
   const { busy, error, run } = useAction();
   const submit = async (e: FormEvent) => {
     e.preventDefault();
-    if (await run(() => api.submitClaim({ storeId: ref.storeId, productId: ref.productId || null, clientId: ref.clientId || null, claimType, quantity: Number(quantity), amount: amount || 0, description: null }))) { setAmount(''); list.reload(); }
+    if (await run(() => api.submitClaim({ storeId: ref.storeId, productId: ref.productId || null, clientId: ref.clientId || null, claimType, quantity: Number(quantity), amount: amount || 0, description: null, returnChannel: channel, trackingReference: channel === 'store' ? tracking || null : null }))) { setAmount(''); setTracking(''); list.reload(); }
   };
   return (
     <>
@@ -571,6 +594,7 @@ function ClaimsTab() {
         <select aria-label={t("Claim type")} value={claimType} onChange={(e) => setClaimType(e.target.value)}>{Object.entries(CLAIM_TYPE).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
         <input aria-label={t("Quantity")} type="number" min={1} value={quantity} onChange={(e) => setQuantity(e.target.value)} style={{ width: '5rem' }} />
         <input aria-label={t("Amount (EUR)")} placeholder={t("Amount (EUR)")} inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} style={{ width: '8rem' }} />
+        <ChannelFields channel={channel} tracking={tracking} onChannel={setChannel} onTracking={setTracking} />
         <button className="primary" disabled={busy}>{t("Submit claim")}</button>
       </form>
       <p className="muted">{t("A claim is decided by someone other than the person who submitted it.")}</p>
@@ -579,10 +603,10 @@ function ClaimsTab() {
       {list.data?.length === 0 && <EmptyState title={t("No stock-protection claims yet")} />}
       {list.data && list.data.length > 0 && (
         <div className="table-wrap"><table className="grid">
-          <thead><tr><th>{t("Store")}</th><th>{t("Product")}</th><th>{t("Client")}</th><th>{t("Type")}</th><th>{t("Quantity")}</th><th>{t("Amount")}</th><th>{t("Status")}</th><th>{t("Submitted")}</th><th /></tr></thead>
+          <thead><tr><th>{t("Store")}</th><th>{t("Product")}</th><th>{t("Client")}</th><th>{t("Type")}</th><th>{t("Quantity")}</th><th>{t("Amount")}</th><th>{t("Return channel")}</th><th>{t("Status")}</th><th>{t("Submitted")}</th><th /></tr></thead>
           <tbody>{list.data.map((c: StockClaim) => (
             <tr key={c.id}>
-              <td>{c.storeName}</td><td>{c.productName ?? '—'}</td><td>{c.clientName ?? '—'}</td><td>{CLAIM_TYPE[c.claimType] ?? c.claimType}</td><td>{c.quantity}</td><td>{euro(c.amount)}</td>
+              <td>{c.storeName}</td><td>{c.productName ?? '—'}</td><td>{c.clientName ?? '—'}</td><td>{CLAIM_TYPE[c.claimType] ?? c.claimType}</td><td>{c.quantity}</td><td>{euro(c.amount)}</td><ChannelCell channel={c.returnChannel} tracking={c.trackingReference} />
               <td><StatusBadge status={c.status === 'paid' ? 'approved' : c.status} label={CLAIM_LABEL[c.status]} />{c.decidedByName && <><br /><span className="muted">{c.decidedByName}</span></>}</td>
               <td>{formatDate(c.createdAt)} · {c.submittedByName}</td>
               <td>{CLAIM_NEXT[c.status].map((s) => <button key={s} disabled={busy} onClick={async () => { if (await run(() => api.setClaimStatus(c.id, s))) list.reload(); }}>{CLAIM_LABEL[s]}</button>)}</td>

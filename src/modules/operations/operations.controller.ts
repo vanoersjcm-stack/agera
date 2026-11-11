@@ -11,9 +11,15 @@ import { amount, asObject, oneOf, optionalDate, optionalString, optionalUuid, pa
 import { detectImageMimeType, IMAGE_MIME_TYPES, MAX_UPLOAD_BYTES } from '../retailcare/media/image-type.js';
 import { UploadExceptionFilter } from '../retailcare/media/upload-exception.filter.js';
 import {
-  APPAREL_ITEMS, AVAILABILITY, CLAIM_STATUSES, CLAIM_TYPES, CONTRACT_TYPES, type CrewInput, OperationsService, type Position, RMA_REASONS, RMA_STATUSES,
+  APPAREL_ITEMS, AVAILABILITY, CLAIM_STATUSES, CLAIM_TYPES, CONTRACT_TYPES, type CrewInput, OperationsService, type Position, RETURN_CHANNELS, type ReturnChannel, RMA_REASONS, RMA_STATUSES,
   SHIFT_DECISIONS, VEHICLE_SIDES,
 } from './operations.service.js';
+
+/** Tracking/reference only applies to direct returns by the store. */
+function returnChannel(raw: Record<string, unknown>): { returnChannel: ReturnChannel; trackingReference: string | null } {
+  const channel = oneOf('returnChannel', raw.returnChannel ?? 'merchandiser', RETURN_CHANNELS);
+  return { returnChannel: channel, trackingReference: channel === 'store' ? optionalString('trackingReference', raw.trackingReference, 100) : null };
+}
 
 const OBJ = { schema: { type: 'object' } };
 
@@ -322,6 +328,7 @@ export class OperationsController {
         quantity: int('quantity', raw.quantity, 1, 100000, 1),
         reason: oneOf('reason', raw.reason, RMA_REASONS),
         description: optionalString('description', raw.description, 2000),
+        ...returnChannel(raw),
       },
       identity,
     );
@@ -358,6 +365,7 @@ export class OperationsController {
         quantity: int('quantity', raw.quantity, 1, 100000, 1),
         amount: amount('amount', raw.amount ?? 0),
         description: optionalString('description', raw.description, 2000),
+        ...returnChannel(raw),
       },
       identity,
     );

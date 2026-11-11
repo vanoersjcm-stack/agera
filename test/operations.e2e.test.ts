@@ -151,6 +151,22 @@ describe('apparel, RMA cases and stock-protection claims', () => {
     assert.equal((await api(alice, 'PATCH', `${base}/rma/${r.body.id}/status`, { status: 'rejected' })).status, 409);
   });
 
+  it('records the return channel, with a tracking reference only for direct returns by the store', async () => {
+    type Row = { id: string; returnChannel: string; trackingReference: string | null };
+    const viaRep = await api<Row>(bob, 'POST', `${base}/rma`, { storeId, quantity: 1, reason: 'expired', trackingReference: 'ignored' });
+    assert.equal(viaRep.status, 201, JSON.stringify(viaRep.body));
+    assert.equal(viaRep.body.returnChannel, 'merchandiser');
+    assert.equal(viaRep.body.trackingReference, null);
+    const direct = await api<Row>(bob, 'POST', `${base}/rma`, { storeId, quantity: 2, reason: 'recall', returnChannel: 'store', trackingReference: 'PostNL 3SABC123' });
+    assert.equal(direct.body.returnChannel, 'store');
+    assert.equal(direct.body.trackingReference, 'PostNL 3SABC123');
+    const claim = await api<Row>(bob, 'POST', `${base}/stock-claims`, { storeId, claimType: 'damaged', quantity: 1, amount: 5, returnChannel: 'store' });
+    assert.equal(claim.status, 201, JSON.stringify(claim.body));
+    assert.equal(claim.body.returnChannel, 'store');
+    assert.equal(claim.body.trackingReference, null);
+    assert.equal((await api(bob, 'POST', `${base}/rma`, { storeId, quantity: 1, reason: 'expired', returnChannel: 'post' })).status, 400);
+  });
+
   it('needs a second person to decide on a stock claim', async () => {
     const c = await api<{ id: string; amount: string }>(bob, 'POST', `${base}/stock-claims`, { storeId, claimType: 'price_protection', quantity: 24, amount: 57.6 });
     assert.equal(c.status, 201, JSON.stringify(c.body));

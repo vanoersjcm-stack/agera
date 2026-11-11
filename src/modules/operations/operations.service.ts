@@ -20,6 +20,9 @@ export const APPAREL_ITEMS = ['polo', 'jacket', 'trousers', 'cap', 'shoes', 'bad
 export const RMA_REASONS = ['damaged', 'defective', 'wrong_delivery', 'expired', 'recall', 'other'] as const;
 export const RMA_STATUSES = ['open', 'approved', 'shipped', 'credited', 'rejected'] as const;
 export type RmaStatus = (typeof RMA_STATUSES)[number];
+/** How goods go back: via the merchandiser/rackjobber, or shipped directly by the store to the vendor/distributor. */
+export const RETURN_CHANNELS = ['merchandiser', 'store'] as const;
+export type ReturnChannel = (typeof RETURN_CHANNELS)[number];
 const RMA_TRANSITIONS: Record<RmaStatus, RmaStatus[]> = {
   open: ['approved', 'rejected'],
   approved: ['shipped', 'rejected'],
@@ -56,8 +59,8 @@ export interface Position { lat: number; lng: number }
 export interface ShiftEntryInput { userId: string; storeId: string | null; clockInAt: Date; clockOutAt: Date; notes: string | null }
 export interface VehicleInput { userId: string; vehicleId: string; description: string | null; allocatedFrom: string | null; allocatedUntil: string | null }
 export interface ApparelInput { userId: string; item: (typeof APPAREL_ITEMS)[number]; size: string | null; quantity: number; issuedOn: string | null; notes: string | null }
-export interface RmaInput { storeId: string; productId: string | null; clientId: string | null; quantity: number; reason: (typeof RMA_REASONS)[number]; description: string | null }
-export interface ClaimInput { storeId: string; productId: string | null; clientId: string | null; claimType: (typeof CLAIM_TYPES)[number]; quantity: number; amount: string; description: string | null }
+export interface RmaInput { storeId: string; productId: string | null; clientId: string | null; quantity: number; reason: (typeof RMA_REASONS)[number]; description: string | null; returnChannel: ReturnChannel; trackingReference: string | null }
+export interface ClaimInput { storeId: string; productId: string | null; clientId: string | null; claimType: (typeof CLAIM_TYPES)[number]; quantity: number; amount: string; description: string | null; returnChannel: ReturnChannel; trackingReference: string | null }
 
 /** Rows of an UPDATE ... RETURNING (TypeORM returns [rows, affected] for UPDATE on PostgreSQL). */
 async function updated(m: EntityManager, sql: string, params: unknown[]): Promise<Record<string, unknown>[]> {
@@ -109,6 +112,7 @@ const VEHICLE_SQL = `
 const RMA_SQL = `
   SELECT r.id, r.case_number AS "caseNumber", r.store_id AS "storeId", s.name AS "storeName", r.product_id AS "productId", p.name AS "productName",
          r.client_id AS "clientId", c.name AS "clientName", r.quantity, r.reason, r.status, r.description,
+         r.return_channel AS "returnChannel", r.tracking_reference AS "trackingReference",
          r.opened_by AS "openedBy", ${PERSON('u')} AS "openedByName", r.closed_at AS "closedAt", r.created_at AS "createdAt", r.updated_at AS "updatedAt"
     FROM rma_cases r JOIN stores s ON s.id = r.store_id JOIN users u ON u.id = r.opened_by
     LEFT JOIN products p ON p.id = r.product_id LEFT JOIN clients c ON c.id = r.client_id`;
@@ -116,6 +120,7 @@ const RMA_SQL = `
 const CLAIM_SQL = `
   SELECT k.id, k.store_id AS "storeId", s.name AS "storeName", k.product_id AS "productId", p.name AS "productName",
          k.client_id AS "clientId", c.name AS "clientName", k.claim_type AS "claimType", k.quantity, k.amount::text AS amount, k.status,
+         k.return_channel AS "returnChannel", k.tracking_reference AS "trackingReference",
          k.description, k.submitted_by AS "submittedBy", ${PERSON('u')} AS "submittedByName", ${PERSON('d')} AS "decidedByName",
          k.decided_at AS "decidedAt", k.created_at AS "createdAt"
     FROM stock_protection_claims k JOIN stores s ON s.id = k.store_id JOIN users u ON u.id = k.submitted_by
@@ -565,13 +570,13 @@ export class OperationsService {
       const year = new Date().getFullYear();
       const [{ n }] = await m.query(`SELECT count(*)::int + 1 AS n FROM rma_cases WHERE tenant_id = $1 AND case_number LIKE $2`, [this.t, `RMA-${year}-%`]);
       const [r] = await m.query(
-        `INSERT INTO rma_cases (tenant_id, case_number, store_id, product_id, client_id, quantity, reason, description, opened_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-        [this.t, `RMA-${year}-${String(n).padStart(4, '0')}`, input.storeId, input.productId, input.clientId, input.quantity, input.reason, input.description, actor],
+        `INSERT INTO rma_cases (tenant_id, case_number, store_id, product_id, client_id, quantity, reason, description, opened_by, return_channel, tracking_reference)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+        [this.t, `RMA-${year}-${String(n).padStart(4, '0')}`, input.storeId, input.productId, input.clientId, input.quantity, input.reason, input.description, actor, input.returnChannel, input.trackingReference],
       );
       return r.id as string;
     });
-    this.log(actor, 'rma.opened', { rmaId: id, storeId: input.storeId, reason: input.reason });
+    this.log(actor, 'rma.opened', { rmaId: id, storeId: input.storeId, reason: input.reason, returnChannel: input.returnChannel });
     return this.rma(id);
   }
 
@@ -610,13 +615,13 @@ export class OperationsService {
       await this.assertRow(m, 'products', input.productId, 'product');
       await this.assertRow(m, 'clients', input.clientId, 'client');
       const [r] = await m.query(
-        `INSERT INTO stock_protection_claims (tenant_id, store_id, product_id, client_id, claim_type, quantity, amount, description, submitted_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-        [this.t, input.storeId, input.productId, input.clientId, input.claimType, input.quantity, input.amount, input.description, actor],
+        `INSERT INTO stock_protection_claims (tenant_id, store_id, product_id, client_id, claim_type, quantity, amount, description, submitted_by, return_channel, tracking_reference)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+        [this.t, input.storeId, input.productId, input.clientId, input.claimType, input.quantity, input.amount, input.description, actor, input.returnChannel, input.trackingReference],
       );
       return r.id as string;
     });
-    this.log(actor, 'stock_claim.submitted', { claimId: id, storeId: input.storeId, claimType: input.claimType, amount: input.amount });
+    this.log(actor, 'stock_claim.submitted', { claimId: id, storeId: input.storeId, claimType: input.claimType, amount: input.amount, returnChannel: input.returnChannel });
     return this.claim(id);
   }
 
