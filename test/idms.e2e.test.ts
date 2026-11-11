@@ -132,10 +132,12 @@ describe('IDMS lifecycle (Phase 2)', () => {
       assert.equal(info.ReadOnly, true, to);
       const put = await fetch(`${url}/contents?access_token=${token}`, { method: 'POST', body: Buffer.from('PK changed') });
       assert.equal(put.status, 403, to);
+      const lock = await fetch(`${url}?access_token=${token}`, { method: 'POST', headers: { 'X-WOPI-Override': 'LOCK', 'X-WOPI-Lock': 'L1' } });
+      assert.equal(lock.status, 403, to);
       // The audit write is fire-and-forget; wait until it lands.
       await waitFor(async () => {
         const { rows } = await owner.query(`SELECT count(*)::int AS n FROM audit_logs WHERE action = 'access.denied' AND details->>'documentId' = $1`, [id]);
-        return rows[0].n >= (to === 'FINAL_LOCKED' ? 1 : 2) ? true : undefined;
+        return rows[0].n >= (to === 'FINAL_LOCKED' ? 2 : 4) ? true : undefined;
       });
     }
     await assert.rejects(owner.query('DELETE FROM room_documents WHERE id = $1', [id]), /cannot be deleted/);

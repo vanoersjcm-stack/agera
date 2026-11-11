@@ -446,10 +446,15 @@ export class OfficeService {
     const c = await this.claims(token, fileId);
     return this.as(c, async (m) => {
       const [doc] = await m.query(
-        `SELECT lock_token, lock_expires_at > NOW() AS locked FROM room_documents WHERE tenant_id = $1 AND id = $2 FOR UPDATE`,
+        `SELECT lock_token, lock_expires_at > NOW() AS locked, idms_status FROM room_documents WHERE tenant_id = $1 AND id = $2 FOR UPDATE`,
         [c.tid, fileId],
       );
       if (!doc) throw new NotFoundException('Document not found');
+      if ((op === 'LOCK' || op === 'REFRESH_LOCK') && (!c.write || LOCKED_STATUSES.has(doc.idms_status))) {
+        const reason = c.write ? `Document is ${doc.idms_status} and opens read-only` : 'Read-only access';
+        this.audit.logAction(c.tid, c.sub, 'access.denied', { method: 'POST', path: `/v1/wopi/files/${fileId}`, op, reason, documentId: fileId });
+        throw new ForbiddenException(reason);
+      }
       const current: string = doc.locked ? doc.lock_token : '';
       const set = (value: string | null) =>
         m.query('UPDATE room_documents SET lock_token = $2, lock_expires_at = $3 WHERE id = $1', [fileId, value, value ? new Date(Date.now() + LOCK_TTL_MS) : null]);
