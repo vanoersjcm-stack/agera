@@ -84,6 +84,7 @@ function navItems(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/nexus/templates', label: t("Document templates"), description: t("Proposals and letters filled with client data") },
         { path: '/nexus/exceptions', label: t("Exceptions"), description: t("Issues with an owner, severity and resolution") },
         { path: '/nexus/alerts', label: t("Alerts"), description: t("Plan deviations, inactive rooms, non-compliant stores") },
+        { path: '/nexus/mail-merge', label: t("ManyMail"), description: t("Personalised e-mail to a group of clients from a template") },
         { path: '/nexus/surveys', label: t("Surveys & feedback"), description: t("Design surveys, send them to clients and see the answers") },
       ];
     case 'retailpower':

@@ -32,6 +32,7 @@ import { RetentionView } from './Idms';
 import { PeopleView } from './symphony/People';
 import { PrognosisView } from './symphony/Prognosis';
 import { setClientFilter, useClientFilter } from './clientFilter';
+import { MailMergeView } from './nexus/MailMerge';
 import { PriceListDossier, PriceListsView, TemplatesView } from './nexus/Commercial';
 import { AutomationDossier, AutomationsView } from './symphony/Automations';
 import { ReportBuilderView, ReportsView } from './symphony/Reports';
@@ -119,6 +120,8 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return <ProfitLossView route={route} />;
     case 'nexus/alerts':
       return <AlertsView route={route} />;
+    case 'nexus/mail-merge':
+      return <MailMergeView />;
     case 'nexus/surveys':
       return id ? <SurveyDossier id={id} route={route} /> : <SurveysView route={route} />;
     case 'retailpower/':

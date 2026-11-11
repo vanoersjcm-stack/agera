@@ -64,6 +64,19 @@ export interface SurveyDispatch { id: string; targetType: 'single_client' | 'cli
 export interface Survey { id: string; title: string; description: string | null; status: SurveyStatus; questions: SurveyQuestion[]; createdByName: string | null; responseCount: number; targetedClients: number; dispatchCount: number; nps: number | null; createdAt: string; updatedAt: string; dispatches?: SurveyDispatch[] }
 export interface SurveyList { tier: LicenseTier; maxActive: number | null; activeCount: number; questionTypes: SurveyQuestionType[]; items: Survey[] }
 export interface SurveyAudience { targetType: 'single_client' | 'client_cohort' | 'client_room'; clientId?: string | null; clientRoomId?: string | null; all?: boolean; sector?: string | null; minArr?: number | null; maxArr?: number | null; accountManagerId?: string | null; maxHealthScore?: number | null }
+export type ImportAction = 'create' | 'add_contact' | 'skip' | 'error';
+export interface ClientImportResult {
+  dryRun: boolean; fileName: string; ignoredColumns: string[];
+  summary: { total: number; valid: number; skipped: number; errors: number; clientsCreated: number; contactsAdded: number };
+  rows: { row: number; action: ImportAction; name: string | null; kvkNumber: string | null; erpId: string | null; contactEmail: string | null; messages: string[] }[];
+}
+export interface MailMergeBody extends SurveyAudience { templateId: string; recipients: 'primary' | 'all' }
+export interface MailMergePreview {
+  template: { id: string; name: string };
+  mails: { clientId: string; clientName: string; contactId: string; contactName: string; email: string; subject: string; text: string; missing: string[] }[];
+  clientsWithoutEmail: { id: string; name: string }[];
+  mail: MailStatus;
+}
 export interface NpsResult { score: number | null; promoters: number; passives: number; detractors: number; count: number }
 export interface SurveyAnalytics {
   surveyId: string; title: string; status: SurveyStatus; totalResponses: number; targetedClients: number; respondedClients: number; responseRate: number | null; nps: NpsResult;
@@ -776,6 +789,13 @@ export const api = {
   submitClaim: (body: { storeId: string; productId: string | null; clientId: string | null; claimType: string; quantity: number; amount: string | number; description: string | null; returnChannel: ReturnChannel; trackingReference: string | null }) => request<StockClaim>('POST', '/v1/operations/stock-claims', body),
   setClaimStatus: (id: string, status: ClaimStatus) => request<StockClaim>('PATCH', `/v1/operations/stock-claims/${id}/status`, { status }),
   mailStatus: () => request<MailStatus>('GET', '/v1/mail/status'),
+  importClients: (file: File, dryRun: boolean) => {
+    const form = new FormData();
+    form.append('file', file);
+    return send<ClientImportResult>('POST', `/v1/clients/import?dryRun=${dryRun}`, form);
+  },
+  mailMergePreview: (body: MailMergeBody) => request<MailMergePreview>('POST', '/v1/mail-merge/preview', body),
+  mailMergeSend: (body: MailMergeBody) => request<{ sent: number; failed: { email: string; error: string }[] }>('POST', '/v1/mail-merge/send', body),
   sendMail: (input: { to: string; subject: string; text: string; clientId?: string }) => request<{ messageId: string }>('POST', '/v1/mail/send', input),
   apiKeys: () => request<Page<ApiKey>>('GET', '/api-keys?limit=100'),
   createApiKey: (body: { name: string; expiresAt?: string }) => request<CreatedApiKey>('POST', '/api-keys', body),

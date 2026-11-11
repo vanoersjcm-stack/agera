@@ -10,6 +10,8 @@ import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
 import { recordClientView } from '../Navigator';
+import { ClientImportDrawer } from './ClientImport';
+import { userContext } from '../context';
 import { t as tr, tf, locale, live } from '../i18n';
 
 const SUITE = live(() => ({ label: tr("Nexus"), href: '#/nexus' }));
@@ -28,12 +30,18 @@ export function ClientsView({ route }: { route: Route }) {
   const { openNew } = useShell();
   const status = route.params.get('status') ?? 'active';
   const q = route.params.get('q') ?? '';
-  const { data, error } = useLoad(() => api.clients());
+  const [importing, setImporting] = useState(false);
+  const [imported, setImported] = useState<string | null>(null);
+  const role = userContext().jobRole;
+  const canImport = role === null || role === 'PLATFORM_ADMIN' || role === 'HQ_ADMIN' || role === 'ACCOUNT_MANAGER';
+  const { data, error } = useLoad(() => api.clients(), [imported]);
   const items = data ?? [];
   const count = (s: string) => items.filter((c) => c.status === s).length;
   const filtered = items.filter((c) => (status === 'all' || c.status === status) && includesText([c.name, c.legalName, c.city, c.vatNumber, c.erpId, c.kvkNumber, c.accountManagerName], q));
   return (
-    <ViewFrame title={tr("Clients")} crumbs={[SUITE, { label: tr("Clients") }]} actions={<button className="primary" onClick={() => openNew('client')}>{tr("+ New client")}</button>}>
+    <ViewFrame title={tr("Clients")} crumbs={[SUITE, { label: tr("Clients") }]} actions={<>{canImport && <button className="secondary" onClick={() => setImporting(true)}>{tr("Import")}</button>}<button className="primary" onClick={() => openNew('client')}>{tr("+ New client")}</button></>}>
+      {importing && <ClientImportDrawer onClose={() => setImporting(false)} onImported={(m) => { setImporting(false); setImported(m); }} />}
+      {imported && <p className="callout good">{imported}</p>}
       <div className="list-toolbar">
         <FilterChips
           value={status}
