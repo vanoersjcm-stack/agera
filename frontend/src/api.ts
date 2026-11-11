@@ -955,6 +955,18 @@ export const api = {
     return send<RoomDocument>('POST', `/v1/nexus/client-rooms/${roomId}/documents`, form);
   },
   editorStatus: () => request<{ connected: boolean; editor: string }>('GET', '/v1/documents/editor-status'),
+  printStatus: () => request<PrintStatus>('GET', '/v1/print/status'),
+  printJobs: () => request<PrintJob[]>('GET', '/v1/print/jobs'),
+  queuePrint: (documentId: string, copies = 1) => request<PrintJob>('POST', '/v1/print/queue', { documentId, copies }),
+  releasePrint: (code: string) => request<PrintJob>('POST', '/v1/print/release', { code }),
+  scanToVault: (file: File, fields: { clientId: string; clientRoomId?: string; title?: string }) => {
+    const form = new FormData();
+    form.append('clientId', fields.clientId);
+    if (fields.clientRoomId) form.append('clientRoomId', fields.clientRoomId);
+    if (fields.title) form.append('title', fields.title);
+    form.append('file', file);
+    return send<OfficeDocument>('POST', '/v1/documents/scan-ingest', form);
+  },
   officeDocuments: (clientId: string) => request<OfficeDocument[]>('GET', `/v1/documents?clientId=${clientId}`),
   officeDrafts: () => request<OfficeDocument[]>('GET', '/v1/documents?drafts=true'),
   idmsTransition: (kind: IdmsKind, id: string, to: IdmsStatus) => request<{ id: string; idmsStatus: IdmsStatus }>('POST', `/v1/idms/${kind}/${id}/transition`, { to }),
@@ -985,6 +997,27 @@ export const api = {
   createAgreement: (body: { clientId: string; title: string; documentUrl: string; annualValue?: string; churnRisk?: string; endDate?: string | null }) => request<Agreement>('POST', '/v1/agreements', body),
   setAgreementStatus: (id: string, status: AgreementStatus) => request<Agreement>('PATCH', `/v1/agreements/${id}/status`, { status }),
 };
+
+export interface PrintStatus {
+  configured: boolean;
+  connected: boolean;
+  printer: string | null;
+  jobTtlMinutes: number;
+  error: string | null;
+}
+
+export interface PrintJob {
+  id: string;
+  documentId: string;
+  documentTitle: string;
+  version: number;
+  status: 'queued' | 'released' | 'expired';
+  code: string | null;
+  copies: number;
+  expiresAt: string;
+  releasedAt: string | null;
+  createdAt: string;
+}
 
 export interface OfficeDocument {
   id: string;

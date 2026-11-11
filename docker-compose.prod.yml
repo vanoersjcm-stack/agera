@@ -125,6 +125,9 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      # Pull printing through your own CUPS server (ipps:// = IPP over TLS); empty = print server not connected.
+      CUPS_IPP_URL: ${CUPS_IPP_URL:-}
+      PRINT_JOB_TTL_MINUTES: ${PRINT_JOB_TTL_MINUTES:-240}
     volumes:
       - uploads:/uploads
     healthcheck:

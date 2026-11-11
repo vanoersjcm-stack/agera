@@ -134,6 +134,7 @@ export function Navigator({ user, readOnlyTenant }: { user: UserContext; readOnl
               </>
             )}
             <Leaf href="/nexus/drafts" label={t("Drafts")} title={t("Office documents not yet shared in a client room, newest first")} />
+            {allowed(user, '/nexus/print') && <Leaf href="/nexus/print" label={t("Print & Scan")} title={t("Pull printing with a release code, and scans into the client's document vault")} />}
           </Node>
         )}
       </div>

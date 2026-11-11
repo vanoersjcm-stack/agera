@@ -9,5 +9,6 @@ import { OfficeService } from './office.service.js';
   imports: [CoreModule, UserModule, CommercialModule],
   controllers: [OfficeDocumentsController, WopiController],
   providers: [OfficeService],
+  exports: [OfficeService],
 })
 export class OfficeModule {}

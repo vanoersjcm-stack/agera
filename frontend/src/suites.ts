@@ -85,6 +85,7 @@ function navItems(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/nexus/exceptions', label: t("Exceptions"), description: t("Issues with an owner, severity and resolution") },
         { path: '/nexus/alerts', label: t("Alerts"), description: t("Plan deviations, inactive rooms, non-compliant stores") },
         { path: '/nexus/mail-merge', label: t("ManyMail"), description: t("Personalised e-mail to a group of clients from a template") },
+        { path: '/nexus/print', label: t("Print & Scan"), description: t("Pull printing with a release code, and scans into the client's document vault") },
         { path: '/nexus/surveys', label: t("Surveys & feedback"), description: t("Design surveys, send them to clients and see the answers") },
       ];
     case 'retailpower':
@@ -102,6 +103,7 @@ function navItems(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/retailpower/orders', label: t("Field orders"), description: t("Orders taken in stores, draft to delivery") },
         { path: '/retailpower/products', label: t("Products"), description: t("Product catalogue and prices") },
         { path: '/retailpower/planograms', label: t("Planograms"), description: t("Expected shelf layouts and facings") },
+        { path: '/retailpower/scan', label: t("Scan to vault"), description: t("Photograph or upload a signed form; it is stored with the client as a Draft document") },
       ];
   }
 }

@@ -50,6 +50,17 @@ export interface OfficeDocumentView {
   updatedAt: Date;
 }
 
+export interface ScanInput {
+  clientId: string;
+  clientRoomId: string | null;
+  title: string | null;
+  originalName: string;
+  data: Buffer;
+}
+
+/** Scanned paper: PDF or a camera/scanner image. */
+export const SCAN_FORMATS = ['pdf', 'jpg', 'jpeg', 'png'] as const;
+
 export interface OfficeVersionView {
   id: string;
   version: number;
@@ -254,6 +265,59 @@ export class OfficeService {
       if (written) await this.storage.delete(key);
       throw error;
     }
+  }
+
+  /** Scan-to-Vault: bind a scanned PDF/image to a client (optionally a client room) as a DRAFT document with its SHA-256. */
+  async scan(input: ScanInput, identity: AuthenticatedUser): Promise<OfficeDocumentView> {
+    const ext = (input.originalName.match(/\.([A-Za-z0-9]+)$/)?.[1] ?? '').toLowerCase();
+    if (!(SCAN_FORMATS as readonly string[]).includes(ext)) throw new BadRequestException(`file type not allowed; use ${SCAN_FORMATS.join(', ')}`);
+    const format = ext === 'jpeg' ? 'jpg' : ext;
+    const magic = input.data.subarray(0, 4).toString('latin1');
+    const valid = format === 'pdf' ? magic === '%PDF' : format === 'png' ? magic === '\x89PNG' : input.data[0] === 0xff && input.data[1] === 0xd8;
+    if (!valid) throw new BadRequestException('The file content does not match its type');
+    const actor = await this.userService.resolveActor(identity);
+    await this.tx.run((manager) => this.assertLinks(manager, { clientId: input.clientId, clientRoomId: input.clientRoomId, contactId: null, dealId: null } as CreateOfficeDocument));
+    const title = input.title ?? (input.originalName.replace(/\.[^.]+$/, '').trim() || 'Scan');
+    const fileName = safeName(input.originalName);
+    const sha256 = createHash('sha256').update(input.data).digest('hex');
+    const versionId = randomUUID();
+    const key = `${this.context.tenantId}/clients/${input.clientId}/${versionId}-${fileName}`;
+    let written = false;
+    try {
+      const view = await this.tx.run(async (manager) => {
+        const [doc] = await manager.query(
+          `INSERT INTO room_documents (tenant_id, client_room_id, client_id, title, file_format, idms_status, created_by, last_modified_by)
+           VALUES ($1, $2, $3, $4, $5, 'DRAFT', $6, $6) RETURNING id`,
+          [this.context.tenantId, input.clientRoomId, input.clientId, title.slice(0, 200), format, actor.id],
+        );
+        await this.storage.put(key, input.data);
+        written = true;
+        await manager.query(
+          `INSERT INTO room_document_versions (id, tenant_id, document_id, version, file_name, mime_type, size_bytes, sha256, storage_key, uploaded_by)
+           VALUES ($1, $2, $3, 1, $4, $5, $6, $7, $8, $9)`,
+          [versionId, this.context.tenantId, doc.id, fileName, DOCUMENT_TYPES[format], input.data.length, sha256, key, actor.id],
+        );
+        return this.view(manager, doc.id as string);
+      });
+      this.audit.logAction(this.context.tenantId, actor.id, 'document.scanned_to_vault', {
+        documentId: view.id, clientId: input.clientId, clientRoomId: input.clientRoomId, sha256, sizeBytes: input.data.length,
+      });
+      return view;
+    } catch (error) {
+      if (written) await this.storage.delete(key);
+      throw error;
+    }
+  }
+
+  /** The document version as PDF for printing; office formats are converted by Agera Office (Collabora). */
+  async pdfFor(id: string, version: number): Promise<Buffer> {
+    const file = await this.download(id, version);
+    const chunks: Buffer[] = [];
+    for await (const chunk of file.stream) chunks.push(Buffer.from(chunk as Buffer));
+    const data = Buffer.concat(chunks);
+    const ext = (file.fileName.match(/\.([A-Za-z0-9]+)$/)?.[1] ?? '').toLowerCase();
+    if (ext === 'pdf') return data;
+    return this.convert(data, file.fileName, 'pdf');
   }
 
   /** Blank file, a document template filled with the client's data, or a spreadsheet starter (CSV). */

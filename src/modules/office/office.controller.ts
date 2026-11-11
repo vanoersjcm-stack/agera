@@ -1,4 +1,7 @@
-import { Body, Controller, Get, Header, Headers, HttpCode, Param, ParseUUIDPipe, Post, Query, Req, Res, StreamableFile } from '@nestjs/common';
+import { Body, Controller, Get, Header, Headers, HttpCode, Param, ParseUUIDPipe, Post, Query, Req, Res, StreamableFile, UploadedFile, UseFilters, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { AllowJobRoles } from '../auth/job-roles.js';
+import { DocumentUploadExceptionFilter } from '../documents/upload-exception.filter.js';
 import { ApiBearerAuth, ApiExcludeController, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { IncomingMessage } from 'node:http';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
@@ -8,7 +11,7 @@ import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
 import { asObject, oneOf, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
 import { BadRequestException } from '@nestjs/common';
 import { MAX_DOCUMENT_BYTES } from '../documents/documents.service.js';
-import { type EditorSession, NEW_FORMATS, type OfficeDocumentView, OfficeService, type OfficeVersionView } from './office.service.js';
+import { type EditorSession, NEW_FORMATS, type OfficeDocumentView, OfficeService, type OfficeVersionView, SCAN_FORMATS } from './office.service.js';
 
 @ApiTags('Office documents')
 @ApiBearerAuth(BEARER_AUTH)
@@ -54,6 +57,30 @@ export class OfficeDocumentsController {
         templateId: optionalUuid('templateId', raw.templateId),
         starterCsv,
       },
+      identity,
+    );
+  }
+
+  @Post('scan-ingest')
+  @AllowJobRoles('HQ_ADMIN', 'ACCOUNT_MANAGER', 'FIELD_REPRESENTATIVE')
+  @UseFilters(DocumentUploadExceptionFilter)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_DOCUMENT_BYTES, files: 1, fields: 5 } }))
+  @ApiOperation({
+    summary: 'Scan-to-Vault: store a scanned PDF/image for a client (optional client room) as a DRAFT document with SHA-256 (audit: document.scanned_to_vault)',
+    description: `multipart/form-data: file (${SCAN_FORMATS.join(', ')}, at most ${MAX_DOCUMENT_BYTES / (1024 * 1024)} MB), clientId, optional clientRoomId and title.`,
+  })
+  @ApiErrors(400, 404)
+  scan(
+    @UploadedFile() file: { buffer: Buffer; originalname: string; size: number } | undefined,
+    @Body() body: unknown,
+    @CurrentUser() identity: AuthenticatedUser,
+  ): Promise<OfficeDocumentView> {
+    if (!file || file.size === 0) throw new BadRequestException('file is required');
+    const raw = asObject(body ?? {});
+    const clientId = optionalUuid('clientId', raw.clientId);
+    if (!clientId) throw new BadRequestException('clientId is required');
+    return this.office.scan(
+      { clientId, clientRoomId: optionalUuid('clientRoomId', raw.clientRoomId), title: optionalString('title', raw.title, 200), originalName: file.originalname, data: file.buffer },
       identity,
     );
   }

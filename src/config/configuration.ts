@@ -34,6 +34,13 @@ export interface OfficeConfig {
   publicOrigin: string;
 }
 
+export interface PrintConfig {
+  /** CUPS / IPP printer queue, e.g. ipps://print.example.local:631/printers/office (ipps = IPP over TLS); null = print server not connected. */
+  ippUrl: string | null;
+  /** Minutes an unreleased pull-print job stays in the queue. */
+  jobTtlMinutes: number;
+}
+
 export interface MailConfig {
   /** SMTP relay (e.g. an EU provider or your own mail server); null host = sending not connected. */
   host: string | null;
@@ -56,6 +63,7 @@ export interface AppConfig {
   keycloak: KeycloakConfig;
   office: OfficeConfig;
   mail: MailConfig;
+  print: PrintConfig;
 }
 
 function required(name: string): string {
@@ -94,6 +102,11 @@ function officeConfig(): OfficeConfig {
   };
 }
 
+function printConfig(): PrintConfig {
+  const ttl = Number(process.env.PRINT_JOB_TTL_MINUTES || 240);
+  return { ippUrl: (process.env.CUPS_IPP_URL || '').trim() || null, jobTtlMinutes: Number.isFinite(ttl) && ttl > 0 ? ttl : 240 };
+}
+
 function mailConfig(): MailConfig {
   const port = Number(process.env.SMTP_PORT || 587);
   return {
@@ -126,4 +139,5 @@ export default (): AppConfig => ({
   keycloak: keycloakConfig(),
   office: officeConfig(),
   mail: mailConfig(),
+  print: printConfig(),
 });

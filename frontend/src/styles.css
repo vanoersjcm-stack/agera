@@ -798,3 +798,16 @@ tr.row-error td { background: color-mix(in srgb, var(--danger, #c0392b) 12%, tra
 .mail-body { white-space: pre-wrap; font-family: inherit; background: var(--surface-2, rgba(127, 127, 127, 0.08)); padding: 12px; border-radius: 6px; }
 .callout.warn { border-left: 3px solid var(--warning, #d68910); }
 .doc-form { max-width: 640px; }
+
+/* Print & Scan */
+.print-code { display: flex; gap: 1rem; align-items: center; margin: 0.75rem 0; }
+.print-qr { background: #fff; border: 1px solid var(--border); border-radius: 6px; }
+.print-code-digits { font-size: 2rem; font-weight: 700; letter-spacing: 0.3em; font-family: ui-monospace, monospace; margin: 0.1rem 0; }
+.print-steps { padding-inline-start: 1.25rem; }
+.print-release { display: flex; gap: 0.75rem; align-items: flex-end; flex-wrap: wrap; }
+.print-release input { font-size: 1.25rem; letter-spacing: 0.25em; width: 9rem; font-family: ui-monospace, monospace; }
+.scan-dropzone { border: 2px dashed var(--border); border-radius: 8px; padding: 1.25rem; text-align: center; margin: 0.75rem 0; display: grid; justify-items: center; gap: 0.4rem; }
+.scan-dropzone p { margin: 0; }
+.scan-dropzone.over { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, var(--surface)); }
+.scan-dropzone.disabled { opacity: 0.6; }
+.scan-done { padding-inline-start: 1.25rem; }

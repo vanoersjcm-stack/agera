@@ -7,6 +7,7 @@ import type { NewDefaults, NewKind } from './shell';
 import { ErrorText, Field, Tabs, useAction } from './ui';
 import { ViewFrame } from './Layout';
 import { IdmsControl } from './Idms';
+import { PrintButton } from './Print';
 
 type Format = 'docx' | 'xlsx' | 'pptx';
 const OPEN_EVENT = 'agera:office-open';
@@ -331,6 +332,7 @@ function DocRow({ doc, canEdit, showHistory, onHistory, onChanged, showClient = 
         <td className="row-actions">
           {canEdit && <button className="primary" onClick={() => openOfficeEditor(doc.id)}>{tr("Edit")}</button>}
           <button className="secondary" onClick={() => void api.downloadOfficeDocument(doc.id, doc.fileName)}>{tr("Download")}</button>
+          <PrintButton documentId={doc.id} />
           <button className="link-button" aria-expanded={showHistory} onClick={onHistory}>{tr("History")}</button>
         </td>
       </tr>

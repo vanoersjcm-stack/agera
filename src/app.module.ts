@@ -12,6 +12,7 @@ import { FieldModule } from './modules/field/field.module.js';
 import { WorkflowModule } from './modules/workflow/workflow.module.js';
 import { CommercialModule } from './modules/commercial/commercial.module.js';
 import { OfficeModule } from './modules/office/office.module.js';
+import { PrintModule } from './modules/print/print.module.js';
 import { MailModule } from './modules/mail/mail.module.js';
 import { OperationsModule } from './modules/operations/operations.module.js';
 import { AutomationModule } from './modules/automation/automation.module.js';
@@ -48,6 +49,7 @@ import { WorkOrdersModule } from './modules/work-orders/work-orders.module.js';
     WorkflowModule,
     CommercialModule,
     OfficeModule,
+    PrintModule,
     MailModule,
     OperationsModule,
     AutomationModule,

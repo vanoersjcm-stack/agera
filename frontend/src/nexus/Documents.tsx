@@ -6,6 +6,7 @@ import { ErrorText, Loading, useAction, useLoad } from '../ui';
 import { GenerateDocumentDrawer } from './Commercial';
 import { t, tf } from '../i18n';
 import { IdmsBadge, IdmsControl, isLocked } from '../Idms';
+import { PrintButton } from '../Print';
 
 const ACCEPT = '.pdf,.docx,.xlsx,.pptx,.doc,.xls,.csv,.txt,.png,.jpg,.jpeg';
 
@@ -99,6 +100,7 @@ export function RoomDocumentsPanel({ roomId, external, active, compact = false }
               {!compact && (
                 <div className="doc-actions">
                   <button className="secondary small" onClick={() => void run(() => api.downloadRoomDocument(roomId, d.id, d.fileName))}>{t("Download")}</button>
+                  {!external && <PrintButton documentId={d.id} className="secondary small" />}
                   <button className="secondary small" onClick={() => setOpen(open === d.id ? null : d.id)}>{open === d.id ? t("Hide versions") : t("Versions")}</button>
                   {canEdit && !isLocked(d.idmsStatus) && <button className="secondary small" disabled={busy} onClick={() => pick(d.id)}>{t("Upload new version")}</button>}
                   {canEdit && !isLocked(d.idmsStatus) && <button className="secondary small" onClick={() => rename(d)}>{t("Rename")}</button>}
