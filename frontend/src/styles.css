@@ -260,7 +260,6 @@ textarea { resize: vertical; }
 .waffle-card.retailpower:hover, .waffle-card.retailpower.current { border-color: #a855f7; background: rgba(59, 7, 100, 0.8); }
 .suite-indicator { display: flex; align-items: center; gap: 0.5rem; border-inline-start: 1px solid #334155; padding-inline-start: 1rem; white-space: nowrap; }
 .suite-title { font-weight: 700; font-size: 1.05rem; letter-spacing: 0.02em; color: var(--accent-light); }
-.suite-tag { font-size: 10px; font-family: ui-monospace, monospace; text-transform: uppercase; background: #1e293b; color: var(--accent-light); border: 1px solid color-mix(in srgb, var(--accent-light) 30%, transparent); padding: 0.1rem 0.5rem; border-radius: 4px; }
 .suite-nav { display: flex; gap: 0.25rem; margin-inline-start: 0.5rem; }
 .suite-nav a { display: flex; align-items: center; gap: 0.4rem; color: #cbd5e1; text-decoration: none; padding: 0.35rem 0.75rem; border-radius: 6px; font-size: 0.875rem; font-weight: 500; }
 .suite-nav a:hover { background: rgba(30, 41, 59, 0.6); }
@@ -326,7 +325,7 @@ button.secondary, .button-link, select, input, textarea, .chip { border-color: v
 @media (max-width: 900px) {
   .topbar { height: auto; padding: 0.5rem 1rem; }
   .search-trigger { min-width: 0; }
-  .search-label, .suite-tag, .user-meta { display: none; }
+  .search-label, .user-meta { display: none; }
   .actionbar { top: 0; position: static; flex-wrap: wrap; padding: 0.5rem 1rem; }
 }
 .search-trigger, .search-label { white-space: nowrap; }
@@ -402,7 +401,6 @@ body { -webkit-font-smoothing: antialiased; color: var(--text); }
 .tier-vanguard .waffle-card.symphony:hover, .tier-vanguard .waffle-card.symphony.current { border-color: #3b82f6; background: rgba(23, 37, 84, 0.6); }
 .card-panel, .tile, .next-step { border-radius: 12px; border-color: var(--border); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05); }
 .badge, .status-badge { border-radius: 999px; }
-.suite-tag { font-weight: 700; letter-spacing: 0.04em; }
 .topbar .credit-pill { border-radius: 6px; background: rgba(220, 38, 38, 0.2); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.4); font-weight: 600; padding: 0.25rem 0.75rem; }
 .topbar .credit-pill:hover { background: rgba(220, 38, 38, 0.3); }
 .topbar .credit-pill.locked { background: #dc2626; color: #fff; border-color: #ef4444; }

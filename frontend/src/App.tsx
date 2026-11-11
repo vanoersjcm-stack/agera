@@ -434,13 +434,6 @@ function redirectFor(route: Route, external: boolean): string | null {
   return null;
 }
 
-/** Red pill in the action bar while any credit lock is active; admins get a one-click way to set one. */
-function suiteBadge(id: SuiteId, tier: LicenseTier): string {
-  if (id === 'nexus') return 'CLIENT PORTAL';
-  if (id === 'retailpower') return 'FIELDCARE AUDITS';
-  return tier === 'vanguard' ? 'MID-MARKET EDITION' : 'HQ CORE';
-}
-
 function shortCode(name: string): string {
   const words = name.replace(/[^\p{L}\p{N} ]/gu, '').split(/\s+/).filter(Boolean);
   return (words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? '?').slice(0, 2)).toUpperCase();
@@ -616,7 +609,6 @@ export function App() {
               <WaffleMenu active={suite} tier={tier} user={user} />
               <div className="suite-indicator">
                 <span className="suite-title">{tr("Agera")} {brand}</span>
-                <span className="suite-tag">{suiteBadge(suite.id, tier)}</span>
               </div>
               <nav className="suite-nav" aria-label={tr("Suites")}>
                 {suitesFor(user).map((s) => (
