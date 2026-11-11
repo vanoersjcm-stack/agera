@@ -42,6 +42,7 @@ import { t, useLanguage, t as tr, tf, live } from './i18n';
 import { DraftDocumentsView, OfficeEditorHost } from './office';
 import { Navigator } from './Navigator';
 import { startOfflineSync, useOfflineQueue } from './offlineQueue';
+import { ErrorBoundary } from './ErrorBoundary';
 import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
 import { ActivityLogView, IntegrationsView, OrganisationsView, SymphonyOverview } from './symphony/SymphonyViews';
 
@@ -591,7 +592,9 @@ export function App() {
   }, [toast]);
 
   useEffect(() => setCreating(null), [route.path]);
-  useEffect(() => window.scrollTo(0, 0), [route.path]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [route.path]);
 
   const openNew = useCallback((kind: NewKind, defaults: NewDefaults = {}) => {
     if (kind === 'automation') return navigate('/symphony/automations?new=1');
@@ -672,7 +675,7 @@ export function App() {
               </p>
             )}
             <AssistantTip path={route.path} assistant={assistant} />
-            {external ? <PortalView route={route} /> : <InternalView route={route} user={user} />}
+            <ErrorBoundary key={route.path}>{external ? <PortalView route={route} /> : <InternalView route={route} user={user} />}</ErrorBoundary>
           </main>
         </div>
         {creating && (

@@ -792,3 +792,4 @@ button.wide { width: 100%; }
 /* IDMS lifecycle */
 .idms-control { display: inline-flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
 .idms-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem; }
+.render-error pre { white-space: pre-wrap; font-size: 0.8rem; color: var(--text-muted); }

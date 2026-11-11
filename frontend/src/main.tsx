@@ -1,6 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { App } from './App';
+import { ErrorBoundary } from './ErrorBoundary';
 import { initAuth } from './auth';
 import { t, useLanguage } from './i18n';
 import { applyTheme } from './theme';
@@ -11,7 +12,11 @@ applyTheme();
 /** Remounts the app when the language changes, so every label is rendered again without a page reload. */
 function Root() {
   const language = useLanguage();
-  return <App key={language} />;
+  return (
+    <ErrorBoundary>
+      <App key={language} />
+    </ErrorBoundary>
+  );
 }
 
 const root = createRoot(document.getElementById('root')!);
