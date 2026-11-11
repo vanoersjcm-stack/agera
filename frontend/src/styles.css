@@ -769,15 +769,12 @@ button.wide { width: 100%; }
 .navigator button.nav-link { background: none; border: 0; text-align: start; padding: 0.3rem 0.6rem; color: var(--text); font: inherit; cursor: pointer; border-radius: 6px; }
 .navigator button.nav-link:hover { background: var(--hover); }
 
-/* Shell: the viewport height is fixed so the sidebar and the page scroll independently */
-.shell { height: 100vh; height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
-.shell > .topbar, .shell > .actionbar { flex-shrink: 0; position: relative; top: auto; }
-.shell > .workspace { flex: 1; min-height: 0; }
-.workspace > .sidenav { overflow-y: auto; overscroll-behavior: contain; }
-.workspace > main { overflow-y: auto; max-width: none; }
-.main-inner { max-width: 1280px; }
-@media (max-width: 900px) { .shell { height: auto; overflow: visible; } .workspace > main, .workspace > .sidenav { overflow: visible; } }
-@media print { .shell { height: auto; overflow: visible; } .workspace > main, .workspace > .sidenav { overflow: visible; } }
+/* Shell: the page scrolls normally; the sidebar sticks below the bars and scrolls on its own */
+.workspace { align-items: flex-start; }
+.workspace > .sidenav { position: sticky; top: var(--bars-height, 105px); height: calc(100vh - var(--bars-height, 105px)); box-sizing: border-box; overflow-y: auto; overscroll-behavior: contain; align-self: flex-start; }
+.workspace > .sidenav + main { min-height: calc(100vh - var(--bars-height, 105px)); }
+@media (max-width: 900px) { .workspace > .sidenav { position: static; height: auto; overflow: visible; } }
+@media print { .workspace > .sidenav { position: static; height: auto; overflow: visible; } }
 .back-button { display: inline-flex; align-items: center; gap: 0.25rem; background: var(--surface-3); color: var(--text-2); border: 1px solid var(--border); border-radius: 6px; padding: 0.2rem 0.55rem; font: inherit; font-size: 0.78rem; cursor: pointer; flex-shrink: 0; }
 .back-button:hover { background: var(--hover); }
 .back-arrow { font-size: 1rem; line-height: 1; }

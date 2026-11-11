@@ -591,8 +591,7 @@ export function App() {
   }, [toast]);
 
   useEffect(() => setCreating(null), [route.path]);
-  const mainRef = useRef<HTMLElement>(null);
-  useEffect(() => mainRef.current?.scrollTo?.(0, 0), [route.path]);
+  useEffect(() => window.scrollTo(0, 0), [route.path]);
 
   const openNew = useCallback((kind: NewKind, defaults: NewDefaults = {}) => {
     if (kind === 'automation') return navigate('/symphony/automations?new=1');
@@ -658,8 +657,7 @@ export function App() {
               <Navigator user={user} readOnlyTenant={!!tenant?.readOnly} />
             </SideNav>
           )}
-          <main ref={mainRef}>
-            <div className="main-inner">
+          <main>
             {preview && preview !== tenant?.licenseTier && (
               <p className="callout readonly-banner">
                 {tr("Previewing the interface of")} <strong>{editionName(preview)}</strong>{tr(". Server-side limits still follow this organisation’s real edition.")}{' '}
@@ -675,7 +673,6 @@ export function App() {
             )}
             <AssistantTip path={route.path} assistant={assistant} />
             {external ? <PortalView route={route} /> : <InternalView route={route} user={user} />}
-            </div>
           </main>
         </div>
         {creating && (
