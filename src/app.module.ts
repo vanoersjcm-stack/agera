@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import configuration from './config/configuration.js';
 import { AuthModule } from './modules/auth/auth.module.js';
+import { CampaignsModule } from './modules/campaigns/campaigns.module.js';
 import { ClientsModule } from './modules/clients/clients.module.js';
 import { CoreModule } from './modules/core/core.module.js';
 import { DealsModule } from './modules/deals/deals.module.js';
@@ -53,6 +54,7 @@ import { WorkOrdersModule } from './modules/work-orders/work-orders.module.js';
     ReportsModule,
     SurveysModule,
     ClientsModule,
+    CampaignsModule,
     DealsModule,
     InvoicesModule,
     IdmsModule,

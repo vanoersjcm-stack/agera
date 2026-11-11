@@ -134,10 +134,14 @@ describe('IDMS lifecycle (Phase 2)', () => {
       assert.equal(put.status, 403, to);
       const lock = await fetch(`${url}?access_token=${token}`, { method: 'POST', headers: { 'X-WOPI-Override': 'LOCK', 'X-WOPI-Lock': 'L1' } });
       assert.equal(lock.status, 403, to);
+      for (const op of ['RENAME_FILE', 'DELETE']) {
+        const r = await fetch(`${url}?access_token=${token}`, { method: 'POST', headers: { 'X-WOPI-Override': op, 'X-WOPI-RequestedName': 'renamed' } });
+        assert.equal(r.status, 403, `${to} ${op}`);
+      }
       // The audit write is fire-and-forget; wait until it lands.
       await waitFor(async () => {
         const { rows } = await owner.query(`SELECT count(*)::int AS n FROM audit_logs WHERE action = 'access.denied' AND details->>'documentId' = $1`, [id]);
-        return rows[0].n >= (to === 'FINAL_LOCKED' ? 2 : 4) ? true : undefined;
+        return rows[0].n >= (to === 'FINAL_LOCKED' ? 4 : 8) ? true : undefined;
       });
     }
     await assert.rejects(owner.query('DELETE FROM room_documents WHERE id = $1', [id]), /cannot be deleted/);

@@ -1,10 +1,14 @@
-import { BadRequestException, Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, UploadedFile, UseFilters, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { AllowJobRoles } from '../auth/job-roles.js';
+import { UploadExceptionFilter } from '../retailcare/media/upload-exception.filter.js';
+import { MAX_IMPORT_BYTES } from './client-import.js';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiProperty, ApiTags } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
 import { asObject, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
-import { type ClientInput, type ClientRecord, ClientsService, type ClientSummary, type ClientUpdate, type ContactInput } from './clients.service.js';
+import { type ClientImportResult, type ClientInput, type ClientRecord, ClientsService, type ClientSummary, type ClientUpdate, type ContactInput } from './clients.service.js';
 import { CLIENT_STATUSES, type ClientStatus, CREDIT_STATUSES, type CreditStatus } from './entities/client.entity.js';
 import type { Contact } from './entities/contact.entity.js';
 
@@ -166,6 +170,25 @@ export class ClientsController {
   @ApiErrors(400)
   create(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<ClientSummary> {
     return this.clients.create(clientFields(asObject(body), false) as ClientInput, identity);
+  }
+
+  @Post('import')
+  @HttpCode(200)
+  @AllowJobRoles('HQ_ADMIN', 'ACCOUNT_MANAGER')
+  @UseFilters(UploadExceptionFilter)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMPORT_BYTES, files: 1, fields: 5 } }))
+  @ApiOperation({ summary: 'Bulk import clients and contacts from CSV/XLSX; dryRun=true (default) only validates (audit: clients.bulk_imported)' })
+  @ApiConsumes('multipart/form-data')
+  @ApiOkResponse({ schema: { type: 'object' } })
+  @ApiErrors(400)
+  importClients(
+    @UploadedFile() file: { buffer: Buffer; originalname: string; size: number } | undefined,
+    @Query('dryRun') dryRun: string | undefined,
+    @CurrentUser() identity: AuthenticatedUser,
+  ): Promise<ClientImportResult> {
+    if (!file || file.size === 0) throw new BadRequestException('file is required (CSV or XLSX)');
+    if (dryRun !== undefined && dryRun !== 'true' && dryRun !== 'false') throw new BadRequestException('dryRun must be true or false');
+    return this.clients.importFile(file.buffer, file.originalname, dryRun !== 'false', identity);
   }
 
   @Get(':id')

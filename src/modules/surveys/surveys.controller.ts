@@ -54,7 +54,7 @@ function optionalNumber(name: string, v: unknown): number | null {
   return v;
 }
 
-function audience(body: unknown): Audience {
+export function audience(body: unknown): Audience {
   const o = asObject(body);
   return {
     targetType: oneOf('targetType', o.targetType, ['single_client', 'client_cohort', 'client_room'] as const),

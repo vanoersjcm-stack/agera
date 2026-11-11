@@ -118,6 +118,9 @@ function escapeHtml(s: string): string {
  * room_documents / room_document_versions; Collabora reads and saves them through the WOPI endpoints, which
  * authenticate with a short-lived signed token instead of a Keycloak session.
  */
+/** WOPI POST operations that would change the file or its lock; refused (403) on read-only and locked documents. */
+const CHANGING_OPS = new Set(['LOCK', 'REFRESH_LOCK', 'RENAME_FILE', 'DELETE', 'PUT_RELATIVE']);
+
 @Injectable()
 export class OfficeService {
   private readonly office: OfficeConfig;
@@ -450,7 +453,7 @@ export class OfficeService {
         [c.tid, fileId],
       );
       if (!doc) throw new NotFoundException('Document not found');
-      if ((op === 'LOCK' || op === 'REFRESH_LOCK') && (!c.write || LOCKED_STATUSES.has(doc.idms_status))) {
+      if (CHANGING_OPS.has(op) && (!c.write || LOCKED_STATUSES.has(doc.idms_status))) {
         const reason = c.write ? `Document is ${doc.idms_status} and opens read-only` : 'Read-only access';
         this.audit.logAction(c.tid, c.sub, 'access.denied', { method: 'POST', path: `/v1/wopi/files/${fileId}`, op, reason, documentId: fileId });
         throw new ForbiddenException(reason);

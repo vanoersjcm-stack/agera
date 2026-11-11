@@ -17,7 +17,7 @@ export interface TemplateInput { name: string; kind: TemplateKind; body: string;
 /** Placeholders a template body may use; shown in the template editor. */
 export const TEMPLATE_PLACEHOLDERS = [
   'client.name', 'client.legalName', 'client.kvk', 'client.vat', 'client.address', 'client.city', 'client.paymentTerms',
-  'contact.name', 'contact.email', 'room.name', 'agreement.title', 'user.name', 'today', 'priceList',
+  'contact.name', 'contact.firstName', 'contact.email', 'primary_contact_name', 'room.name', 'agreement.title', 'user.name', 'today', 'priceList',
 ] as const;
 
 const LIST_SQL = `SELECT l.id, l.name, l.client_id AS "clientId", c.name AS "clientName", l.valid_from::text AS "validFrom", l.valid_to::text AS "validTo", l.active,
@@ -182,7 +182,7 @@ export class CommercialService {
       if (!room && target.clientId && !client) throw new NotFoundException('Client not found');
       const [contact] = client
         ? await m.query(
-            `SELECT COALESCE(NULLIF(btrim(concat_ws(' ', first_name, last_name)), ''), email) AS name, email FROM contacts WHERE tenant_id = $1 AND client_id = $2 ORDER BY is_primary DESC, created_at LIMIT 1`,
+            `SELECT COALESCE(NULLIF(btrim(concat_ws(' ', first_name, last_name)), ''), email) AS name, first_name, email FROM contacts WHERE tenant_id = $1 AND client_id = $2 ORDER BY is_primary DESC, created_at LIMIT 1`,
             [this.t, client.id],
           )
         : [];
@@ -201,7 +201,7 @@ export class CommercialService {
       const values: Record<string, string | null | undefined> = {
         'client.name': client?.name, 'client.legalName': client?.legal_name, 'client.kvk': client?.kvk_number, 'client.vat': client?.vat_number,
         'client.address': client?.address, 'client.city': client?.city, 'client.paymentTerms': client?.payment_terms,
-        'contact.name': contact?.name, 'contact.email': contact?.email, 'room.name': room?.room_name, 'agreement.title': room?.agreement_title,
+        'contact.name': contact?.name, 'contact.firstName': contact?.first_name, 'contact.email': contact?.email, primary_contact_name: contact?.name, 'room.name': room?.room_name, 'agreement.title': room?.agreement_title,
         'user.name': me?.name, today: new Date().toISOString().slice(0, 10), priceList: priceList || null,
       };
       const missing = new Set<string>();

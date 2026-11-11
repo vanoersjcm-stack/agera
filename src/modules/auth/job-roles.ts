@@ -10,6 +10,10 @@ export function jobRoleOf(roles: readonly string[]): JobRole | null {
   return JOB_ROLES.find((r) => roles.includes(r)) ?? null;
 }
 
+const ALLOWED_KEY = 'allowedJobRoles';
+/** Replaces the suite matrix for an endpoint: only these job roles (and platform admins) may call it. */
+export const AllowJobRoles = (...roles: JobRole[]) => SetMetadata(ALLOWED_KEY, roles);
+
 const COORDINATOR_KEY = 'coordinatorOnly';
 /** Coordinator action in RetailPower operations (sign-off, allocation, decisions); refused to field representatives. */
 export const CoordinatorOnly = () => SetMetadata(COORDINATOR_KEY, true);
@@ -55,6 +59,11 @@ export class JobRoleGuard implements CanActivate {
     const role = request.user ? jobRoleOf(request.user.roles) : null;
     if (!role) return true;
     const controller = context.getClass().name;
+    const allowed = this.reflector.getAllAndOverride<JobRole[] | undefined>(ALLOWED_KEY, [context.getHandler(), context.getClass()]);
+    if (allowed) {
+      if (role === 'PLATFORM_ADMIN' || allowed.includes(role)) return true;
+      throw new ForbiddenException('Not available to your role');
+    }
     const write = !['GET', 'HEAD', 'OPTIONS'].includes(request.method) && !READ_ONLY_POSTS.has(controller);
     const coordinatorOnly = this.reflector.getAllAndOverride<boolean | undefined>(COORDINATOR_KEY, [context.getHandler(), context.getClass()]) ?? false;
     if (!mayAccess(role, controller, write, coordinatorOnly)) throw new ForbiddenException('Not available to your role');

@@ -8,5 +8,6 @@ import { SurveysService } from './surveys.service.js';
   imports: [CoreModule, UserModule],
   controllers: [SurveysController, PortalSurveysController],
   providers: [SurveysService],
+  exports: [SurveysService],
 })
 export class SurveysModule {}

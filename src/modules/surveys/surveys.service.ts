@@ -257,6 +257,11 @@ export class SurveysService {
     return new Map(rows.map((r) => [r.id, Math.max(0, 100 - (r.credit_status === 'locked' ? 40 : r.credit_status === 'review_required' ? 15 : 0) - Math.min(30, 10 * r.overdue) - (r.risk > 0 ? 15 : 0) - Math.min(20, 10 * r.exceptions))]));
   }
 
+  /** Client ids for an audience, with the same rules as survey dispatch (used by ManyMail). */
+  cohortClientIds(a: Audience): Promise<string[]> {
+    return this.tx.run(async (m) => (await this.resolveAudience(m, a)).clientIds);
+  }
+
   async audience(a: Audience): Promise<unknown> {
     return this.tx.run(async (m) => {
       const r = await this.resolveAudience(m, a);
