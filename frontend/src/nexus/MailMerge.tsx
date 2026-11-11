@@ -111,7 +111,10 @@ export function MailMergeView() {
         <section className="panel">
           <h3>{tf("{n} personalised e-mails", { n: String(preview.mails.length) })}</h3>
           {preview.clientsWithoutEmail.length > 0 && (
-            <p className="muted small">{tr("Clients without a contact e-mail address (skipped)")}: {preview.clientsWithoutEmail.map((c) => c.name).join(', ')}</p>
+            <details className="muted small">
+              <summary>{tf("{n} clients without a contact e-mail address are skipped", { n: String(preview.clientsWithoutEmail.length) })}</summary>
+              {preview.clientsWithoutEmail.map((c) => c.name).join(', ')}
+            </details>
           )}
           {preview.mail.connected
             ? <p className="callout good">{tr("Sent from Agera through your organisation's e-mail server")} ({preview.mail.from}).</p>

@@ -661,7 +661,7 @@ const NL: Record<string, string> = {
   "All contacts with an e-mail address": "Alle contacten met een e-mailadres",
   "Show preview": "Voorbeeld tonen",
   "{n} personalised e-mails": "{n} persoonlijke e-mails",
-  "Clients without a contact e-mail address (skipped)": "Klanten zonder e-mailadres van een contact (overgeslagen)",
+  "{n} clients without a contact e-mail address are skipped": "{n} klanten zonder e-mailadres van een contact worden overgeslagen",
   "sending from Agera needs the SMTP settings on the server. Export the batch as CSV or open each e-mail in your own e-mail program.": "versturen vanuit Agera vraagt om de SMTP-instellingen op de server. Exporteer de batch als CSV of open elke e-mail in je eigen e-mailprogramma.",
   "{i} of {n}": "{i} van {n}",
   "Missing data for": "Ontbrekende gegevens voor",
