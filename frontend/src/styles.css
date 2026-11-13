@@ -865,3 +865,30 @@ tr.row-error td { background: color-mix(in srgb, var(--danger, #c0392b) 12%, tra
 .sidenav .nav-flyout button.flyout-link:hover strong, .sidenav .nav-flyout button.flyout-link:focus-visible strong { color: var(--accent); }
 .navigator .nav-flyout input[type='search'] { margin: 0 0 0.25rem; }
 @media (max-width: 900px) { .navigator .nav-flyout { width: 300px; } .nav-flyout-cols { grid-template-columns: 1fr; } }
+
+/* Agera Calendar */
+.cal-toolbar { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem; }
+.cal-legend { display: flex; gap: 0.35rem; margin-inline-start: auto; flex-wrap: wrap; }
+.cal-legend .cal-item { cursor: default; }
+.agenda-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--surface); }
+.agenda-head { padding: 0.4rem 0.5rem; font-size: 0.8rem; font-weight: 600; color: var(--muted); border-bottom: 1px solid var(--border); text-transform: capitalize; }
+.agenda-cell { min-height: 7rem; padding: 0.3rem; border-inline-end: 1px solid var(--border); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+.agenda-grid.week .agenda-cell { min-height: 22rem; }
+.agenda-cell:nth-child(7n) { border-inline-end: none; }
+.agenda-cell.outside { background: color-mix(in srgb, var(--muted) 6%, var(--surface)); }
+.agenda-cell.outside .agenda-date { opacity: 0.5; }
+.agenda-cell.today .agenda-date { background: var(--accent); color: #fff; }
+.agenda-date { align-self: flex-start; border: none; background: none; padding: 0.1rem 0.4rem; border-radius: 999px; font-weight: 600; cursor: pointer; color: inherit; }
+.agenda-more { border: none; background: none; color: var(--accent); font-size: 0.75rem; text-align: start; padding: 0 0.3rem; cursor: pointer; }
+.cal-item { display: block; width: 100%; text-align: start; font-size: 0.75rem; padding: 0.15rem 0.35rem; border-radius: 4px; border: none; border-inline-start: 3px solid; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; color: var(--text); }
+.cal-legend .cal-item { width: auto; }
+.cal-appointment { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--surface)); }
+.cal-visit { border-color: #0f9d58; background: color-mix(in srgb, #0f9d58 12%, var(--surface)); }
+.cal-round { border-color: #e37400; background: color-mix(in srgb, #e37400 12%, var(--surface)); }
+.cal-milestone { border-color: #8e24aa; background: color-mix(in srgb, #8e24aa 12%, var(--surface)); }
+.cal-time { font-weight: 600; }
+.agenda-day { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.agenda-day li { display: grid; grid-template-columns: 8rem minmax(0, 20rem) 1fr; gap: 0.75rem; align-items: center; }
+.agenda-day-time { font-variant-numeric: tabular-nums; color: var(--muted); }
+.checklist-box { max-height: 12rem; overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem; display: flex; flex-direction: column; gap: 0.2rem; }
+.plain-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }

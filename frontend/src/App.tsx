@@ -23,6 +23,7 @@ import { BackOfficeView, CrewView, FleetView, HoursView, ProcurementView, Rackjo
 import { StoreDossier, StoresView } from './retailpower/Stores';
 import { StoreVisitsView, VisitDossier } from './retailpower/StoreVisits';
 import { WorkOrderDossier, WorkOrdersView } from './retailpower/WorkOrders';
+import { CalendarView } from './Calendar';
 import { AuditRoundDossier, AuditRoundsView, FieldCalendarView, FieldOrderDossier, FieldOrdersView, PlanogramDossier, PlanogramsView, ProductsView } from './retailpower/Field';
 import { DealDossier, DealsView, PipelineBoard } from './vanguard/Pipeline';
 import { navigate, type Route, useRoute } from './router';
@@ -179,6 +180,10 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return <FleetView />;
     case 'retailpower/rackjobbing':
       return <RackjobbingView />;
+    case 'symphony/agenda':
+    case 'nexus/agenda':
+    case 'retailpower/agenda':
+      return <CalendarView route={route} />;
     case 'retailpower/procurement':
       return <ProcurementView />;
     default:

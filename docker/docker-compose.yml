@@ -46,6 +46,7 @@ services:
       - ../migrations/V31__integration_party_name.sql:/docker-entrypoint-initdb.d/1u_V31__integration_party_name.sql:ro
       - ../migrations/V32__invoice_numbering_lines_approval.sql:/docker-entrypoint-initdb.d/1v_V32__invoice_numbering_lines_approval.sql:ro
       - ../migrations/V33__retailpower_campaigns_procurement_round5.sql:/docker-entrypoint-initdb.d/1w_V33__retailpower_campaigns_procurement_round5.sql:ro
+      - ../migrations/V34__agera_calendar.sql:/docker-entrypoint-initdb.d/1x_V34__agera_calendar.sql:ro
       - ./postgres/dev_seed.sql:/docker-entrypoint-initdb.d/20_dev_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]

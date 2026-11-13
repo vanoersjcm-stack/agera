@@ -14,6 +14,7 @@ import { CommercialModule } from './modules/commercial/commercial.module.js';
 import { OfficeModule } from './modules/office/office.module.js';
 import { PrintModule } from './modules/print/print.module.js';
 import { MailModule } from './modules/mail/mail.module.js';
+import { CalendarModule } from './modules/calendar/calendar.module.js';
 import { OperationsModule } from './modules/operations/operations.module.js';
 import { AutomationModule } from './modules/automation/automation.module.js';
 import { ReportsModule } from './modules/reports/reports.module.js';
@@ -51,6 +52,7 @@ import { WorkOrdersModule } from './modules/work-orders/work-orders.module.js';
     OfficeModule,
     PrintModule,
     MailModule,
+    CalendarModule,
     OperationsModule,
     AutomationModule,
     ReportsModule,

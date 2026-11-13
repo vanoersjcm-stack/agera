@@ -41,6 +41,10 @@ function topCustomers(clients: ClientRef[], views: Record<string, ClientView>): 
 }
 
 /** A path is offered only when the role's suites and menus include it. */
+function agenda(user: UserContext): string | null {
+  return ['/symphony/agenda', '/nexus/agenda', '/retailpower/agenda'].find((p) => allowed(user, p)) ?? null;
+}
+
 function allowed(user: UserContext, path: string): boolean {
   const suite = path.split('?')[0].split('/')[1] as SuiteId;
   const base = path.split('?')[0];
@@ -94,6 +98,7 @@ export function Navigator({ user, readOnlyTenant }: { user: UserContext; readOnl
   const actions = [
     allowed(user, '/nexus/exceptions') && <Leaf key="open" href="/nexus/exceptions" label={t("Open workflow items")} description={t("Exceptions that still need someone")} />,
     allowed(user, '/symphony/approvals') && <Leaf key="approvals" href="/symphony/approvals?show=pending" label={t("Status on approvals")} description={t("Approvals waiting for a decision")} />,
+    agenda(user) && <Leaf key="agenda" href={agenda(user)!} label={t("Calendar")} description={t("Appointments, store visits, rounds and milestones in one agenda")} />,
   ].filter(Boolean);
   const operational = allowed(user, '/symphony/reports') ? '/symphony/reports' : allowed(user, '/retailpower/back-office') ? '/retailpower/back-office' : null;
   const reports = [

@@ -799,6 +799,17 @@ export interface OpsDashboard {
   photos: { id: string; visitId: string; url: string; storeName: string; chain: string | null; visitDate: string; repName: string | null; createdAt: string }[];
 }
 
+
+export type CalendarKind = 'appointment' | 'visit' | 'round' | 'milestone';
+export interface CalendarItem { id: string; kind: CalendarKind; title: string; start: string; end: string; allDay: boolean; link: string | null; ownerName: string | null; status: string | null; detail: string | null }
+export interface CalendarAttendee { userId: string; name: string; response: 'pending' | 'accepted' | 'declined' }
+export interface CalendarEvent {
+  id: string; title: string; description: string | null; location: string | null; startsAt: string; endsAt: string; allDay: boolean;
+  visibility: 'team' | 'private'; status: 'scheduled' | 'cancelled'; clientId: string | null; clientName: string | null; storeId: string | null; storeName: string | null;
+  createdBy: string; createdByName: string; attendees: CalendarAttendee[];
+}
+export interface CalendarEventInput { title: string; description?: string | null; location?: string | null; startsAt: string; endsAt: string; allDay?: boolean; visibility?: 'team' | 'private'; clientId?: string | null; attendeeIds?: string[] }
+
 export const api = {
   // Symphony
   tenant: () => request<Tenant>('GET', '/tenants/me'),
@@ -1031,6 +1042,13 @@ export const api = {
   setFieldOrderStatus: (id: string, status: FieldOrderStatus) => request<FieldOrder>('PATCH', `/v1/field/orders/${id}/status`, { status }),
   auditRounds: () => request<AuditRound[]>('GET', '/v1/field/audit-rounds'),
   auditRound: (id: string) => request<AuditRound>('GET', `/v1/field/audit-rounds/${id}`),
+  calendar: (from: string, to: string, scope: 'mine' | 'team') =>
+    request<CalendarItem[]>('GET', `/v1/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&scope=${scope}`),
+  calendarEvent: (id: string) => request<CalendarEvent>('GET', `/v1/calendar/events/${id}`),
+  createCalendarEvent: (body: CalendarEventInput) => request<CalendarEvent>('POST', '/v1/calendar/events', body),
+  updateCalendarEvent: (id: string, body: Partial<CalendarEventInput>) => request<CalendarEvent>('PATCH', `/v1/calendar/events/${id}`, body),
+  cancelCalendarEvent: (id: string) => request<CalendarEvent>('POST', `/v1/calendar/events/${id}/cancel`),
+  respondCalendarEvent: (id: string, response: 'accepted' | 'declined') => request<CalendarEvent>('POST', `/v1/calendar/events/${id}/respond`, { response }),
   createCampaignRound: (body: { name: string; checklist: string[]; visitDate: string; merchandiserIds: string[]; storeIds: string[]; requirements: CampaignRequirements }) =>
     request<AuditRound>('POST', '/v1/field/campaign-rounds', body),
   createAuditRound: (body: { name: string; checklist: string[]; dueDate?: string | null; visitDate: string; fieldRepId?: string | null; storeIds: string[] }) =>
