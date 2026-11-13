@@ -853,3 +853,15 @@ tr.row-error td { background: color-mix(in srgb, var(--danger, #c0392b) 12%, tra
 .sidenav .nav-topic-trigger:hover .nav-topic-caret, .sidenav .nav-topic.open > .nav-topic-trigger .nav-topic-caret { color: var(--accent); }
 /* The sticky side menu makes its own stacking layer: keep it (and its flyout panels) above the page, below the top bars and drawers */
 .workspace > .sidenav { z-index: 10; }
+/* Navigator flyout: same item look as the other topics, two columns (shortcuts | customers) */
+.navigator .nav-flyout { width: min(600px, calc(100vw - 16px)); }
+.nav-flyout-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.nav-flyout-col, .nav-flyout-group { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+.nav-flyout-group + .nav-flyout-group { margin-top: 0.4rem; }
+.nav-flyout-group .nav-flyout-title { padding-inline: 0.6rem; }
+.sidenav .nav-flyout button.flyout-link { display: flex; flex-direction: column; gap: 0.1rem; width: 100%; padding: 0.45rem 0.6rem; background: none; border: 0; border-inline-start: 3px solid transparent; border-radius: 6px; font: inherit; text-align: start; cursor: pointer; }
+.sidenav .nav-flyout button.flyout-link strong { font-weight: 600; color: var(--text); font-size: 0.9rem; }
+.sidenav .nav-flyout button.flyout-link:hover, .sidenav .nav-flyout button.flyout-link:focus-visible { background: color-mix(in srgb, var(--accent) 8%, var(--surface)); border-inline-start-color: var(--accent); }
+.sidenav .nav-flyout button.flyout-link:hover strong, .sidenav .nav-flyout button.flyout-link:focus-visible strong { color: var(--accent); }
+.navigator .nav-flyout input[type='search'] { margin: 0 0 0.25rem; }
+@media (max-width: 900px) { .navigator .nav-flyout { width: 300px; } .nav-flyout-cols { grid-template-columns: 1fr; } }

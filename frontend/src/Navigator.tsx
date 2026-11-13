@@ -1,5 +1,4 @@
 import { type ReactNode, useEffect, useState } from 'react';
-import { api, type ClientRecord } from './api';
 import { keycloak } from './auth';
 import type { UserContext } from './context';
 import { activeClients, type ClientRef, useClients } from './directory';
@@ -48,32 +47,21 @@ function allowed(user: UserContext, path: string): boolean {
   return suitesFor(user).some((s) => s.id === suite) && navFor(suite, user).some((i) => i.path === base);
 }
 
-function Node({ label, children, defaultOpen = false, onOpen }: { label: string; children: ReactNode; defaultOpen?: boolean; onOpen?: () => void }) {
+function Group({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <details open={defaultOpen || undefined} onToggle={(e) => (e.currentTarget.open ? onOpen?.() : undefined)}>
-      <summary>{label}</summary>
-      <div className="nav-children">{children}</div>
-    </details>
+    <div className="nav-flyout-group" role="group" aria-label={label}>
+      <div className="nav-flyout-title">{label}</div>
+      {children}
+    </div>
   );
 }
 
-function Leaf({ href, label, title }: { href: string; label: string; title?: string }) {
-  return <a href={`#${href}`} title={title}>{label}</a>;
-}
-
-function CustomerNode({ client, dossier }: { client: ClientRef; dossier: string }) {
-  const [record, setRecord] = useState<ClientRecord | null>(null);
-  const base = `${dossier}/${client.clientId}`;
-  const room = record?.rooms.find((r) => r.status === 'active') ?? record?.rooms[0];
+function Leaf({ href, label, description }: { href: string; label: string; description?: string }) {
   return (
-    <Node label={client.name} onOpen={() => (record ? undefined : void api.client(client.clientId).then(setRecord, () => undefined))}>
-      <Leaf href={room && dossier === '/nexus/clients' ? `/nexus/client-rooms/${room.id}?tab=plan` : `${base}?tab=rooms`} label={t("Actions")} title={t("Open action-plan milestones and tasks")} />
-      <Leaf href={`${base}?tab=contacts`} label={t("Contacts")} />
-      <span className="nav-disabled" title={t("Mail is not connected yet")} aria-disabled="true">{t("Mail")} · {t("not connected")}</span>
-      <Leaf href={`${base}?tab=documents`} label={t("Documents")} />
-      <Leaf href={`${base}?tab=agreements`} label={t("Contracts")} />
-      <Leaf href={`${base}?tab=invoices`} label={t("Reports")} title={t("Financials & run-rate")} />
-    </Node>
+    <a className="flyout-link" href={`#${href}`}>
+      <strong>{label}</strong>
+      {description && <span>{description}</span>}
+    </a>
   );
 }
 
@@ -89,15 +77,14 @@ function Customers({ dossier }: { dossier: string }) {
   const q = query.trim().toLowerCase();
   const shown = q ? clients.filter((c) => c.name.toLowerCase().includes(q)).slice(0, 10) : topCustomers(clients, views);
   return (
-    <Node label={t("Customers")}>
+    <Group label={q ? t("Customers") : `${t("Customers")} · ${t("Most viewed")}`}>
       <input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("Search customers")} aria-label={t("Search customers")} />
-      {!q && <span className="nav-note">{t("Most viewed")}</span>}
-      {shown.length === 0 ? <span className="nav-note">{t("No customers found")}</span> : shown.map((c) => <CustomerNode key={c.clientId} client={c} dossier={dossier} />)}
-    </Node>
+      {shown.length === 0 ? <span className="nav-note">{t("No customers found")}</span> : shown.map((c) => <Leaf key={c.clientId} href={`${dossier}/${c.clientId}`} label={c.name} />)}
+    </Group>
   );
 }
 
-/** Cross-suite tree in a flyout topic under the suite menu; every node follows the job role and edition. */
+/** Cross-suite shortcuts in a flyout topic under the suite menu; every node follows the job role and edition. */
 export function Navigator({ user, readOnlyTenant }: { user: UserContext; readOnlyTenant: boolean }) {
   useLanguage();
   const { openNew } = useShell();
@@ -105,37 +92,43 @@ export function Navigator({ user, readOnlyTenant }: { user: UserContext; readOnl
 
   const dossier = allowed(user, '/nexus/clients') ? '/nexus/clients' : allowed(user, '/symphony/clients') ? '/symphony/clients' : null;
   const actions = [
-    allowed(user, '/nexus/exceptions') && <Leaf key="open" href="/nexus/exceptions" label={t("Open workflow items")} />,
-    allowed(user, '/symphony/approvals') && <Leaf key="approvals" href="/symphony/approvals?show=pending" label={t("Status on approvals")} />,
+    allowed(user, '/nexus/exceptions') && <Leaf key="open" href="/nexus/exceptions" label={t("Open workflow items")} description={t("Exceptions that still need someone")} />,
+    allowed(user, '/symphony/approvals') && <Leaf key="approvals" href="/symphony/approvals?show=pending" label={t("Status on approvals")} description={t("Approvals waiting for a decision")} />,
   ].filter(Boolean);
   const operational = allowed(user, '/symphony/reports') ? '/symphony/reports' : allowed(user, '/retailpower/back-office') ? '/retailpower/back-office' : null;
   const reports = [
-    allowed(user, '/symphony/prognosis') && <Leaf key="fin" href="/symphony/prognosis" label={t("Financial")} />,
-    operational && <Leaf key="ops" href={operational} label={t("Operational")} />,
+    allowed(user, '/symphony/prognosis') && <Leaf key="fin" href="/symphony/prognosis" label={t("Financial")} description={t("Prognosis and run-rate")} />,
+    operational && <Leaf key="ops" href={operational} label={t("Operational")} description={t("Visit, store and field results")} />,
   ].filter(Boolean);
   const documents = allowed(user, '/nexus/clients');
   const canCreate = documents && !readOnlyTenant && !readOnlySuite('nexus', user);
 
+  const newDoc = (kind: Parameters<typeof openNew>[0], label: string) => (
+    <button type="button" className="flyout-link" onClick={() => openNew(kind)}><strong>{label}</strong></button>
+  );
+
   return (
     <NavTopic label={t("Navigator")} className="navigator">
-      <div className="nav-children">
-        {actions.length > 0 && <Node label={t("Actions")}>{actions}</Node>}
-        {dossier && <Customers dossier={dossier} />}
-        {reports.length > 0 && <Node label={t("Reports")}>{reports}</Node>}
-        {documents && (
-          <Node label={t("Documents")}>
-            {canCreate && (
-              <>
-                <button type="button" className="nav-link" onClick={() => openNew('doc_text')}>{t("New Agera.text document")}</button>
-                <button type="button" className="nav-link" onClick={() => openNew('doc_sheet')}>{t("New Agera.calc document")}</button>
-                <button type="button" className="nav-link" onClick={() => openNew('doc_slides')}>{t("New Agera.slides document")}</button>
-                <button type="button" className="nav-link" onClick={() => openNew('doc_mail')}>{t("New Agera.email")}</button>
-              </>
-            )}
-            <Leaf href="/nexus/drafts" label={t("Drafts")} title={t("Office documents not yet shared in a client room, newest first")} />
-            {allowed(user, '/nexus/print') && <Leaf href="/nexus/print" label={t("Print & Scan")} title={t("Pull printing with a release code, and scans into the client's document vault")} />}
-          </Node>
-        )}
+      <div className="nav-flyout-cols">
+        <div className="nav-flyout-col">
+          {actions.length > 0 && <Group label={t("Actions")}>{actions}</Group>}
+          {reports.length > 0 && <Group label={t("Reports")}>{reports}</Group>}
+          {documents && (
+            <Group label={t("Documents")}>
+              {canCreate && (
+                <>
+                  {newDoc('doc_text', t("New Agera.text document"))}
+                  {newDoc('doc_sheet', t("New Agera.calc document"))}
+                  {newDoc('doc_slides', t("New Agera.slides document"))}
+                  {newDoc('doc_mail', t("New Agera.email"))}
+                </>
+              )}
+              <Leaf href="/nexus/drafts" label={t("Drafts")} description={t("Office documents not yet shared in a client room, newest first")} />
+              {allowed(user, '/nexus/print') && <Leaf href="/nexus/print" label={t("Print & Scan")} description={t("Pull printing with a release code, and scans into the client's document vault")} />}
+            </Group>
+          )}
+        </div>
+        {dossier && <div className="nav-flyout-col"><Customers dossier={dossier} /></div>}
       </div>
     </NavTopic>
   );

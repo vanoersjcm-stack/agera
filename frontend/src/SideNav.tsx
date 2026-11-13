@@ -16,6 +16,9 @@ function activeItem(items: NavItem[], path: string): NavItem | undefined {
   return items.filter((i) => path === i.path || (!isSuiteHome(i.path) && path.startsWith(`${i.path}/`))).sort((a, b) => b.path.length - a.path.length)[0];
 }
 
+/** Flyouts start below the sticky top bars, so their title is never hidden behind them. */
+const barsBottom = () => Math.max(8, ...Array.from(document.querySelectorAll('.topbar, .actionbar')).map((el) => el.getBoundingClientRect().bottom + 6));
+
 const hoverCapable = () => window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
 /** One menu topic: hover (mouse) or tap/click (touch) opens a single flyout panel beside the menu. */
@@ -40,7 +43,7 @@ export function NavTopic({ label, active = false, className, children }: { label
     if (r) {
       const rtl = document.documentElement.dir === 'rtl';
       if (window.innerWidth <= 900) setPos({ top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - 308)) });
-      else setPos({ top: Math.max(8, r.top - 6), ...(rtl ? { right: window.innerWidth - r.left + 6 } : { left: r.right + 6 }) });
+      else setPos({ top: Math.max(barsBottom(), r.top - 6), ...(rtl ? { right: window.innerWidth - r.left + 6 } : { left: r.right + 6 }) });
     }
     setOpen(true);
     if (focusFirst) window.setTimeout(() => panel.current?.querySelector<HTMLElement>(FOCUSABLE)?.focus(), 0);
@@ -49,8 +52,10 @@ export function NavTopic({ label, active = false, className, children }: { label
   useLayoutEffect(() => {
     const el = panel.current;
     if (!open || !el) return undefined;
+    const minTop = window.innerWidth <= 900 ? 8 : barsBottom();
+    el.style.maxHeight = `${window.innerHeight - minTop - 8}px`;
     const overflow = el.getBoundingClientRect().bottom - (window.innerHeight - 8);
-    if (overflow > 0) el.style.top = `${Math.max(8, el.getBoundingClientRect().top - overflow)}px`;
+    if (overflow > 0) el.style.top = `${Math.max(minTop, el.getBoundingClientRect().top - overflow)}px`;
     return undefined;
   }, [open, pos]);
 
