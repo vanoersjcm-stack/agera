@@ -224,10 +224,10 @@ function AppointmentDrawer({ id, onClose, onChanged }: { id: string; onClose: ()
           <ErrorText error={error} />
           {e.status === 'scheduled' && (
             <div className="form-actions">
-              {mine && mine.response !== 'accepted' && <button disabled={busy} onClick={() => act(() => api.respondCalendarEvent(id, 'accepted'))}>{t("Accept")}</button>}
+              {mine && mine.response !== 'accepted' && <button className="primary" disabled={busy} onClick={() => act(() => api.respondCalendarEvent(id, 'accepted'))}>{t("Accept")}</button>}
               {mine && mine.response !== 'declined' && <button className="secondary" disabled={busy} onClick={() => act(() => api.respondCalendarEvent(id, 'declined'))}>{t("Decline")}</button>}
               {organiser && <button className="secondary" disabled={busy} onClick={() => setEditing(true)}>{t("Change or move")}</button>}
-              {organiser && <button className="danger" disabled={busy} onClick={() => window.confirm(t("Cancel this appointment? Invitees get a notification.")) && act(() => api.cancelCalendarEvent(id))}>{t("Cancel appointment")}</button>}
+              {organiser && <button className="secondary danger" disabled={busy} onClick={() => window.confirm(t("Cancel this appointment? Invitees get a notification.")) && act(() => api.cancelCalendarEvent(id))}>{t("Cancel appointment")}</button>}
             </div>
           )}
           <p className="muted">{tf("Created by {name}", { name: e.createdByName ?? userName(users, e.createdBy) })}</p>
@@ -281,7 +281,7 @@ function AppointmentDocuments({ event: e, myId, onChanged }: { event: CalendarEv
               <span className="cal-doc-title">{d.title}{d.kind === 'notes' && <> <StatusBadge status="ok" label={t("Meeting notes")} /></>}</span>
               <button className="secondary small" onClick={() => openDocument(d)}>{t("Open")}</button>
               {(organiser || d.addedBy === myId) && (
-                <button className="link small" disabled={busy} onClick={() => window.confirm(t("Remove this document from the appointment? The document itself is kept.")) && act(() => api.detachCalendarDocument(e.id, d.id))}>{t("Remove")}</button>
+                <button className="link-button danger" disabled={busy} onClick={() => window.confirm(t("Remove this document from the appointment? The document itself is kept.")) && act(() => api.detachCalendarDocument(e.id, d.id))}>{t("Remove")}</button>
               )}
             </li>
           ))}
@@ -290,8 +290,8 @@ function AppointmentDocuments({ event: e, myId, onChanged }: { event: CalendarEv
       {participant && (
         <div className="form-actions">
           {notes
-            ? <button onClick={() => openOfficeEditor(notes.id)}>{t("Open meeting notes")}</button>
-            : <button disabled={busy} onClick={createNotes}>{t("Create meeting notes")}</button>}
+            ? <button className="primary" onClick={() => openOfficeEditor(notes.id)}>{t("Open meeting notes")}</button>
+            : <button className="primary" disabled={busy} onClick={createNotes}>{t("Create meeting notes")}</button>}
           {!picking && <button className="secondary" onClick={() => setPicking(true)}>{t("Attach a document")}</button>}
         </div>
       )}
@@ -303,7 +303,7 @@ function AppointmentDocuments({ event: e, myId, onChanged }: { event: CalendarEv
                 <option value="">{t("Choose a document")}</option>
                 {candidates.data.map((d) => <option key={d.id} value={d.id}>{d.title}{d.clientName ? ` · ${d.clientName}` : ''}</option>)}
               </select>
-              <button disabled={busy || !choice} onClick={async () => { if (await act(() => api.attachCalendarDocument(e.id, choice))) { setChoice(''); setPicking(false); } }}>{t("Attach")}</button>
+              <button className="primary" disabled={busy || !choice} onClick={async () => { if (await act(() => api.attachCalendarDocument(e.id, choice))) { setChoice(''); setPicking(false); } }}>{t("Attach")}</button>
               <button className="secondary" onClick={() => setPicking(false)}>{t("Cancel")}</button>
             </>
           )}
