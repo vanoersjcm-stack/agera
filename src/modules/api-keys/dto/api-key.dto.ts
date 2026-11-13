@@ -5,6 +5,9 @@ export class CreateApiKeyDto {
   @ApiProperty({ maxLength: 100, example: 'Portal Production Key' })
   name!: string;
 
+  @ApiProperty({ required: false, nullable: true, example: 'Albert Heijn supplier portal', description: 'The outside party that uses this key' })
+  partyName?: string | null;
+
   @ApiPropertyOptional({ format: 'uuid', description: "Tenant the key grants access to; defaults to the caller's tenant" })
   tenantId?: string;
 
@@ -21,6 +24,9 @@ export class ApiKeyDto {
 
   @ApiProperty({ example: 'Portal Production Key' })
   name!: string;
+
+  @ApiProperty({ required: false, nullable: true, example: 'Albert Heijn supplier portal', description: 'The outside party that uses this key' })
+  partyName?: string | null;
 
   @ApiProperty({ example: 'agk_3fQx9Lm2', description: 'First characters of the key, for recognition only' })
   keyPrefix!: string;

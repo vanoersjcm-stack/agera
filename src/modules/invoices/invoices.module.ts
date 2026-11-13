@@ -10,5 +10,6 @@ import { InvoicesService } from './invoices.service.js';
   imports: [TypeOrmModule.forFeature([Invoice]), CoreModule, UserModule],
   controllers: [InvoicesController],
   providers: [InvoicesService],
+  exports: [InvoicesService],
 })
 export class InvoicesModule {}

@@ -13,6 +13,7 @@ const INTERNAL_ROLES: AccountRole[] = ['PLATFORM_ADMIN', 'HQ_ADMIN', 'ACCOUNT_MA
 
 function InviteDrawer({ canGrantPlatformAdmin, onClose, onInvited }: { canGrantPlatformAdmin: boolean; onClose: () => void; onInvited: (email: string, password: string) => void }) {
   const clients = activeClients(useClients(true));
+  const { data: org } = useLoad(() => api.tenant());
   const [form, setForm] = useState({ firstName: '', lastName: '', email: '', role: 'ACCOUNT_MANAGER' as AccountRole, clientId: '' });
   const { busy, error, run } = useAction();
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
@@ -25,7 +26,7 @@ function InviteDrawer({ canGrantPlatformAdmin, onClose, onInvited }: { canGrantP
         firstName: form.firstName.trim(),
         lastName: form.lastName.trim(),
         role: form.role,
-        ...(external ? { clientId: form.clientId } : {}),
+        ...(external ? { clientId: form.clientId, entityId: form.clientId } : { entityId: org?.id }),
       }),
     ).then((r) => r && onInvited(r.user.email, r.temporaryPassword));
   };
@@ -41,11 +42,17 @@ function InviteDrawer({ canGrantPlatformAdmin, onClose, onInvited }: { canGrantP
             {roles.map((r) => <option key={r} value={r}>{ROLE_LABEL[r]}</option>)}
           </select>
         </Field>
-        {external && (
-          <Field label={t("Client company")} hint={t("Client contacts only see this client's rooms and agreements")}>
+        {external ? (
+          <Field label={t("Entity")} hint={t("The client company this contact belongs to. Client contacts only see this client's rooms and agreements")}>
             <select required value={form.clientId} onChange={set('clientId')}>
               <option value="">{t("Choose a client…")}</option>
               {clients.map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
+            </select>
+          </Field>
+        ) : (
+          <Field label={t("Entity")} hint={t("Staff accounts are bound to your own organisation")}>
+            <select required value={org?.id ?? ''} disabled={!org} onChange={() => undefined}>
+              {org ? <option value={org.id}>{org.name}</option> : <option value="">—</option>}
             </select>
           </Field>
         )}

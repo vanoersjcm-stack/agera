@@ -11,6 +11,9 @@ export class ApiKey {
   @Column({ type: 'varchar', length: 100 })
   name!: string;
 
+  @Column({ name: 'party_name', type: 'varchar', length: 150, nullable: true })
+  partyName!: string | null;
+
   @Column({ name: 'key_prefix', type: 'varchar', length: 16 })
   keyPrefix!: string;
 

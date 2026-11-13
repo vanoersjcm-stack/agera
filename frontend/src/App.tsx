@@ -110,7 +110,9 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
     case 'symphony/organisations':
       return user.isPlatformAdmin ? <OrganisationsView route={route} /> : <NotAvailable path={route.path} />;
     case 'symphony/integrations':
-      return user.isPlatformAdmin ? <IntegrationsView route={route} /> : <NotAvailable path={route.path} />;
+      return user.isPlatformAdmin || user.role === 'admin' || user.jobRole === 'ACCOUNT_MANAGER'
+        ? <IntegrationsView route={route} canManage={user.isPlatformAdmin} />
+        : <NotAvailable path={route.path} />;
     case 'nexus/pipeline':
       return <PipelineBoard />;
     case 'nexus/deals':

@@ -62,7 +62,8 @@ const PAGE_SIZE = 50;
 export function ActivityLogView({ route }: { route: Route }) {
   const users = useUsers();
   const page = Math.max(1, Number(route.params.get('page') ?? '1') || 1);
-  const { data, error } = useLoad(() => api.auditLogs(page, PAGE_SIZE), [page]);
+  const mine = route.params.get('mine') === '1';
+  const { data, error } = useLoad(() => api.auditLogs(page, PAGE_SIZE, mine), [page, mine]);
   const pages = data ? Math.max(1, Math.ceil(data.total / PAGE_SIZE)) : 1;
   const [chain, setChain] = useState<AuditChainCheck | null>(null);
   const check = useAction();
@@ -74,6 +75,10 @@ export function ActivityLogView({ route }: { route: Route }) {
       subtitle={tr("Every change in this organisation, newest first. Entries can't be changed or deleted: each one is sealed with a SHA-256 fingerprint linked to the previous entry.")}
       actions={<button className="secondary" disabled={check.busy} onClick={verify}>{check.busy ? tr("Checking…") : tr("Check chain")}</button>}
     >
+      <div className="segmented" role="group" aria-label={tr("Show")}>
+        <button className={mine ? '' : 'active'} aria-pressed={!mine} onClick={() => navigate(withParams(route, { mine: null, page: null }))}>{tr("All activity")}</button>
+        <button className={mine ? 'active' : ''} aria-pressed={mine} onClick={() => navigate(withParams(route, { mine: '1', page: null }))}>{tr("My activity only")}</button>
+      </div>
       <ErrorText error={check.error} />
       {chain && (chain.intact
         ? <p className="callout good">{tr("Chain intact: all")} {chain.checked.toLocaleString(numberLocale())} {tr("entries match their fingerprints.")}</p>
@@ -174,7 +179,7 @@ function EditionTable({ tenants, currentId, onChanged }: { tenants: Tenant[]; cu
   );
 }
 
-function KeyRow({ apiKey, onRevoked }: { apiKey: ApiKey; onRevoked: () => void }) {
+function KeyRow({ apiKey, onRevoked, canManage }: { apiKey: ApiKey; onRevoked: () => void; canManage: boolean }) {
   const { notify } = useShell();
   const { busy, error, run } = useAction();
   const expired = apiKey.expiresAt !== null && new Date(apiKey.expiresAt) < new Date();
@@ -183,19 +188,20 @@ function KeyRow({ apiKey, onRevoked }: { apiKey: ApiKey; onRevoked: () => void }
     void run(() => api.revokeApiKey(apiKey.id)).then((r) => r !== undefined && (notify(tf("Integration key “{name}” revoked", { name: apiKey.name })), onRevoked()));
   return (
     <tr>
+      <td>{apiKey.partyName ?? '—'}</td>
       <td>{apiKey.name}</td>
       <td><code>{apiKey.keyPrefix}…</code></td>
       <td>{formatDate(apiKey.createdAt)}</td>
       <td>{apiKey.expiresAt ? <span className={expired ? 'bad' : undefined}>{formatDate(apiKey.expiresAt)}{expired ? tr(" (expired)") : ''}</span> : tr("No expiry")}</td>
       <td>
-        <button className="secondary danger small" disabled={busy} onClick={revoke}>{tr("Revoke")}</button>
+        {canManage && <button className="secondary danger small" disabled={busy} onClick={revoke}>{tr("Revoke")}</button>}
         {error && <span className="error">{error}</span>}
       </td>
     </tr>
   );
 }
 
-export function IntegrationsView({ route }: { route: Route }) {
+export function IntegrationsView({ route, canManage }: { route: Route; canManage: boolean }) {
   const { openNew } = useShell();
   const created = route.params.get('created');
   const { data, error, reload } = useLoad(() => api.apiKeys(), [created]);
@@ -203,19 +209,20 @@ export function IntegrationsView({ route }: { route: Route }) {
     <ViewFrame
       title={tr("Integrations")}
       crumbs={[SUITE_CRUMB, { label: tr("Integrations") }]}
-      subtitle={tr("Integration keys let external portals read work orders, store visits and reports of this organisation")}
-      actions={<button className="primary" onClick={() => openNew('integration_key')}>{tr("+ New integration key")}</button>}
+      subtitle={canManage ? tr("Integration keys let external portals read work orders, store visits and reports of this organisation") : tr("Integration keys let external portals read work orders, store visits and reports of this organisation. Read-only: only a platform administrator can add or revoke keys.")}
+      actions={canManage && <button className="primary" onClick={() => openNew('integration_key')}>{tr("+ New integration key")}</button>}
     >
       {!data && <Loading error={error} />}
       {data?.items.length === 0 && (
-        <EmptyState title={tr("No integration keys yet")} action={<button className="primary" onClick={() => openNew('integration_key')}>{tr("+ New integration key")}</button>}>
+        <EmptyState title={tr("No integration keys yet")} action={canManage && <button className="primary" onClick={() => openNew('integration_key')}>{tr("+ New integration key")}</button>}>
           {tr("Create a key for each external portal or system that needs read access.")}</EmptyState>
       )}
       {data && data.items.length > 0 && (
         <table className="grid">
           <thead>
             <tr>
-              <th>{tr("Name")}</th>
+              <th>{tr("Integrated party")}</th>
+              <th>{tr("Key name")}</th>
               <th>{tr("Key starts with")}</th>
               <th>{tr("Created")}</th>
               <th>{tr("Expires")}</th>
@@ -224,7 +231,7 @@ export function IntegrationsView({ route }: { route: Route }) {
           </thead>
           <tbody>
             {data.items.map((k) => (
-              <KeyRow key={k.id} apiKey={k} onRevoked={reload} />
+              <KeyRow key={k.id} apiKey={k} onRevoked={reload} canManage={canManage} />
             ))}
           </tbody>
         </table>

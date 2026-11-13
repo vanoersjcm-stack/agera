@@ -1,5 +1,7 @@
 import { Controller, DefaultValuePipe, Get, ParseIntPipe, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiProperty, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '../../auth/authenticated-user.js';
+import { CurrentUser } from '../../auth/current-user.decorator.js';
 import type { AuditLog } from '../entities/index.js';
 import { ApiErrors, ApiPagination, BEARER_AUTH, PageMetaDto } from '../http/api-docs.js';
 import { assertPagination } from '../http/validation.js';
@@ -70,14 +72,17 @@ export class AuditController {
   @Get()
   @ApiOperation({ summary: 'Audit log of the active tenant, newest first' })
   @ApiPagination()
+  @ApiQuery({ name: 'mine', required: false, description: 'true: only entries of the signed-in user (My activity only)' })
   @ApiOkResponse({ type: AuditLogPageDto })
   @ApiErrors(400)
   async list(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @CurrentUser() identity: AuthenticatedUser,
+    @Query('mine') mine?: string,
   ): Promise<AuditLogPageDto> {
     assertPagination(page, limit);
-    const result = await this.audit.findForActiveTenant(page, limit);
+    const result = await this.audit.findForActiveTenant(page, limit, mine === 'true' ? identity.keycloakId : null);
     return { ...result, items: result.items.map(toResponse) };
   }
 

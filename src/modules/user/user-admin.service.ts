@@ -48,6 +48,8 @@ export interface InviteInput {
   lastName: string;
   role: AccountRole;
   clientId: string | null;
+  /** The company the person is bound to: the active organisation for staff, the client company for client contacts. */
+  entityId: string | null;
 }
 
 @Injectable()
@@ -88,6 +90,12 @@ export class UserAdminService {
     const actor = await this.userService.resolveActor(identity);
     this.assertMayGrant(identity, input.role);
     const external = input.role === 'CLIENT_VIEWER';
+    if (external) {
+      if (input.clientId && input.entityId && input.clientId !== input.entityId) throw new BadRequestException('entityId and clientId must be the same client company');
+      input = { ...input, clientId: input.entityId ?? input.clientId };
+    } else if (input.entityId && input.entityId !== this.context.tenantId) {
+      throw new BadRequestException('entityId must be your own organisation for staff accounts');
+    }
     if (!external) await this.assertSeatAvailable();
     if (external && (!input.clientId || !(await this.clients.findOneBy({ id: input.clientId })))) {
       throw new BadRequestException('clientId must be a client of the active tenant for client users');

@@ -97,7 +97,9 @@ describe('API key management', () => {
 
   it('rejects non-admins (403) and invalid input (400)', async () => {
     assert.equal((await api(alice.token, 'POST', '/api-keys', { name: 'x', tenantId: ACME_TEST })).status, 403);
-    assert.equal((await api(alice.token, 'GET', '/api-keys')).status, 403);
+    const readable = await api<{ data?: { tenantId: string }[]; items?: { tenantId: string }[] }>(alice.token, 'GET', '/api-keys');
+    assert.equal(readable.status, 200, 'HQ admins can read the integrations of their own organisation');
+    assert.ok(new Set((readable.body.data ?? readable.body.items ?? []).map((k) => k.tenantId)).size <= 1);
     assert.equal((await send(alice.token, 'DELETE', `/api-keys/${acmeKeyId}`)).status, 403);
     for (const body of [
       {},

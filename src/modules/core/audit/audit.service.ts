@@ -42,8 +42,15 @@ export class AuditService {
     this.events.emit(AUDIT_LOG_EVENT, event);
   }
 
-  async findForActiveTenant(page: number, limit: number): Promise<AuditLogPage> {
+  async findForActiveTenant(page: number, limit: number, onlySubject: string | null = null): Promise<AuditLogPage> {
+    let where = {};
+    if (onlySubject) {
+      const [me] = await this.transaction.run((m) => m.query('SELECT id FROM users WHERE keycloak_id = $1 AND tenant_id = app_current_tenant()', [onlySubject]));
+      if (!me) return { items: [], page, limit, total: 0 };
+      where = { userId: me.id };
+    }
     const [items, total] = await this.auditLogs.findAndCount({
+      where,
       order: { createdAt: 'DESC' },
       skip: (page - 1) * limit,
       take: limit,

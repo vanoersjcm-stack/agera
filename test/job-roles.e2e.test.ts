@@ -50,7 +50,8 @@ describe('job roles (sec-2)', () => {
     assert.equal((await api(hq, 'POST', '/v1/clients', { name: 'Not allowed' })).status, 403);
     assert.notEqual((await api(hq, 'PATCH', `/v1/operations/shifts/${UNKNOWN}/validation`, { status: 'approved' })).status, 403);
     assert.equal((await api(hq, 'GET', '/tenants')).status, 403);
-    assert.equal((await api(hq, 'GET', '/api-keys')).status, 403);
+    assert.equal((await api(hq, 'GET', '/api-keys')).status, 200, 'integrations are readable');
+    assert.equal((await api(hq, 'POST', '/api-keys', { name: 'x' })).status, 403);
   });
 
   it('CLIENT_VIEWER only reaches the client portal', async () => {

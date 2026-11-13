@@ -1,5 +1,6 @@
 import { BadRequestException, Body, Controller, DefaultValuePipe, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiProperty, ApiPropertyOptional, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { AllowJobRoles } from '../auth/job-roles.js';
 import { PLATFORM_ADMIN_ROLE, Roles } from '../auth/roles.decorator.js';
 import type { User } from '../core/entities/index.js';
 import { ApiPagination, PageMetaDto } from '../core/http/api-docs.js';
@@ -128,6 +129,9 @@ export class InviteUserDto {
 
   @ApiPropertyOptional({ format: 'uuid', description: 'Required for External_Client users' })
   clientId?: string;
+
+  @ApiPropertyOptional({ format: 'uuid', description: 'Entity the person is bound to: your own organisation (tenant id) for staff, the client company for client contacts' })
+  entityId?: string;
 }
 
 export class InvitedUserDto {
@@ -216,6 +220,7 @@ export class UserController {
 
   @Post()
   @Roles('admin', PLATFORM_ADMIN_ROLE)
+  @AllowJobRoles('HQ_ADMIN')
   @ApiOperation({
     summary: 'Invite a user: creates the Keycloak account with a temporary password (audit: user.invited)',
     description: 'Only platform administrators can invite platform administrators. Returns 503 when Keycloak user management is not configured.',
@@ -234,6 +239,7 @@ export class UserController {
         lastName: requiredString('lastName', raw.lastName, 100),
         role: parseRole(raw.role),
         clientId: optionalUuid('clientId', raw.clientId),
+        entityId: optionalUuid('entityId', raw.entityId),
       },
       identity,
     );

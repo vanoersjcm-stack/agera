@@ -1,4 +1,5 @@
 import { formatNumber } from './format';
+import { formatDate } from './labels';
 import { NewPriceListForm, NewTemplateForm } from './nexus/Commercial';
 import { NewSurveyForm } from './nexus/Surveys';
 import { type DocIconKind, NewMailForm, NewSpreadsheetForm, NewTextDocumentForm } from './DocumentCreate';
@@ -7,7 +8,7 @@ import { COMPANY_SIZES, ENTITY_CATEGORY, ORGANIZATION_TYPE } from './nexus/Third
 import { NewExceptionForm } from './symphony/Workflow';
 import { NewAuditRoundForm, NewFieldOrderForm, NewPlanogramForm, NewProductForm } from './retailpower/Field';
 import { type FormEvent, useEffect, useState } from 'react';
-import { api, type Agreement, type CompanySize, type CreatedApiKey, type EntityCategory, type OrganizationType, type Store, type WorkOrder } from './api';
+import { api, type Agreement, type BillableSources, type CompanySize, type GenerateInvoiceInput, type CreatedApiKey, type EntityCategory, type OrganizationType, type Store, type WorkOrder } from './api';
 import { activeClients, clientName, invalidateDirectory, useClients, useUsers } from './directory';
 import { navigate } from './router';
 import type { NewDefaults, NewKind } from './shell';
@@ -554,6 +555,7 @@ function OrganisationForm({ onDone, onCancel }: FormProps) {
 function IntegrationKeyForm({ onDone, onCancel }: FormProps) {
   const [name, setName] = useState('');
   const [expires, setExpires] = useState('');
+  const [party, setParty] = useState('');
   const [created, setCreated] = useState<CreatedApiKey | null>(null);
   const { busy, error, run } = useAction();
   if (created) {
@@ -572,13 +574,16 @@ function IntegrationKeyForm({ onDone, onCancel }: FormProps) {
     <form
       onSubmit={(e) => {
         e.preventDefault();
-        void run(() => api.createApiKey({ name: name.trim(), expiresAt: expires ? new Date(`${expires}T23:59:59`).toISOString() : undefined })).then(
+        void run(() => api.createApiKey({ name: name.trim(), partyName: party.trim() || null, expiresAt: expires ? new Date(`${expires}T23:59:59`).toISOString() : undefined })).then(
           (k) => k && setCreated(k),
         );
       }}
     >
-      <Field label={tr("Name")} hint={tr("Which portal or system uses this key")}>
+      <Field label={tr("Key name")} hint={tr("Which portal or system uses this key")}>
         <input required maxLength={100} value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("e.g. Retailer portal")} autoFocus />
+      </Field>
+      <Field label={tr("Integrated party")} hint={tr("The outside company or organisation that uses this key")}>
+        <input maxLength={150} value={party} onChange={(e) => setParty(e.target.value)} placeholder={tr("e.g. Albert Heijn")} />
       </Field>
       <Field label={tr("Expires on")} hint={tr("Optional; leave empty for no expiry date")}>
         <input type="date" value={expires} onChange={(e) => setExpires(e.target.value)} />
@@ -593,59 +598,109 @@ function IntegrationKeyForm({ onDone, onCancel }: FormProps) {
 function InvoiceForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onSwitch: (kind: NewKind) => void }) {
   const clients = useClients();
   const today = new Date().toISOString().slice(0, 10);
-  const [form, setForm] = useState({ clientId: defaults?.clientId ?? '', invoiceNumber: '', description: '', issueDate: today, dueDate: '', amountExclVat: '', vatRate: '21', status: 'issued' });
+  const [form, setForm] = useState({ clientId: defaults?.clientId ?? '', description: '', issueDate: today, dueDate: '', vatRate: '21', visitPrice: '', freeText: '', freeAmount: '' });
+  const [agreements, setAgreements] = useState<Record<string, string>>({});
+  const [visits, setVisits] = useState<string[]>([]);
+  const [sources, setSources] = useState<BillableSources | null>(null);
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
   const { busy, error, submit } = useSubmit(onDone);
+  useEffect(() => {
+    setSources(null);
+    setAgreements({});
+    setVisits([]);
+    if (form.clientId) void api.billable(form.clientId).then(setSources).catch(() => setSources({ agreements: [], visits: [] }));
+  }, [form.clientId]);
   if (activeClients(clients).length === 0) return <NoClients onCancel={onCancel} onNewClient={() => onSwitch('client')} />;
-  const vat = form.amountExclVat ? formatNumber((Number(form.amountExclVat) * Number(form.vatRate)) / 100) : '0,00';
+  const lines: GenerateInvoiceInput['lines'] = [
+    ...Object.entries(agreements).map(([id, price]) => ({ sourceType: 'agreement' as const, sourceId: id, unitPrice: price || '0' })),
+    ...visits.map((id) => ({ sourceType: 'store_visit' as const, sourceId: id, unitPrice: form.visitPrice || '0' })),
+    ...(form.freeText.trim() && form.freeAmount ? [{ sourceType: 'manual' as const, sourceId: null, description: form.freeText.trim(), unitPrice: form.freeAmount }] : []),
+  ];
+  const subtotal = lines.reduce((sum, l) => sum + Math.round(Number(l.unitPrice) * 100), 0) / 100;
+  const vat = Math.round(subtotal * Number(form.vatRate)) / 100;
+  const toggle = (id: string, price: string) => setAgreements((cur) => {
+    const next = { ...cur };
+    if (id in next) delete next[id];
+    else next[id] = price;
+    return next;
+  });
   return (
     <form
       onSubmit={(e) =>
         submit(e, async () => {
-          const i = await api.createInvoice({
+          if (lines.length === 0) throw new Error(tr("Choose at least one agreement or store visit, or add a free line"));
+          const i = await api.generateInvoice({
             clientId: form.clientId,
-            invoiceNumber: form.invoiceNumber.trim(),
             description: form.description.trim() || null,
             issueDate: form.issueDate,
             dueDate: form.dueDate || null,
-            amountExclVat: form.amountExclVat,
-            vatAmount: vat,
-            status: form.status as 'draft' | 'issued',
+            vatRate: form.vatRate,
+            lines,
           });
-          return { route: `/symphony/clients/${i.clientId}?tab=invoices`, message: tf("Invoice {n} recorded", { n: i.invoiceNumber }) };
+          return { route: `/symphony/invoices?q=${encodeURIComponent(i.invoiceNumber)}`, message: tf("Draft invoice {n} created. Open it to send it for approval.", { n: i.invoiceNumber }) };
         })
       }
     >
+      <p className="muted">{tr("The invoice number is assigned automatically (INV-YEAR-0001, counted per organisation). The invoice starts as a draft; send it for approval in Workflow › Approvals to issue and lock it.")}</p>
       <Field label={tr("Client")}>
         <select required value={form.clientId} onChange={set('clientId')} autoFocus>
           <option value="">{tr("Choose a client…")}</option>
           {activeClients(clients).map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
         </select>
       </Field>
-      <Field label={tr("Invoice number")} hint={tr("Must be unique, e.g. INV-2026-0042")}><input required maxLength={50} value={form.invoiceNumber} onChange={set('invoiceNumber')} /></Field>
+      {form.clientId && !sources && <p className="muted">{tr("Loading…")}</p>}
+      {sources && (
+        <>
+          <Field label={tr("Approved agreements")} hint={tr("Suggested amount: one month of the annual value. You can change it.")}>
+            {sources.agreements.length === 0 && <p className="muted small">{tr("This client has no approved (active) agreements.")}</p>}
+            {sources.agreements.map((a) => (
+              <div key={a.id} className="line-row">
+                <label className="check"><input type="checkbox" checked={a.id in agreements} onChange={() => toggle(a.id, a.suggestedAmount)} /> {a.title}</label>
+                {a.id in agreements && <input type="number" min={0} step="0.01" aria-label={tr("Amount excl. VAT (EUR)")} value={agreements[a.id]} onChange={(e) => setAgreements({ ...agreements, [a.id]: e.target.value })} />}
+              </div>
+            ))}
+          </Field>
+          <Field label={tr("Completed store visits not invoiced yet")}>
+            {sources.visits.length === 0 && <p className="muted small">{tr("No completed store visits to invoice for this client.")}</p>}
+            {sources.visits.length > 0 && (
+              <>
+                <label className="check"><input type="checkbox" checked={visits.length === sources.visits.length} onChange={(e) => setVisits(e.target.checked ? sources.visits.map((v) => v.id) : [])} /> {tr("Select all")}</label>
+                <div className="scroll-list">
+                  {sources.visits.map((v) => (
+                    <label key={v.id} className="check"><input type="checkbox" checked={visits.includes(v.id)} onChange={(e) => setVisits(e.target.checked ? [...visits, v.id] : visits.filter((x) => x !== v.id))} /> {v.storeName} · {formatDate(v.visitDate)}</label>
+                  ))}
+                </div>
+              </>
+            )}
+          </Field>
+          {visits.length > 0 && <Field label={tr("Price per store visit (EUR)")}><input required type="number" min={0} step="0.01" value={form.visitPrice} onChange={set('visitPrice')} /></Field>}
+          <div className="field-row">
+            <Field label={tr("Free line (optional)")}><input maxLength={255} value={form.freeText} onChange={set('freeText')} placeholder={tr("e.g. Extra shelf service")} /></Field>
+            <Field label={tr("Amount excl. VAT (EUR)")}><input type="number" min={0} step="0.01" value={form.freeAmount} onChange={set('freeAmount')} /></Field>
+          </div>
+        </>
+      )}
       <Field label={tr("Description")}><input maxLength={255} value={form.description} onChange={set('description')} /></Field>
       <div className="field-row">
         <Field label={tr("Invoice date")}><input required type="date" value={form.issueDate} onChange={set('issueDate')} /></Field>
         <Field label={tr("Due date")}><input type="date" min={form.issueDate} value={form.dueDate} onChange={set('dueDate')} /></Field>
       </div>
-      <div className="field-row">
-        <Field label={tr("Amount excl. VAT (EUR)")}><input required type="number" min={0} step="0.01" value={form.amountExclVat} onChange={set('amountExclVat')} /></Field>
-        <Field label={tr("VAT rate")} hint={tf("VAT: € {vat}", { vat })}>
-          <select value={form.vatRate} onChange={set('vatRate')}>
-            <option value="21">21%</option>
-            <option value="9">9%</option>
-            <option value="0">{tr("0% / reverse charge")}</option>
-          </select>
-        </Field>
-      </div>
-      <Field label={tr("Status")}>
-        <select value={form.status} onChange={set('status')}>
-          <option value="issued">{tr("Sent to the client")}</option>
-          <option value="draft">{tr("Draft")}</option>
+      <Field label={tr("VAT rate")}>
+        <select value={form.vatRate} onChange={set('vatRate')}>
+          <option value="21">21%</option>
+          <option value="9">9%</option>
+          <option value="0">{tr("0% / reverse charge")}</option>
         </select>
       </Field>
+      <table className="grid totals">
+        <tbody>
+          <tr><td>{tr("Subtotal")}</td><td className="num">€ {formatNumber(subtotal)}</td></tr>
+          <tr><td>{tr("VAT")}</td><td className="num">€ {formatNumber(vat)}</td></tr>
+          <tr><th>{tr("Total")}</th><th className="num">€ {formatNumber(subtotal + vat)}</th></tr>
+        </tbody>
+      </table>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel={tr("Record invoice")} onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={tr("Create draft invoice")} onCancel={onCancel} />
     </form>
   );
 }

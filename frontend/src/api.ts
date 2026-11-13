@@ -213,7 +213,7 @@ export interface PriceListBody { name: string; clientId: string | null; validFro
 
 /* ---------- Workflow ---------- */
 
-export type ApprovalEntity = 'financial_plan' | 'agreement';
+export type ApprovalEntity = 'financial_plan' | 'agreement' | 'invoice';
 export interface ApprovalStep { id: string; stepOrder: number; approverId: string; approverName: string; decision: 'pending' | 'approved' | 'rejected'; comment: string | null; decidedAt: string | null }
 export interface Approval {
   id: string; entityType: ApprovalEntity; entityId: string; entityLabel: string; note: string | null; status: 'pending' | 'approved' | 'rejected' | 'cancelled';
@@ -294,6 +294,7 @@ export interface AuditLog {
 
 export interface ApiKey {
   id: string;
+  partyName: string | null;
   tenantId: string;
   name: string;
   keyPrefix: string;
@@ -621,6 +622,7 @@ export interface Invoice {
   dueDate: string | null;
   amountExclVat: string;
   vatAmount: string;
+  vatRate: string | null;
   totalAmount: string;
   status: InvoiceStatus;
   idmsStatus: IdmsStatus;
@@ -629,9 +631,34 @@ export interface Invoice {
   createdAt: string;
 }
 
+export interface InvoiceLine {
+  id: string;
+  position: number;
+  sourceType: 'agreement' | 'store_visit' | 'manual';
+  sourceId: string | null;
+  description: string;
+  quantity: string;
+  unitPrice: string;
+  lineTotal: string;
+}
+
+export interface BillableSources {
+  agreements: { id: string; title: string; annualValue: string; suggestedAmount: string }[];
+  visits: { id: string; storeName: string; visitDate: string }[];
+}
+
+export interface GenerateInvoiceInput {
+  clientId: string;
+  description: string | null;
+  issueDate: string;
+  dueDate: string | null;
+  vatRate: string;
+  lines: { sourceType: InvoiceLine['sourceType']; sourceId: string | null; description?: string | null; quantity?: string; unitPrice: string }[];
+}
+
 export interface InvoiceInput {
   clientId: string;
-  invoiceNumber: string;
+  invoiceNumber?: string;
   description?: string | null;
   issueDate: string;
   dueDate?: string | null;
@@ -782,7 +809,7 @@ export const api = {
   updateSavedReport: (id: string, body: { name?: string; definition?: ReportDefinition; pinned?: boolean }) => request<SavedReport>('PATCH', `/v1/reports/saved/${id}`, body),
   deleteSavedReport: (id: string) => request<void>('DELETE', `/v1/reports/saved/${id}`),
   users: () => request<UserSummary[]>('GET', '/users'),
-  auditLogs: (page: number, limit = 50) => request<Page<AuditLog>>('GET', `/audit-logs${query({ page, limit })}`),
+  auditLogs: (page: number, limit = 50, mine = false) => request<Page<AuditLog>>('GET', `/audit-logs${query({ page, limit, mine: mine ? 'true' : null })}`),
   verifyAuditChain: () => request<AuditChainCheck>('GET', '/audit-logs/verify'),
   // RetailPower operations
   opsDashboard: () => request<OpsDashboard>('GET', '/v1/operations/dashboard'),
@@ -825,7 +852,7 @@ export const api = {
   mailMergeSend: (body: MailMergeBody) => request<{ sent: number; failed: { email: string; error: string }[] }>('POST', '/v1/mail-merge/send', body),
   sendMail: (input: { to: string; subject: string; text: string; clientId?: string }) => request<{ messageId: string }>('POST', '/v1/mail/send', input),
   apiKeys: () => request<Page<ApiKey>>('GET', '/api-keys?limit=100'),
-  createApiKey: (body: { name: string; expiresAt?: string }) => request<CreatedApiKey>('POST', '/api-keys', body),
+  createApiKey: (body: { name: string; partyName?: string | null; expiresAt?: string }) => request<CreatedApiKey>('POST', '/api-keys', body),
   revokeApiKey: (id: string) => request<null>('DELETE', `/api-keys/${id}`),
   search: (q: string) => request<SearchHit[]>('GET', `/search${query({ q })}`),
 
@@ -835,7 +862,7 @@ export const api = {
   workOrderLogs: (id: string) => request<WorkOrderLog[]>('GET', `/work-orders/${id}/logs`),
   userAccounts: (params: { q?: string; role?: string; status?: string; page?: number; limit?: number }) =>
     request<UserAccountPage>('GET', `/users/accounts${query(params)}`),
-  inviteUser: (body: { email: string; firstName: string; lastName: string; role: AccountRole; clientId?: string }) =>
+  inviteUser: (body: { email: string; firstName: string; lastName: string; role: AccountRole; clientId?: string; entityId?: string }) =>
     request<{ user: UserAccount; temporaryPassword: string }>('POST', '/users', body),
   setUserProfile: (id: string, body: { title: string | null; zone: string | null }) => request<UserAccount>('PATCH', `/users/${id}/profile`, body),
   setUserRole: (id: string, role: AccountRole) => request<UserAccount>('PATCH', `/users/${id}/role`, { role }),
@@ -916,6 +943,9 @@ export const api = {
   },
   clientInvoices: (clientId: string) => request<Invoice[]>('GET', `/v1/clients/${clientId}/invoices`),
   createInvoice: (body: InvoiceInput) => request<Invoice>('POST', '/v1/invoices', body),
+  generateInvoice: (body: GenerateInvoiceInput) => request<Invoice>('POST', '/v1/invoices/generate', body),
+  billable: (clientId: string) => request<BillableSources>('GET', `/v1/clients/${clientId}/billable`),
+  invoiceLines: (id: string) => request<InvoiceLine[]>('GET', `/v1/invoices/${id}/lines`),
   setInvoiceStatus: (id: string, status: InvoiceStatus) => request<Invoice>('PATCH', `/v1/invoices/${id}/status`, { status }),
   creditHolds: (includeReleased = false) => request<CreditHold[]>('GET', `/v1/governance/credit-holds${includeReleased ? '?includeReleased=true' : ''}`),
   createCreditHold: (body: { clientId: string | null; reason: string }) => request<CreditHold>('POST', '/v1/governance/credit-holds', body),

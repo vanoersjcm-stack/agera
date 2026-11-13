@@ -15,6 +15,7 @@ const PREFIX_LENGTH = 12;
 
 export interface CreateApiKeyInput {
   name: string;
+  partyName?: string | null;
   /** Defaults to the caller's tenant. */
   tenantId: string | null;
   expiresAt: Date | null;
@@ -78,6 +79,7 @@ export class ApiKeysService {
         keys.create({
           tenantId,
           name: input.name,
+          partyName: input.partyName ?? input.name,
           keyPrefix: key.slice(0, PREFIX_LENGTH),
           keyHash: hashKey(key),
           expiresAt: input.expiresAt,

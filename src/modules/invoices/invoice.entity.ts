@@ -41,6 +41,9 @@ export class Invoice {
   @Column({ name: 'vat_amount', type: 'numeric', precision: 14, scale: 2, default: 0 })
   vatAmount!: string;
 
+  @Column({ name: 'vat_rate', type: 'numeric', precision: 5, scale: 2, nullable: true })
+  vatRate!: string | null;
+
   @Column({ type: 'varchar', length: 20, default: 'draft' })
   status!: InvoiceStatus;
 

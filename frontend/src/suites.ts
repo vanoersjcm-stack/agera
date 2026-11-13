@@ -63,10 +63,12 @@ function navItems(suite: SuiteId, user: UserContext): NavItem[] {
         ...(user.role === 'admin' || user.isPlatformAdmin
           ? [{ path: '/symphony/people', label: t("People & access"), description: t("Invite colleagues and clients, roles, deactivate accounts") }]
           : []),
+        ...(user.isPlatformAdmin || user.role === 'admin' || user.jobRole === 'ACCOUNT_MANAGER'
+          ? [{ path: '/symphony/integrations', label: t("Integrations"), description: t("Integration keys for external portals and the party that uses each") }]
+          : []),
         ...(user.isPlatformAdmin
           ? [
               { path: '/symphony/organisations', label: t("Organisations"), description: t("Your organisation and new organisations") },
-              { path: '/symphony/integrations', label: t("Integrations"), description: t("Integration keys for external portals") },
               { path: '/symphony/connections', label: t("External systems"), description: t("ERP, e-mail, OCR, voice and e-signature: not connected yet") },
             ]
           : []),

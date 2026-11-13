@@ -24,7 +24,9 @@ import {
 } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
+import { AllowJobRoles } from '../auth/job-roles.js';
 import { PLATFORM_ADMIN_ROLE, Roles } from '../auth/roles.decorator.js';
+import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { ApiErrors, ApiPagination, BEARER_AUTH } from '../core/http/api-docs.js';
 import { asObject, assertPagination, optionalUuid, parseTimestamp, requiredString } from '../core/http/validation.js';
 import type { ApiKey } from './api-key.entity.js';
@@ -36,6 +38,7 @@ function toResponse(apiKey: ApiKey): ApiKeyDto {
     id: apiKey.id,
     tenantId: apiKey.tenantId,
     name: apiKey.name,
+    partyName: apiKey.partyName ?? null,
     keyPrefix: apiKey.keyPrefix,
     createdAt: apiKey.createdAt,
     expiresAt: apiKey.expiresAt ?? null,
@@ -43,9 +46,10 @@ function toResponse(apiKey: ApiKey): ApiKeyDto {
 }
 
 function parseCreateApiKey(body: unknown): CreateApiKeyInput {
-  const { name, tenantId, expiresAt } = asObject(body);
+  const { name, partyName, tenantId, expiresAt } = asObject(body);
   return {
     name: requiredString('name', name, 100),
+    partyName: typeof partyName === 'string' && partyName.trim() ? partyName.trim().slice(0, 150) : null,
     tenantId: optionalUuid('tenantId', tenantId),
     expiresAt: parseTimestamp('expiresAt', expiresAt ?? undefined),
   };
@@ -57,7 +61,10 @@ function parseCreateApiKey(body: unknown): CreateApiKeyInput {
 @Roles(PLATFORM_ADMIN_ROLE)
 @Controller('api-keys')
 export class ApiKeysController {
-  constructor(private readonly apiKeys: ApiKeysService) {}
+  constructor(
+    private readonly apiKeys: ApiKeysService,
+    private readonly context: TenantContext,
+  ) {}
 
   @Post()
   @ApiOperation({
@@ -73,7 +80,9 @@ export class ApiKeysController {
   }
 
   @Get()
-  @ApiOperation({ summary: 'List API keys of all tenants, newest first (platform-admin)' })
+  @Roles()
+  @AllowJobRoles('HQ_ADMIN', 'ACCOUNT_MANAGER')
+  @ApiOperation({ summary: 'List integration keys, newest first. Platform admins see all tenants; HQ admins and account managers see their own organisation read-only' })
   @ApiPagination()
   @ApiQuery({ name: 'tenantId', required: false, schema: { type: 'string', format: 'uuid' } })
   @ApiOkResponse({ type: ApiKeyPageDto })
@@ -81,10 +90,12 @@ export class ApiKeysController {
   async list(
     @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
     @Query('limit', new DefaultValuePipe(20), ParseIntPipe) limit: number,
+    @CurrentUser() identity: AuthenticatedUser,
     @Query('tenantId') tenantId?: string,
   ): Promise<ApiKeyPageDto> {
     assertPagination(page, limit);
-    const result = await this.apiKeys.list(page, limit, optionalUuid('tenantId', tenantId));
+    const scope = identity.roles.includes(PLATFORM_ADMIN_ROLE) ? optionalUuid('tenantId', tenantId) : this.context.tenantId;
+    const result = await this.apiKeys.list(page, limit, scope);
     return { ...result, items: result.items.map(toResponse) };
   }
 

@@ -5,10 +5,11 @@ import { AuditService } from '../core/audit/audit.service.js';
 import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
 import { FinancialsService } from '../financials/financials.service.js';
+import { InvoicesService } from '../invoices/invoices.service.js';
 import { SalesRoomsService } from '../sales-rooms/sales-rooms.service.js';
 import { UserService } from '../user/user.service.js';
 
-export const APPROVAL_ENTITIES = ['financial_plan', 'agreement'] as const;
+export const APPROVAL_ENTITIES = ['financial_plan', 'agreement', 'invoice'] as const;
 export type ApprovalEntity = (typeof APPROVAL_ENTITIES)[number];
 export const SEVERITIES = ['low', 'medium', 'high'] as const;
 export const EXCEPTION_STATUSES = ['open', 'in_progress', 'resolved'] as const;
@@ -35,6 +36,7 @@ export class WorkflowService {
     private readonly audit: AuditService,
     private readonly financials: FinancialsService,
     private readonly salesRooms: SalesRoomsService,
+    private readonly invoices: InvoicesService,
   ) {}
 
   private get t(): string {
@@ -59,6 +61,11 @@ export class WorkflowService {
       const [p] = await m.query('SELECT model_name AS label, status FROM financial_models WHERE tenant_id = $1 AND id = $2', [this.t, id]);
       if (!p) throw new BadRequestException('entityId is not a financial plan of this organisation');
       return { label: p.label, status: p.status, link: `/nexus/financial-plans/${id}` };
+    }
+    if (type === 'invoice') {
+      const [i] = await m.query(`SELECT invoice_number AS label, status || '/' || idms_status AS status FROM invoices WHERE tenant_id = $1 AND id = $2`, [this.t, id]);
+      if (!i) throw new BadRequestException('entityId is not an invoice of this organisation');
+      return { label: i.label, status: i.status, link: `/symphony/invoices?q=${encodeURIComponent(i.label)}` };
     }
     const [a] = await m.query('SELECT title AS label, status FROM agreements WHERE tenant_id = $1 AND id = $2', [this.t, id]);
     if (!a) throw new BadRequestException('entityId is not an agreement of this organisation');
@@ -109,8 +116,9 @@ export class WorkflowService {
     const actor = await this.userService.resolveActor(identity);
     const row = await this.tx.run(async (m) => {
       const e = await this.entity(m, type, entityId);
-      const waiting = type === 'financial_plan' ? 'draft' : 'pending_approval';
-      if (e.status !== waiting) throw new ConflictException(`Only ${type === 'financial_plan' ? 'draft plans' : 'agreements awaiting approval'} can be sent for approval`);
+      const waiting = type === 'financial_plan' ? 'draft' : type === 'invoice' ? 'draft/DRAFT' : 'pending_approval';
+      const what = type === 'financial_plan' ? 'draft plans' : type === 'invoice' ? 'draft invoices' : 'agreements awaiting approval';
+      if (e.status !== waiting) throw new ConflictException(`Only ${what} can be sent for approval`);
       await this.assertUsers(m, approverIds);
       const [dup] = await m.query(`SELECT id FROM approval_requests WHERE tenant_id = $1 AND entity_id = $2 AND status = 'pending'`, [this.t, entityId]);
       if (dup) throw new ConflictException('An approval request is already pending for this record');
@@ -118,6 +126,7 @@ export class WorkflowService {
         'INSERT INTO approval_requests (tenant_id, entity_type, entity_id, entity_label, note, requested_by) VALUES ($1,$2,$3,$4,$5,$6) RETURNING id',
         [this.t, type, entityId, e.label, note, actor.id],
       );
+      if (type === 'invoice') await m.query(`UPDATE invoices SET idms_status = 'IN_REVIEW' WHERE tenant_id = $1 AND id = $2`, [this.t, entityId]);
       let order = 1;
       for (const approver of approverIds) {
         await m.query('INSERT INTO approval_steps (tenant_id, request_id, step_order, approver_id) VALUES ($1,$2,$3,$4)', [this.t, r.id, order++, approver]);
@@ -145,6 +154,7 @@ export class WorkflowService {
       const link = `/symphony/approvals/${id}`;
       if (decision === 'rejected') {
         await m.query(`UPDATE approval_requests SET status = 'rejected', decided_at = NOW() WHERE id = $1`, [id]);
+        if (r.entityType === 'invoice') await this.reopenInvoice(m, r.entityId as string);
         await this.notify(m, r.requestedById as string, `Rejected: ${r.entityLabel}`, comment, link);
         return { finished: false, request: r };
       }
@@ -158,10 +168,18 @@ export class WorkflowService {
     });
     if (finished) {
       if (request.entityType === 'financial_plan') await this.financials.updateModelStatus(request.entityId as string, 'approved', identity);
+      else if (request.entityType === 'invoice') await this.invoices.finalizeApproved(request.entityId as string, identity);
       else await this.salesRooms.updateAgreementStatus(request.entityId as string, 'active', identity);
     }
     this.audit.logAction(this.t, actor.id, `approval.${decision}`, { approvalId: id, final: finished });
     return this.approval(id);
+  }
+
+  /** A rejected or withdrawn invoice goes back from IN_REVIEW to DRAFT so it can be corrected (V32 idms_reopen). */
+  private async reopenInvoice(m: EntityManager, invoiceId: string): Promise<void> {
+    await m.query(`SELECT set_config('app.idms_reopen', 'on', true)`);
+    await m.query(`UPDATE invoices SET idms_status = 'DRAFT' WHERE tenant_id = $1 AND id = $2 AND idms_status = 'IN_REVIEW'`, [this.t, invoiceId]);
+    await m.query(`SELECT set_config('app.idms_reopen', 'off', true)`);
   }
 
   async cancelApproval(id: string, identity: AuthenticatedUser): Promise<unknown> {
@@ -173,6 +191,7 @@ export class WorkflowService {
         throw new ForbiddenException('Only the requester or an administrator can withdraw this request');
       }
       await m.query(`UPDATE approval_requests SET status = 'cancelled', decided_at = NOW() WHERE id = $1`, [id]);
+      if (r.entityType === 'invoice') await this.reopenInvoice(m, r.entityId as string);
     });
     this.audit.logAction(this.t, actor.id, 'approval.cancelled', { approvalId: id });
     return this.approval(id);

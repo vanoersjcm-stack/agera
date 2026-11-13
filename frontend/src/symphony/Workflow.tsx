@@ -12,7 +12,7 @@ import { t as tr, tf, live } from '../i18n';
 const APPROVAL_STATUS: Record<string, string> = live(() => ({ pending: tr("Pending"), approved: tr("Approved"), rejected: tr("Rejected"), cancelled: tr("Withdrawn") }));
 const SEVERITY: Record<ExceptionSeverity, string> = { low: 'Low', medium: 'Medium', high: 'High' };
 const EXC_STATUS: Record<ExceptionStatus, string> = { open: 'Open', in_progress: 'In progress', resolved: 'Resolved' };
-const ENTITY: Record<ApprovalEntity, string> = { financial_plan: 'Financial plan', agreement: 'Agreement' };
+const ENTITY: Record<ApprovalEntity, string> = { financial_plan: 'Financial plan', agreement: 'Agreement', invoice: 'Invoice' };
 
 function useMe() {
   return useLoad(() => api.me(), []).data?.id ?? null;
@@ -33,7 +33,7 @@ function RequestApprovalDrawer({ entityType, entityId, onClose, onDone }: { enti
   return (
     <Drawer title={tr("Send for approval")} onClose={onClose}>
       <form onSubmit={submit}>
-        <p className="muted">{tr("Approvers decide one after another. The last approval")} {entityType === 'agreement' ? tr("activates the agreement") : tr("approves the plan")}  {tr("automatically.")}</p>
+        <p className="muted">{tr("Approvers decide one after another. The last approval")} {entityType === 'agreement' ? tr("activates the agreement") : entityType === 'invoice' ? tr("issues and locks the invoice") : tr("approves the plan")}  {tr("automatically.")}</p>
         <Field label={tf("Approval chain ({n} of max. 5)", { n: chain.length })}>
           <ol className="chain">
             {chain.map((id, i) => (
@@ -94,7 +94,7 @@ export function ApprovalsView({ route }: { route: Route }) {
   const show = route.params.get('show') ?? 'mine';
   const list = useLoad(() => api.approvals(show === 'mine' ? { mine: true } : show === 'pending' ? { status: 'pending' } : {}), [show]);
   return (
-    <ViewFrame title={tr("Approvals")} subtitle={tr("Plans and agreements going through an approval chain")} crumbs={[{ label: tr("Symphony"), href: '#/symphony' }, { label: tr("Approvals") }]}>
+    <ViewFrame title={tr("Approvals")} subtitle={tr("Plans, agreements and invoices going through an approval chain")} crumbs={[{ label: tr("Symphony"), href: '#/symphony' }, { label: tr("Approvals") }]}>
       <div className="list-toolbar">
         <FilterChips value={show} onChange={(v) => navigate(withParams(route, { show: v === 'mine' ? null : v }))} chips={[{ value: 'mine', label: tr("Waiting for me") }, { value: 'pending', label: tr("All pending") }, { value: 'all', label: tr("All") }]} />
       </div>
@@ -129,7 +129,7 @@ export function ApprovalDossier({ id }: { id: string }) {
   const crumbs = [{ label: tr("Symphony"), href: '#/symphony' }, { label: tr("Approvals"), href: '#/symphony/approvals' }];
   if (!a.data) return <ViewFrame title={tr("Approval")} crumbs={[...crumbs, { label: tr("Loading…") }]}><Loading error={a.error} /></ViewFrame>;
   const r = a.data;
-  const link = r.entityType === 'agreement' ? `#/nexus/agreements/${r.entityId}` : `#/nexus/financial-plans/${r.entityId}`;
+  const link = r.entityType === 'agreement' ? `#/nexus/agreements/${r.entityId}` : r.entityType === 'invoice' ? `#/symphony/invoices?q=${encodeURIComponent(r.entityLabel)}` : `#/nexus/financial-plans/${r.entityId}`;
   const decide = (d: 'approved' | 'rejected') => void action.run(() => api.decideApproval(id, d, comment.trim())).then((x) => x && (notify(d === 'approved' ? tr("Approved") : tr("Rejected")), setComment(''), a.reload()));
   const myTurn = r.status === 'pending' && r.currentApproverId === me;
   return (

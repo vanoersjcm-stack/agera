@@ -1,6 +1,7 @@
 import { matchesClient, useClientFilter } from '../clientFilter';
 import { api, type Invoice, type InvoiceStatus } from '../api';
 import { formatDate } from '../labels';
+import { formatNumber } from '../format';
 import { EmptyState, ViewFrame } from '../Layout';
 import { money } from '../nexus/Clients';
 import { navigate, type Route, withParams } from '../router';
@@ -8,6 +9,9 @@ import { useShell } from '../shell';
 import { ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
 import { t, tf, live } from '../i18n';
 import { IdmsControl } from '../Idms';
+import { useState } from 'react';
+import { ApprovalPanel } from './Workflow';
+import { Drawer } from '../ui';
 
 export const INVOICE_STATUS: Record<InvoiceStatus, string> = { draft: 'Draft', issued: 'Sent', paid: 'Paid', cancelled: 'Cancelled' };
 const NEXT: Record<InvoiceStatus, { status: InvoiceStatus; label: string }[]> = live(() => ({
@@ -21,10 +25,51 @@ function badge(i: Invoice) {
   return i.overdue ? <StatusBadge status="not_compliant" label={t("Overdue")} /> : <StatusBadge status={i.status === 'paid' ? 'active' : i.status === 'cancelled' ? 'archived' : 'pending'} label={INVOICE_STATUS[i.status]} />;
 }
 
+const SOURCE: Record<string, string> = live(() => ({ agreement: t("Agreement"), store_visit: t("Store visit"), manual: t("Free line") }));
+
+/** Lines with their source agreement or store visit, totals and the approval chain. */
+function InvoiceDrawer({ invoice, onClose, onChanged }: { invoice: Invoice; onClose: () => void; onChanged: () => void }) {
+  const { data, error } = useLoad(() => api.invoiceLines(invoice.id), [invoice.id]);
+  const link = (sourceType: string, id: string | null) => (sourceType === 'agreement' ? `#/nexus/agreements/${id}` : sourceType === 'store_visit' ? `#/retailpower/store-visits/${id}` : null);
+  return (
+    <Drawer title={tf("Invoice {n}", { n: invoice.invoiceNumber })} onClose={onClose}>
+      <p className="muted">{invoice.clientName} · {formatDate(invoice.issueDate)}{invoice.description ? ` · ${invoice.description}` : ''}</p>
+      {!data && <Loading error={error} />}
+      {data && data.length === 0 && <p className="muted">{t("This invoice was recorded with one amount, without lines.")}</p>}
+      {data && data.length > 0 && (
+        <table className="grid">
+          <thead><tr><th>{t("Line")}</th><th className="num">{t("Qty")}</th><th className="num">{t("Amount")}</th></tr></thead>
+          <tbody>
+            {data.map((l) => {
+              const href = link(l.sourceType, l.sourceId);
+              return (
+                <tr key={l.id}>
+                  <td>{l.description}<br /><small className="muted">{href ? <a href={href}>{SOURCE[l.sourceType]}</a> : SOURCE[l.sourceType]}</small></td>
+                  <td className="num">{formatNumber(Number(l.quantity))} × {money(l.unitPrice)}</td>
+                  <td className="num">{money(l.lineTotal)}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+      <table className="grid totals">
+        <tbody>
+          <tr><td>{t("Subtotal")}</td><td className="num">{money(invoice.amountExclVat)}</td></tr>
+          <tr><td>{t("VAT")}{invoice.vatRate ? ` (${formatNumber(Number(invoice.vatRate), 0)}%)` : ''}</td><td className="num">{money(invoice.vatAmount)}</td></tr>
+          <tr><th>{t("Total")}</th><th className="num">{money(invoice.totalAmount)}</th></tr>
+        </tbody>
+      </table>
+      <ApprovalPanel entityType="invoice" entityId={invoice.id} canRequest={invoice.status === 'draft' && invoice.idmsStatus === 'DRAFT'} onChanged={onChanged} />
+    </Drawer>
+  );
+}
+
 /** Invoice table with status actions; shared by Symphony › Invoices and the client dossier. */
 export function InvoiceTable({ invoices, showClient, onChanged }: { invoices: Invoice[]; showClient: boolean; onChanged: () => void }) {
   const { notify } = useShell();
   const action = useAction();
+  const [open, setOpen] = useState<Invoice | null>(null);
   const change = (i: Invoice, status: InvoiceStatus) => {
     if (status === 'cancelled' && !window.confirm(tf("Cancel invoice {n}?", { n: i.invoiceNumber }))) return;
     void action.run(() => api.setInvoiceStatus(i.id, status)).then((r) => r && (notify(tf("Invoice {n}: {status}", { n: i.invoiceNumber, status: INVOICE_STATUS[status].toLowerCase() })), onChanged()));
@@ -58,7 +103,8 @@ export function InvoiceTable({ invoices, showClient, onChanged }: { invoices: In
               <td className="num">{money(i.amountExclVat)}</td>
               <td className="num">{money(i.totalAmount)}</td>
               <td className="row-actions">
-                {(i.idmsStatus === 'ARCHIVED_WORM' || i.idmsStatus === 'EXPIRED_PURGE' ? [] : NEXT[i.status]).map((n) => (
+                <button className="link-button" onClick={() => setOpen(i)}>{t("Details & approval")}</button>
+                {(i.idmsStatus === 'ARCHIVED_WORM' || i.idmsStatus === 'EXPIRED_PURGE' || i.idmsStatus === 'IN_REVIEW' ? [] : NEXT[i.status]).map((n) => (
                   <button key={n.status} className={n.status === 'cancelled' ? 'link-button danger' : 'link-button'} disabled={action.busy} onClick={() => change(i, n.status)}>
                     {n.label}
                   </button>
@@ -68,6 +114,7 @@ export function InvoiceTable({ invoices, showClient, onChanged }: { invoices: In
           ))}
         </tbody>
       </table>
+      {open && <InvoiceDrawer invoice={open} onClose={() => setOpen(null)} onChanged={() => (setOpen(null), onChanged())} />}
     </>
   );
 }
