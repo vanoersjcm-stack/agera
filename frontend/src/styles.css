@@ -851,3 +851,5 @@ tr.row-error td { background: color-mix(in srgb, var(--danger, #c0392b) 12%, tra
 }
 .sidenav .nav-flyout a.flyout-link:hover strong, .sidenav .nav-flyout a.flyout-link:focus-visible strong { color: var(--accent); }
 .sidenav .nav-topic-trigger:hover .nav-topic-caret, .sidenav .nav-topic.open > .nav-topic-trigger .nav-topic-caret { color: var(--accent); }
+/* The sticky side menu makes its own stacking layer: keep it (and its flyout panels) above the page, below the top bars and drawers */
+.workspace > .sidenav { z-index: 10; }
