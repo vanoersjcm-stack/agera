@@ -8,3 +8,5 @@ RUN npm run build
 
 FROM nginx:1.28-alpine
 COPY --from=frontend /app/dist /usr/share/nginx/html
+# Baked in (not bind-mounted): git pull replaces the file, which a running container would not see.
+COPY docker/nginx/default.conf.template /etc/nginx/templates/default.conf.template

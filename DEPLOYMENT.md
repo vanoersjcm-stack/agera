@@ -407,7 +407,7 @@ the admin console (`agera` realm → Clients → agera-backend → Credentials) 
 - The backend connects with `DB_USER`, which cannot change tables or read the migration history.
 - API keys are read-only and limited to one tenant.
 - To restrict the Keycloak admin console to an admin subnet, uncomment the `/auth/admin/` block
-  in `docker/nginx/default.conf.template` and run `./deploy.sh compose restart proxy`.
+  in `docker/nginx/default.conf.template` and run `./deploy.sh`.
 - Set `SWAGGER_ENABLED=false` and run `./deploy.sh` if the API docs should not be served.
 - The `agera-backend` client allows the password grant used in step 8, so scripts can get tokens.
   Disable "Direct access grants" for the client in Keycloak once a web front end with a login
