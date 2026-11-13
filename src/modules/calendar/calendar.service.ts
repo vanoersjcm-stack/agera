@@ -5,10 +5,12 @@ import { jobRoleOf } from '../auth/job-roles.js';
 import { AuditService } from '../core/audit/audit.service.js';
 import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
+import { OfficeService } from '../office/office.service.js';
 import { UserService } from '../user/user.service.js';
 
 export const VISIBILITIES = ['team', 'private'] as const;
 export const RESPONSES = ['accepted', 'declined'] as const;
+export const NOTE_LANGUAGES = ['en', 'nl'] as const;
 export const CALENDAR_SCOPES = ['mine', 'team'] as const;
 
 const PERSON = (a: string) => `COALESCE(NULLIF(btrim(concat_ws(' ', ${a}.first_name, ${a}.last_name)), ''), ${a}.email)`;
@@ -29,13 +31,23 @@ const EVENT_SQL = `
          e.client_id AS "clientId", c.name AS "clientName", e.store_id AS "storeId", s.name AS "storeName",
          e.created_by AS "createdBy", ${PERSON('u')} AS "createdByName", e.created_at AS "createdAt",
          COALESCE((SELECT json_agg(json_build_object('userId', a.user_id, 'name', ${PERSON('au')}, 'response', a.response) ORDER BY au.first_name)
-                     FROM calendar_event_attendees a JOIN users au ON au.id = a.user_id WHERE a.event_id = e.id), '[]') AS attendees
+                     FROM calendar_event_attendees a JOIN users au ON au.id = a.user_id WHERE a.event_id = e.id), '[]') AS attendees,
+         COALESCE((SELECT json_agg(json_build_object('id', d.id, 'title', d.title, 'fileFormat', d.file_format, 'kind', ed.kind, 'clientName', dc.name, 'addedBy', ed.added_by) ORDER BY ed.kind DESC, ed.created_at)
+                     FROM calendar_event_documents ed JOIN room_documents d ON d.tenant_id = ed.tenant_id AND d.id = ed.document_id
+                     LEFT JOIN clients dc ON dc.id = d.client_id WHERE ed.event_id = e.id), '[]') AS documents
     FROM calendar_events e JOIN users u ON u.id = e.created_by
     LEFT JOIN clients c ON c.id = e.client_id LEFT JOIN stores s ON s.id = e.store_id`;
 
 /** Private appointments are only visible to their creator and attendees. */
 const VISIBLE = `(e.visibility = 'team' OR e.created_by = $2 OR EXISTS (SELECT 1 FROM calendar_event_attendees x WHERE x.event_id = e.id AND x.user_id = $2))`;
 const MINE = `(e.created_by = $2 OR EXISTS (SELECT 1 FROM calendar_event_attendees x WHERE x.event_id = e.id AND x.user_id = $2))`;
+
+const NOTES_TEXT = {
+  en: { title: 'Meeting notes', when: 'Date and time', allDay: 'all day', location: 'Location', organiser: 'Organiser', attendees: 'Attendees', client: 'Client', agenda: 'Agenda', notes: 'Notes', actions: 'Action items', action: 'Action', owner: 'Who', due: 'When' },
+  nl: { title: 'Notulen', when: 'Datum en tijd', allDay: 'hele dag', location: 'Locatie', organiser: 'Organisator', attendees: 'Deelnemers', client: 'Klant', agenda: 'Agenda', notes: 'Aantekeningen', actions: 'Actiepunten', action: 'Actie', owner: 'Wie', due: 'Wanneer' },
+} as const;
+
+const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 @Injectable()
 export class CalendarService {
@@ -44,6 +56,7 @@ export class CalendarService {
     private readonly tx: TenantTransaction,
     private readonly users: UserService,
     private readonly audit: AuditService,
+    private readonly office: OfficeService,
   ) {}
 
   private get t(): string {
@@ -198,5 +211,77 @@ export class CalendarService {
     });
     this.audit.logAction(this.t, me, 'calendar_event.responded', { eventId: id, response });
     return row;
+  }
+
+  // Documents and meeting notes -------------------------------------------------------------------------------
+
+  private participant(e: Record<string, unknown>, me: string): boolean {
+    return e.createdBy === me || (e.attendees as { userId: string }[]).some((a) => a.userId === me);
+  }
+
+  /** Organiser and invitees link an existing document they can open; everyone who sees the appointment can then open it. */
+  async attach(id: string, documentId: string, identity: AuthenticatedUser): Promise<unknown> {
+    const me = (await this.users.resolveActor(identity)).id;
+    const row = await this.tx.run(async (m) => {
+      const cur = await this.load(m, id, me);
+      if (!this.participant(cur, me)) throw new ForbiddenException('Only the organiser and invitees can link documents');
+      if (!(await m.query('SELECT 1 FROM room_documents WHERE tenant_id = $1 AND id = $2', [this.t, documentId])).length) throw new NotFoundException('Document not found');
+      await m.query(`INSERT INTO calendar_event_documents (tenant_id, event_id, document_id, added_by) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, [this.t, id, documentId, me]);
+      return this.load(m, id, me);
+    });
+    this.audit.logAction(this.t, me, 'calendar_event.document_attached', { eventId: id, documentId });
+    return row;
+  }
+
+  /** The organiser, or whoever linked it, removes the link; the document itself is kept. */
+  async detach(id: string, documentId: string, identity: AuthenticatedUser): Promise<unknown> {
+    const me = (await this.users.resolveActor(identity)).id;
+    const row = await this.tx.run(async (m) => {
+      const cur = await this.load(m, id, me);
+      const link = (cur.documents as { id: string; addedBy: string }[]).find((d) => d.id === documentId);
+      if (!link) throw new NotFoundException('Document is not linked to this appointment');
+      if (cur.createdBy !== me && link.addedBy !== me) throw new ForbiddenException('Only the organiser or whoever linked it can remove this document');
+      await m.query('DELETE FROM calendar_event_documents WHERE tenant_id = $1 AND event_id = $2 AND document_id = $3', [this.t, id, documentId]);
+      return this.load(m, id, me);
+    });
+    this.audit.logAction(this.t, me, 'calendar_event.document_detached', { eventId: id, documentId });
+    return row;
+  }
+
+  /** One-click meeting notes: a pre-filled Agera.text document linked to the appointment (once per appointment). */
+  async meetingNotes(id: string, language: (typeof NOTE_LANGUAGES)[number], identity: AuthenticatedUser): Promise<unknown> {
+    const me = (await this.users.resolveActor(identity)).id;
+    const cur = await this.tx.run(async (m) => this.load(m, id, me));
+    if (!this.participant(cur, me)) throw new ForbiddenException('Only the organiser and invitees can create meeting notes');
+    if ((cur.documents as { kind: string }[]).some((d) => d.kind === 'notes')) return cur;
+    const l = NOTES_TEXT[language];
+    const tz = { timeZone: 'Europe/Amsterdam' } as const;
+    const loc = language === 'nl' ? 'nl-NL' : 'en-GB';
+    const start = new Date(cur.startsAt as string);
+    const end = new Date(cur.endsAt as string);
+    const when = cur.allDay
+      ? `${start.toLocaleDateString(loc, { ...tz, dateStyle: 'full' })} (${l.allDay})`
+      : `${start.toLocaleString(loc, { ...tz, dateStyle: 'full', timeStyle: 'short' })} – ${end.toLocaleTimeString(loc, { ...tz, timeStyle: 'short' })}`;
+    const people = (cur.attendees as { name: string }[]).map((a) => a.name).join(', ') || '—';
+    const row = (k: string, v: unknown) => `<tr><td style="padding:1mm 4mm 1mm 0;font-weight:bold;vertical-align:top">${esc(k)}</td><td style="padding:1mm 0">${esc(String(v ?? '—'))}</td></tr>`;
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${esc(l.title)} – ${esc(String(cur.title))}</title></head>
+<body style="font-family:Arial,sans-serif;font-size:11pt"><h1 style="font-size:16pt">${esc(l.title)}: ${esc(String(cur.title))}</h1>
+<table style="border-collapse:collapse;margin-bottom:6mm">${row(l.when, when)}${row(l.location, cur.location)}${row(l.organiser, cur.createdByName)}${row(l.attendees, people)}${row(l.client, cur.clientName)}</table>
+<h2 style="font-size:13pt">${esc(l.agenda)}</h2><p>&nbsp;</p><h2 style="font-size:13pt">${esc(l.notes)}</h2><p>&nbsp;</p>
+<h2 style="font-size:13pt">${esc(l.actions)}</h2><table style="border-collapse:collapse;width:100%"><tr><th style="text-align:left;border-bottom:1px solid #999">${esc(l.action)}</th><th style="text-align:left;border-bottom:1px solid #999">${esc(l.owner)}</th><th style="text-align:left;border-bottom:1px solid #999">${esc(l.due)}</th></tr><tr><td>&nbsp;</td><td></td><td></td></tr></table>
+</body></html>`;
+    const doc = await this.office.create(
+      {
+        clientId: (cur.clientId as string | null) ?? null, contactId: null, dealId: null, clientRoomId: null,
+        title: `${l.title} – ${String(cur.title)} – ${start.toLocaleDateString(loc, tz)}`.slice(0, 200), format: 'docx', templateId: null, starterCsv: null, html,
+      },
+      identity,
+    );
+    const result = await this.tx.run(async (m) => {
+      await m.query(`INSERT INTO calendar_event_documents (tenant_id, event_id, document_id, kind, added_by) VALUES ($1,$2,$3,'notes',$4)`, [this.t, id, doc.id, me]);
+      return this.load(m, id, me);
+    });
+    this.audit.logAction(this.t, me, 'calendar_event.meeting_notes_created', { eventId: id, documentId: doc.id });
+    return result;
   }
 }

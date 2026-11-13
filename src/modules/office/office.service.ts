@@ -100,6 +100,8 @@ export interface CreateOfficeDocument {
   starterCsv: string | null;
   /** Agera Memo: an A5 internal memo (docx). */
   memo?: MemoInput | null;
+  /** Internal callers only (e.g. calendar meeting notes): starting content as HTML, converted to docx. */
+  html?: string | null;
 }
 
 export interface MemoInput {
@@ -393,6 +395,9 @@ export class OfficeService {
     if (input.memo && input.format === 'docx') {
       const from = [identity.firstName, identity.lastName].filter(Boolean).join(' ') || identity.email;
       return this.convert(Buffer.from(memoHtml(input.memo, from), 'utf8'), 'memo.html', 'docx');
+    }
+    if (input.html && input.format === 'docx') {
+      return this.convert(Buffer.from(input.html, 'utf8'), 'document.html', 'docx');
     }
     if (input.templateId && input.format === 'docx') {
       const rendered = await this.commercial.render(input.templateId, { clientId: input.clientId, roomId: input.clientRoomId }, identity);

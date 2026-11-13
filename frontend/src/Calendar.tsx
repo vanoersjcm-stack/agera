@@ -1,9 +1,10 @@
 import { type FormEvent, useMemo, useState } from 'react';
 import { keycloak } from './auth';
-import { api, type CalendarEvent, type CalendarItem, type CalendarKind } from './api';
+import { api, type CalendarDocument, type CalendarEvent, type CalendarItem, type CalendarKind } from './api';
 import { userContext } from './context';
 import { activeClients, useClients, useUsers, userName } from './directory';
-import { live, locale, t, tf } from './i18n';
+import { getLanguage, live, locale, t, tf } from './i18n';
+import { openOfficeEditor } from './office';
 import { formatDateTime } from './labels';
 import { EmptyState, ViewFrame } from './Layout';
 import { navigate, type Route, withParams } from './router';
@@ -219,6 +220,7 @@ function AppointmentDrawer({ id, onClose, onChanged }: { id: string; onClose: ()
               {e.attendees.map((a) => <li key={a.userId}>{a.name} <StatusBadge status={a.response === 'accepted' ? 'ok' : a.response === 'declined' ? 'danger' : 'pending'} label={RESPONSE[a.response]} /></li>)}
             </ul>
           )}
+          <AppointmentDocuments event={e} myId={myId} onChanged={() => setReload((n) => n + 1)} />
           <ErrorText error={error} />
           {e.status === 'scheduled' && (
             <div className="form-actions">
@@ -232,5 +234,83 @@ function AppointmentDrawer({ id, onClose, onChanged }: { id: string; onClose: ()
         </>
       )}
     </Drawer>
+  );
+}
+
+const OFFICE_FORMATS = new Set(['docx', 'xlsx', 'pptx', 'odt', 'ods', 'odp']);
+
+function openDocument(d: CalendarDocument): void {
+  if (d.fileFormat && OFFICE_FORMATS.has(d.fileFormat)) openOfficeEditor(d.id);
+  else void api.downloadOfficeDocument(d.id, d.title);
+}
+
+/** Meeting materials and meeting notes linked to an appointment. */
+function AppointmentDocuments({ event: e, myId, onChanged }: { event: CalendarEvent; myId: string | undefined; onChanged: () => void }) {
+  const { busy, error, run } = useAction();
+  const [picking, setPicking] = useState(false);
+  const [choice, setChoice] = useState('');
+  const organiser = e.createdBy === myId;
+  const participant = organiser || e.attendees.some((a) => a.userId === myId);
+  const notes = e.documents.find((d) => d.kind === 'notes');
+  const candidates = useLoad(
+    async () => {
+      if (!picking) return [];
+      const [drafts, client] = await Promise.all([api.officeDrafts(), e.clientId ? api.officeDocuments(e.clientId) : Promise.resolve([])]);
+      const linked = new Set(e.documents.map((d) => d.id));
+      const seen = new Set<string>();
+      return [...client, ...drafts].filter((d) => !linked.has(d.id) && !seen.has(d.id) && seen.add(d.id));
+    },
+    [picking, e.id, e.documents.length],
+  );
+  const act = async (fn: () => Promise<CalendarEvent>, open?: (ev: CalendarEvent) => void) => {
+    const ev = await run(fn);
+    if (ev) { onChanged(); open?.(ev); }
+    return ev;
+  };
+  const createNotes = () => act(() => api.createMeetingNotes(e.id, getLanguage() === 'nl' ? 'nl' : 'en'), (ev) => {
+    const n = ev.documents.find((d) => d.kind === 'notes');
+    if (n) openOfficeEditor(n.id);
+  });
+  return (
+    <section className="cal-docs">
+      <h3>{t("Documents")}</h3>
+      {e.documents.length === 0 ? <p className="muted">{t("No documents linked yet")}</p> : (
+        <ul className="plain-list">
+          {e.documents.map((d) => (
+            <li key={d.id} className="cal-doc">
+              <span className="cal-doc-title">{d.title}{d.kind === 'notes' && <> <StatusBadge status="ok" label={t("Meeting notes")} /></>}</span>
+              <button className="secondary small" onClick={() => openDocument(d)}>{t("Open")}</button>
+              {(organiser || d.addedBy === myId) && (
+                <button className="link small" disabled={busy} onClick={() => window.confirm(t("Remove this document from the appointment? The document itself is kept.")) && act(() => api.detachCalendarDocument(e.id, d.id))}>{t("Remove")}</button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {participant && (
+        <div className="form-actions">
+          {notes
+            ? <button onClick={() => openOfficeEditor(notes.id)}>{t("Open meeting notes")}</button>
+            : <button disabled={busy} onClick={createNotes}>{t("Create meeting notes")}</button>}
+          {!picking && <button className="secondary" onClick={() => setPicking(true)}>{t("Attach a document")}</button>}
+        </div>
+      )}
+      {picking && (
+        <div className="cal-attach">
+          {!candidates.data ? <Loading error={candidates.error} /> : (
+            <>
+              <select value={choice} onChange={(ev) => setChoice(ev.target.value)} aria-label={t("Choose a document")}>
+                <option value="">{t("Choose a document")}</option>
+                {candidates.data.map((d) => <option key={d.id} value={d.id}>{d.title}{d.clientName ? ` · ${d.clientName}` : ''}</option>)}
+              </select>
+              <button disabled={busy || !choice} onClick={async () => { if (await act(() => api.attachCalendarDocument(e.id, choice))) { setChoice(''); setPicking(false); } }}>{t("Attach")}</button>
+              <button className="secondary" onClick={() => setPicking(false)}>{t("Cancel")}</button>
+            </>
+          )}
+        </div>
+      )}
+      <p className="muted small">{t("Everyone who can see this appointment can open its documents.")}</p>
+      <ErrorText error={error} />
+    </section>
   );
 }

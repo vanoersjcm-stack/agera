@@ -1,11 +1,11 @@
-import { BadRequestException, Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { AllowJobRoles } from '../auth/job-roles.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
 import { asObject, oneOf, optionalString, optionalUuid, parseTimestamp, requiredString } from '../core/http/validation.js';
-import { CALENDAR_SCOPES, CalendarService, type EventInput, RESPONSES, VISIBILITIES } from './calendar.service.js';
+import { CALENDAR_SCOPES, CalendarService, type EventInput, NOTE_LANGUAGES, RESPONSES, VISIBILITIES } from './calendar.service.js';
 
 const OBJ = { schema: { type: 'object' } };
 
@@ -107,5 +107,35 @@ export class CalendarController {
   @ApiErrors(400, 404)
   respond(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
     return this.calendar.respond(id, oneOf('response', asObject(body).response, RESPONSES), identity);
+  }
+
+  @Post('events/:id/documents')
+  @ApiOperation({ summary: 'Organiser or invitee: link an existing document (Agera.text/.calc/.slides or client-room document) to the appointment (audit: calendar_event.document_attached)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody(OBJ)
+  @ApiErrors(400, 403, 404)
+  attach(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    const documentId = optionalUuid('documentId', asObject(body).documentId);
+    if (!documentId) throw new BadRequestException('documentId is required');
+    return this.calendar.attach(id, documentId, identity);
+  }
+
+  @Delete('events/:id/documents/:documentId')
+  @ApiOperation({ summary: 'Organiser or whoever linked it: remove a document link; the document itself is kept (audit: calendar_event.document_detached)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiParam({ name: 'documentId', format: 'uuid' })
+  @ApiErrors(403, 404)
+  detach(@Param('id', ParseUUIDPipe) id: string, @Param('documentId', ParseUUIDPipe) documentId: string, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    return this.calendar.detach(id, documentId, identity);
+  }
+
+  @Post('events/:id/meeting-notes')
+  @ApiOperation({ summary: 'Organiser or invitee: create pre-filled meeting notes (Agera.text) linked to the appointment, once per appointment (audit: calendar_event.meeting_notes_created)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody(OBJ)
+  @ApiErrors(400, 403, 404, 503)
+  meetingNotes(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    const raw = asObject(body ?? {});
+    return this.calendar.meetingNotes(id, raw.language === undefined ? 'en' : oneOf('language', raw.language, NOTE_LANGUAGES), identity);
   }
 }

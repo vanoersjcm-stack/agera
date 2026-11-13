@@ -3,17 +3,18 @@ import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 import { api, getToken } from './helpers.ts';
 
-let hannah: string, adam: string, fiona: string, victor: string;
-let adamId: string, fionaId: string;
+let hannah: string, adam: string, fiona: string, victor: string, alice: string;
+let adamId: string, fionaId: string, hannahId: string;
 const from = '2026-12-01T00:00:00.000Z';
 const to = '2026-12-31T00:00:00.000Z';
 
-interface Ev { id: string; title: string; status: string; createdBy: string; attendees: { userId: string; response: string }[] }
+interface Ev { id: string; title: string; status: string; createdBy: string; attendees: { userId: string; response: string }[]; documents: { id: string; kind: string; title: string }[] }
 interface Item { id: string; kind: string; title: string }
 
 before(async () => {
   [hannah, adam, fiona, victor] = await Promise.all(['hannah', 'adam', 'fiona', 'victor'].map((u) => getToken(u, u)));
-  [adamId, fionaId] = await Promise.all([adam, fiona].map(async (tk) => (await api<{ id: string }>(tk, 'GET', '/users/me')).body.id));
+  alice = await getToken('alice', 'alice');
+  [adamId, fionaId, hannahId] = await Promise.all([adam, fiona, hannah].map(async (tk) => (await api<{ id: string }>(tk, 'GET', '/users/me')).body.id));
 });
 
 describe('Agera Calendar', () => {
@@ -55,5 +56,46 @@ describe('Agera Calendar', () => {
     assert.equal((await api(hannah, 'POST', '/v1/calendar/events', { title: 'x', startsAt: '2026-12-10T10:00:00Z', endsAt: '2026-12-10T09:00:00Z' })).status, 400);
     assert.equal((await api(hannah, 'POST', '/v1/calendar/events', { title: 'x', startsAt: '2026-12-10T10:00:00Z', endsAt: '2026-12-10T11:00:00Z', attendeeIds: ['00000000-0000-4000-8000-000000000000'] })).status, 400);
     assert.ok(fionaId);
+  });
+
+  it('links documents and one-click meeting notes that follow the appointment visibility', async (t) => {
+    const stamp = Date.now();
+    const team = await api<Ev>(adam, 'POST', '/v1/calendar/events', { title: `Docs ${stamp}`, startsAt: '2026-12-14T09:00:00.000Z', endsAt: '2026-12-14T10:00:00.000Z', attendeeIds: [hannahId] });
+    assert.equal(team.status, 201);
+    assert.deepEqual(team.body.documents, []);
+    const doc = await api<{ id: string }>(adam, 'POST', '/v1/documents', { title: `Agenda ${stamp}`, format: 'docx' });
+    assert.equal(doc.status, 201, JSON.stringify(doc.body));
+    assert.equal((await api(hannah, 'GET', `/v1/documents/${doc.body.id}`)).status, 404, 'a personal document starts with its creator only');
+    assert.equal((await api(hannah, 'POST', `/v1/calendar/events/${team.body.id}/documents`, { documentId: doc.body.id })).status, 404, 'an invitee cannot link a document they cannot see');
+    const linked = await api<Ev>(adam, 'POST', `/v1/calendar/events/${team.body.id}/documents`, { documentId: doc.body.id });
+    assert.equal(linked.status, 201, JSON.stringify(linked.body));
+    assert.deepEqual(linked.body.documents.map((d) => d.kind), ['attachment']);
+    assert.equal((await api(hannah, 'GET', `/v1/documents/${doc.body.id}`)).status, 200, 'linked to a team appointment, invitees can open it');
+    assert.equal((await api(alice, 'GET', `/v1/documents/${doc.body.id}`)).status, 200, 'and so can colleagues who see the team appointment');
+    assert.equal((await api(hannah, 'DELETE', `/v1/calendar/events/${team.body.id}/documents/${doc.body.id}`)).status, 403, 'only the organiser or whoever linked it removes it');
+    assert.equal((await api(adam, 'POST', `/v1/calendar/events/${team.body.id}/documents`, { documentId: 'nope' })).status, 400);
+
+    const priv = await api<Ev>(adam, 'POST', '/v1/calendar/events', { title: `Private docs ${stamp}`, startsAt: '2026-12-15T09:00:00.000Z', endsAt: '2026-12-15T10:00:00.000Z', visibility: 'private', attendeeIds: [hannahId] });
+    const doc2 = await api<{ id: string }>(adam, 'POST', '/v1/documents', { title: `Private agenda ${stamp}`, format: 'docx' });
+    assert.equal((await api(adam, 'POST', `/v1/calendar/events/${priv.body.id}/documents`, { documentId: doc2.body.id })).status, 201);
+    assert.equal((await api(hannah, 'GET', `/v1/documents/${doc2.body.id}`)).status, 200, 'invitees of a private appointment can open its documents');
+    assert.equal((await api(alice, 'GET', `/v1/documents/${doc2.body.id}`)).status, 404, 'colleagues outside a private appointment cannot');
+    assert.equal((await api(alice, 'POST', `/v1/calendar/events/${priv.body.id}/meeting-notes`, {})).status, 404);
+    assert.equal((await api(victor, 'POST', `/v1/calendar/events/${team.body.id}/meeting-notes`, {})).status, 403);
+
+    const removed = await api<Ev>(adam, 'DELETE', `/v1/calendar/events/${team.body.id}/documents/${doc.body.id}`);
+    assert.equal(removed.status, 200);
+    assert.deepEqual(removed.body.documents, []);
+    assert.equal((await api(hannah, 'GET', `/v1/documents/${doc.body.id}`)).status, 404, 'unlinked, the document is personal again');
+
+    const notes = await api<Ev>(hannah, 'POST', `/v1/calendar/events/${team.body.id}/meeting-notes`, { language: 'nl' });
+    if (notes.status === 503) return t.skip('Agera Office not connected');
+    assert.equal(notes.status, 201, JSON.stringify(notes.body));
+    const n = notes.body.documents.find((d) => d.kind === 'notes');
+    assert.ok(n && n.title.startsWith(`Notulen – Docs ${stamp}`), JSON.stringify(notes.body.documents));
+    assert.equal((await api(adam, 'GET', `/v1/documents/${n.id}`)).status, 200, 'the organiser opens notes an invitee created');
+    const again = await api<Ev>(adam, 'POST', `/v1/calendar/events/${team.body.id}/meeting-notes`, {});
+    assert.equal(again.body.documents.filter((d) => d.kind === 'notes').length, 1, 'one set of meeting notes per appointment');
+    assert.equal((await api(adam, 'POST', `/v1/calendar/events/${team.body.id}/meeting-notes`, { language: 'fr' })).status, 400);
   });
 });

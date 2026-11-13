@@ -803,10 +803,19 @@ export interface OpsDashboard {
 export type CalendarKind = 'appointment' | 'visit' | 'round' | 'milestone';
 export interface CalendarItem { id: string; kind: CalendarKind; title: string; start: string; end: string; allDay: boolean; link: string | null; ownerName: string | null; status: string | null; detail: string | null }
 export interface CalendarAttendee { userId: string; name: string; response: 'pending' | 'accepted' | 'declined' }
+export interface CalendarDocument {
+  id: string;
+  title: string;
+  fileFormat: string | null;
+  kind: 'attachment' | 'notes';
+  clientName: string | null;
+  addedBy: string;
+}
+
 export interface CalendarEvent {
   id: string; title: string; description: string | null; location: string | null; startsAt: string; endsAt: string; allDay: boolean;
   visibility: 'team' | 'private'; status: 'scheduled' | 'cancelled'; clientId: string | null; clientName: string | null; storeId: string | null; storeName: string | null;
-  createdBy: string; createdByName: string; attendees: CalendarAttendee[];
+  createdBy: string; createdByName: string; attendees: CalendarAttendee[]; documents: CalendarDocument[];
 }
 export interface CalendarEventInput { title: string; description?: string | null; location?: string | null; startsAt: string; endsAt: string; allDay?: boolean; visibility?: 'team' | 'private'; clientId?: string | null; attendeeIds?: string[] }
 
@@ -1049,6 +1058,12 @@ export const api = {
   updateCalendarEvent: (id: string, body: Partial<CalendarEventInput>) => request<CalendarEvent>('PATCH', `/v1/calendar/events/${id}`, body),
   cancelCalendarEvent: (id: string) => request<CalendarEvent>('POST', `/v1/calendar/events/${id}/cancel`),
   respondCalendarEvent: (id: string, response: 'accepted' | 'declined') => request<CalendarEvent>('POST', `/v1/calendar/events/${id}/respond`, { response }),
+  attachCalendarDocument: (id: string, documentId: string) =>
+    request<CalendarEvent>('POST', `/v1/calendar/events/${id}/documents`, { documentId }),
+  detachCalendarDocument: (id: string, documentId: string) =>
+    request<CalendarEvent>('DELETE', `/v1/calendar/events/${id}/documents/${documentId}`),
+  createMeetingNotes: (id: string, language: 'en' | 'nl') =>
+    request<CalendarEvent>('POST', `/v1/calendar/events/${id}/meeting-notes`, { language }),
   createCampaignRound: (body: { name: string; checklist: string[]; visitDate: string; merchandiserIds: string[]; storeIds: string[]; requirements: CampaignRequirements }) =>
     request<AuditRound>('POST', '/v1/field/campaign-rounds', body),
   createAuditRound: (body: { name: string; checklist: string[]; dueDate?: string | null; visitDate: string; fieldRepId?: string | null; storeIds: string[] }) =>

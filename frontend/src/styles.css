@@ -892,3 +892,8 @@ tr.row-error td { background: color-mix(in srgb, var(--danger, #c0392b) 12%, tra
 .agenda-day-time { font-variant-numeric: tabular-nums; color: var(--muted); }
 .checklist-box { max-height: 12rem; overflow: auto; border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem; display: flex; flex-direction: column; gap: 0.2rem; }
 .plain-list { list-style: none; padding: 0; display: flex; flex-direction: column; gap: 0.3rem; }
+.cal-docs { margin-top: 1rem; }
+.cal-doc { display: flex; align-items: center; gap: 0.5rem; }
+.cal-doc-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.cal-attach { display: flex; gap: 0.5rem; align-items: center; margin-top: 0.5rem; flex-wrap: wrap; }
+.cal-attach select { flex: 1; min-width: 12rem; }

@@ -1220,6 +1220,15 @@ const NL: Record<string, string> = {
   "Cancel this appointment? Invitees get a notification.": "Deze afspraak annuleren? Genodigden krijgen een melding.",
   "Cancel appointment": "Afspraak annuleren",
   "Created by {name}": "Aangemaakt door {name}",
+  "No documents linked yet": "Nog geen documenten gekoppeld",
+  "Meeting notes": "Notulen",
+  "Remove this document from the appointment? The document itself is kept.": "Dit document loskoppelen van de afspraak? Het document zelf blijft bewaard.",
+  "Open meeting notes": "Notulen openen",
+  "Create meeting notes": "Notulen maken",
+  "Attach a document": "Document koppelen",
+  "Choose a document": "Kies een document",
+  "Attach": "Koppelen",
+  "Everyone who can see this appointment can open its documents.": "Iedereen die deze afspraak kan zien, kan de documenten openen.",
 };
 const DICTIONARIES: Partial<Record<Language, Record<string, string>>> = { nl: NL };
 
