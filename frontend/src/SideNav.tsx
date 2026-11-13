@@ -164,7 +164,7 @@ export function SideNav({ items, topics, path, heading, children }: { items?: Na
       <span className="sidenav-heading">{heading}</span>
       {topics
         ? topics.map((tp) =>
-            tp.items.length === 1 && tp.id === 'overview' ? (
+            tp.items.length === 1 && (tp.id === 'overview' || tp.id === 'thirdparties') ? (
               link(tp.items[0], tp.label)
             ) : (
               <NavTopic key={tp.id} label={tp.label} active={!!active && tp.items.includes(active)}>
