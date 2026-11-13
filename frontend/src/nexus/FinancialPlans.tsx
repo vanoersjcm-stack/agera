@@ -1,8 +1,8 @@
 import { ApprovalPanel } from '../symphony/Workflow';
 import { type FormEvent, useState } from 'react';
-import { api, type Category, type LineItem, type PlanStatus } from '../api';
+import { api, type Category, type LineCategory, type LineItem, type PlanStatus } from '../api';
 import { formatAmount, varianceTone } from '../format';
-import { CATEGORY, formatDate, PLAN_STATUS } from '../labels';
+import { CATEGORY, formatDate, LINE_CATEGORY, PLAN_STATUS } from '../labels';
 import { IdmsBadge, IdmsControl } from '../Idms';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
@@ -100,8 +100,19 @@ function normaliseAmount(input: string): string {
   return s.replace(/,/g, '');
 }
 
+function LineCategoryCell({ line, editable, onSaved }: { line: LineItem; editable: boolean; onSaved: () => void }) {
+  const { busy, run } = useAction();
+  if (!editable) return <>{LINE_CATEGORY[line.lineCategory]}</>;
+  return (
+    <select aria-label={tr("Line category")} value={line.lineCategory} disabled={busy} onChange={(e) => void run(() => api.updateLineItem(line.id, { lineCategory: e.target.value as LineCategory })).then((r) => r && onSaved())}>
+      {(Object.keys(LINE_CATEGORY) as LineCategory[]).map((c) => <option key={c} value={c}>{LINE_CATEGORY[c]}</option>)}
+    </select>
+  );
+}
+
 function AddLineForm({ modelId, year, onDone, onCancel }: { modelId: string; year: number; onDone: () => void; onCancel: () => void }) {
   const [category, setCategory] = useState<Category>('revenue');
+  const [lineCategory, setLineCategory] = useState<LineCategory>('existing_contract');
   const [description, setDescription] = useState('');
   const [period, setPeriod] = useState(`${year}-Q1`);
   const [projected, setProjected] = useState('');
@@ -112,6 +123,7 @@ function AddLineForm({ modelId, year, onDone, onCancel }: { modelId: string; yea
     void run(() =>
       api.createLineItem(modelId, {
         category,
+        lineCategory,
         subcategory: description.trim() || undefined,
         periodCode: period,
         projectedAmount: normaliseAmount(projected),
@@ -138,6 +150,11 @@ function AddLineForm({ modelId, year, onDone, onCancel }: { modelId: string; yea
           </select>
         </Field>
       </div>
+      <Field label={tr("Line category")} hint={tr("Recurring baseline from existing contracts, or expansion pipeline")}>
+        <select value={lineCategory} onChange={(e) => setLineCategory(e.target.value as LineCategory)}>
+          {(Object.keys(LINE_CATEGORY) as LineCategory[]).map((c) => <option key={c} value={c}>{LINE_CATEGORY[c]}</option>)}
+        </select>
+      </Field>
       <Field label={tr("Description")} hint={tr("Optional, e.g. the project or cost type")}>
         <input maxLength={100} value={description} onChange={(e) => setDescription(e.target.value)} />
       </Field>
@@ -218,7 +235,7 @@ export function PlanDossier({ id }: { id: string }) {
       crumbs={[SUITE_CRUMB, LIST_CRUMB, { label: m.modelName }]}
       actions={
         <>
-          {m.status === 'approved' && <a className="button-link" href={`#/nexus/profit-loss?modelId=${id}`}>View in Profit &amp; loss</a>}
+          {m.status === 'approved' && <a className="button-link" href={`#/symphony/profit-loss?modelId=${id}`}>View in Profit &amp; loss</a>}
           {m.status !== 'archived' && (
             <button className="secondary" disabled={action.busy} onClick={() => setStatus('archived', 'Plan archived', 'Archive this plan? It no longer counts in Profit & loss and Alerts.')}>
               {tr("Archive")}</button>
@@ -254,6 +271,7 @@ export function PlanDossier({ id }: { id: string }) {
             <tr>
               <th>{tr("Period")}</th>
               <th>{tr("Category")}</th>
+              <th>{tr("Line category")}</th>
               <th>{tr("Description")}</th>
               <th className="num">{tr("Planned")}</th>
               <th className="num">{tr("Actual")}</th>
@@ -265,6 +283,7 @@ export function PlanDossier({ id }: { id: string }) {
               <tr key={l.id}>
                 <td>{periodLabel(l.periodCode)}</td>
                 <td>{CATEGORY[l.category]}</td>
+                <td><LineCategoryCell line={l} editable={editable} onSaved={lines.reload} /></td>
                 <td>{l.subcategory ?? '—'}</td>
                 <td className="num">{formatAmount(l.projectedAmount, l.currency)}</td>
                 <td className="num"><ActualCell line={l} editable={editable} onSaved={lines.reload} /></td>
@@ -277,6 +296,7 @@ export function PlanDossier({ id }: { id: string }) {
               <tr key={cat}>
                 <td>{tr("Total")}</td>
                 <td>{CATEGORY[cat as Category]}</td>
+                <td />
                 <td />
                 <td className="num">{formatAmount(String(t.projected), t.currency)}</td>
                 <td className="num">{formatAmount(String(t.actual), t.currency)}</td>

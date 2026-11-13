@@ -22,6 +22,8 @@ export interface ExceptionInput {
   description: string | null;
   severity: (typeof SEVERITIES)[number];
   ownerId: string | null;
+  clientContactId: string | null;
+  executiveId: string | null;
   storeId: string | null;
   clientId: string | null;
   source: string | null;
@@ -201,9 +203,12 @@ export class WorkflowService {
 
   private exceptionSql(where: string): string {
     return `SELECT e.id, e.title, e.description, e.severity, e.status, e.owner_id AS "ownerId", ${PERSON('o')} AS "ownerName",
+                   e.client_contact_id AS "clientContactId", NULLIF(btrim(concat_ws(' ', cc.first_name, cc.last_name)), '') AS "clientContactName", cc.email AS "clientContactEmail",
+                   e.executive_id AS "executiveId", ${PERSON('ex')} AS "executiveName",
                    e.store_id AS "storeId", s.name AS "storeName", e.client_id AS "clientId", c.name AS "clientName", e.source, e.resolution,
                    ${PERSON('cb')} AS "createdByName", e.resolved_at AS "resolvedAt", e.created_at AS "createdAt", e.updated_at AS "updatedAt"
               FROM exceptions e LEFT JOIN users o ON o.id = e.owner_id LEFT JOIN users cb ON cb.id = e.created_by
+              LEFT JOIN users ex ON ex.id = e.executive_id LEFT JOIN contacts cc ON cc.id = e.client_contact_id
               LEFT JOIN stores s ON s.id = e.store_id LEFT JOIN clients c ON c.id = e.client_id
              WHERE e.tenant_id = $1 ${where}`;
   }
@@ -229,13 +234,17 @@ export class WorkflowService {
   async createException(input: ExceptionInput, identity: AuthenticatedUser): Promise<unknown> {
     const actor = await this.userService.resolveActor(identity);
     const row = await this.tx.run(async (m) => {
-      await this.assertUsers(m, input.ownerId ? [input.ownerId] : []);
+      await this.assertUsers(m, [input.ownerId, input.executiveId].filter((x): x is string => !!x));
+      await this.assertContact(m, input.clientContactId, input.clientId);
       const [e] = await m.query(
-        `INSERT INTO exceptions (tenant_id, title, description, severity, owner_id, store_id, client_id, source, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`,
-        [this.t, input.title, input.description, input.severity, input.ownerId, input.storeId, input.clientId, input.source, actor.id],
+        `INSERT INTO exceptions (tenant_id, title, description, severity, owner_id, store_id, client_id, source, created_by, client_contact_id, executive_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+        [this.t, input.title, input.description, input.severity, input.ownerId, input.storeId, input.clientId, input.source, actor.id, input.clientContactId, input.executiveId],
       );
       if (input.ownerId && input.ownerId !== actor.id) await this.notify(m, input.ownerId, `Exception assigned to you: ${input.title}`, input.description, `/nexus/exceptions/${e.id}`);
+      if (input.executiveId && input.executiveId !== actor.id && input.executiveId !== input.ownerId) {
+        await this.notify(m, input.executiveId, `Exception escalation owner: ${input.title}`, input.description, `/nexus/exceptions/${e.id}`);
+      }
       const [view] = await m.query(this.exceptionSql('AND e.id = $2'), [this.t, e.id]);
       return view;
     });
@@ -249,21 +258,34 @@ export class WorkflowService {
       const [cur] = await m.query(this.exceptionSql('AND e.id = $2'), [this.t, id]);
       if (!cur) throw new NotFoundException('Exception not found');
       if (changes.ownerId) await this.assertUsers(m, [changes.ownerId]);
+      if (changes.executiveId) await this.assertUsers(m, [changes.executiveId]);
+      if (changes.clientContactId) await this.assertContact(m, changes.clientContactId, cur.clientId);
       const next = { ...cur, ...changes };
       if (next.status === 'resolved' && !next.resolution?.trim()) throw new BadRequestException('Describe the resolution before resolving');
       await m.query(
-        `UPDATE exceptions SET title=$2, description=$3, severity=$4, status=$5, owner_id=$6, resolution=$7,
+        `UPDATE exceptions SET title=$2, description=$3, severity=$4, status=$5, owner_id=$6, resolution=$7, client_contact_id=$8, executive_id=$9,
                 resolved_at = CASE WHEN $5::varchar = 'resolved' THEN COALESCE(resolved_at, NOW()) ELSE NULL END WHERE id=$1`,
-        [id, next.title, next.description, next.severity, next.status, next.ownerId, next.resolution],
+        [id, next.title, next.description, next.severity, next.status, next.ownerId, next.resolution, next.clientContactId, next.executiveId],
       );
       if (changes.ownerId && changes.ownerId !== cur.ownerId && changes.ownerId !== actor.id) {
         await this.notify(m, changes.ownerId, `Exception assigned to you: ${next.title}`, next.description, `/nexus/exceptions/${id}`);
+      }
+      if (changes.executiveId && changes.executiveId !== cur.executiveId && changes.executiveId !== actor.id) {
+        await this.notify(m, changes.executiveId, `Exception escalation owner: ${next.title}`, next.description, `/nexus/exceptions/${id}`);
       }
       const [view] = await m.query(this.exceptionSql('AND e.id = $2'), [this.t, id]);
       return view;
     });
     this.audit.logAction(this.t, actor.id, 'exception.updated', { exceptionId: id, changes: Object.keys(changes) });
     return row;
+  }
+
+  /** The client contact must be a contact of this organisation and, when the exception names a client, of that client. */
+  private async assertContact(m: EntityManager, contactId: string | null, clientId: string | null): Promise<void> {
+    if (!contactId) return;
+    const [c] = await m.query('SELECT client_id FROM contacts WHERE tenant_id = $1 AND id = $2', [this.t, contactId]);
+    if (!c) throw new BadRequestException('clientContactId is not a contact of this organisation');
+    if (clientId && c.client_id !== clientId) throw new BadRequestException('clientContactId must be a contact of the exception\'s client');
   }
 
   // Notifications ------------------------------------------------------------------------------------------------

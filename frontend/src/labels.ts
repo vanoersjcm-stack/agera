@@ -1,4 +1,4 @@
-import type { AgreementStatus, AlertType, Category, PlanStatus, RoomStatus, UserRole, VisitStatus, WorkOrderStatus } from './api';
+import type { AgreementStatus, AlertType, Category, LineCategory, PlanStatus, RoomStatus, UserRole, VisitStatus, WorkOrderStatus } from './api';
 import { t, locale, live } from './i18n';
 
 /** Single source of business-facing names (audit §9). */
@@ -31,6 +31,11 @@ export const CATEGORY: Record<Category, string> = live(() => ({
   cogs: t("Cost of goods"),
   opex: t("Operating costs"),
   license_fee: t("Licence fees"),
+}));
+
+export const LINE_CATEGORY: Record<LineCategory, string> = live(() => ({
+  existing_contract: t("Existing contract baseline"),
+  new_business: t("New business / expansion"),
 }));
 
 export const ALERT_TYPE: Record<AlertType, string> = live(() => ({

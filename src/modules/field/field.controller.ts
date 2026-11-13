@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Get, Param, ParseUUIDPipe, Patch
 import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
+import { AllowJobRoles } from '../auth/job-roles.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
 import { amount, asObject, oneOf, optionalDate, optionalString, optionalUuid, parseTimestamp, requiredString } from '../core/http/validation.js';
 import { FieldService, ORDER_STATUSES, type OrderLineInput, type PlanogramItemInput, type ProductInput } from './field.service.js';
@@ -245,6 +246,40 @@ export class FieldController {
         visitDate,
         fieldRepId: optionalUuid('fieldRepId', raw.fieldRepId),
         storeIds: uuidList('storeIds', raw.storeIds, 200),
+      },
+      identity,
+    );
+  }
+
+  @Post('campaign-rounds')
+  @AllowJobRoles('HQ_ADMIN')
+  @ApiOperation({
+    summary: 'Coordinators: plan a campaign round on one date across many stores, share the visits among several merchandisers and record vehicle, POS-material and apparel needs (audit: campaign_round.created)',
+  })
+  @ApiBody(OBJ)
+  @ApiCreatedResponse(OBJ)
+  @ApiErrors(400)
+  createCampaign(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    const raw = asObject(body);
+    const checklist = raw.checklist === undefined ? [] : raw.checklist;
+    if (!Array.isArray(checklist) || checklist.length > 30 || checklist.some((c) => typeof c !== 'string' || c.trim() === '' || c.length > 200)) {
+      throw new BadRequestException('checklist must be a list of up to 30 items (max 200 characters each)');
+    }
+    const visitDate = parseTimestamp('visitDate', raw.visitDate);
+    if (!visitDate) throw new BadRequestException('visitDate is required');
+    const req = raw.requirements === undefined ? {} : asObject(raw.requirements);
+    return this.field.createCampaign(
+      {
+        name: requiredString('name', raw.name, 200),
+        checklist: checklist.map((c: string) => c.trim()),
+        visitDate,
+        merchandiserIds: uuidList('merchandiserIds', raw.merchandiserIds, 50),
+        storeIds: uuidList('storeIds', raw.storeIds, 500),
+        requirements: {
+          vehicles: req.vehicles === undefined || req.vehicles === null ? 0 : int('requirements.vehicles', req.vehicles, 0, 500),
+          posMaterials: optionalString('requirements.posMaterials', req.posMaterials, 1000),
+          apparel: optionalString('requirements.apparel', req.apparel, 1000),
+        },
       },
       identity,
     );

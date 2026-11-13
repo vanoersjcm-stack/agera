@@ -3,6 +3,10 @@ import { Column, CreateDateColumn, Entity, PrimaryGeneratedColumn, UpdateDateCol
 export const FINANCIAL_CATEGORIES = ['revenue', 'cogs', 'opex', 'license_fee'] as const;
 export type FinancialCategory = (typeof FINANCIAL_CATEGORIES)[number];
 
+/** Recurring baseline revenue from existing contracts versus expansion / new business. */
+export const LINE_CATEGORIES = ['existing_contract', 'new_business'] as const;
+export type LineCategory = (typeof LINE_CATEGORIES)[number];
+
 export function isFinancialCategory(value: unknown): value is FinancialCategory {
   return FINANCIAL_CATEGORIES.includes(value as FinancialCategory);
 }
@@ -24,6 +28,9 @@ export class FinancialLineItem {
 
   @Column({ type: 'varchar', length: 100, nullable: true })
   subcategory!: string | null;
+
+  @Column({ name: 'line_category', type: 'varchar', length: 20, default: 'existing_contract' })
+  lineCategory!: LineCategory;
 
   @Column({ name: 'period_code', type: 'varchar', length: 10 })
   periodCode!: string;

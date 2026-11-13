@@ -7,7 +7,7 @@ import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantRepository } from '../core/tenancy/tenant-repository.js';
 import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
 import { UserService } from '../user/user.service.js';
-import { type FinancialCategory, FinancialLineItem } from './entities/financial-line-item.entity.js';
+import { type FinancialCategory, FinancialLineItem, type LineCategory } from './entities/financial-line-item.entity.js';
 import { FinancialModel, type FinancialModelStatus } from './entities/financial-model.entity.js';
 import type { PeriodFilter } from './period.js';
 import { assertStatusWritable } from '../core/idms/idms.js';
@@ -22,6 +22,7 @@ export interface CreateModelInput {
 export interface CreateLineItemInput {
   category: FinancialCategory;
   subcategory: string | null;
+  lineCategory: LineCategory;
   periodCode: string;
   projectedAmount: string;
   actualAmount: string | null;
@@ -29,6 +30,7 @@ export interface CreateLineItemInput {
 }
 
 export interface UpdateLineItemInput {
+  lineCategory?: LineCategory;
   projectedAmount?: string;
   actualAmount?: string | null;
 }
@@ -191,6 +193,9 @@ export class FinancialsService {
       if (input.actualAmount !== undefined) {
         current.actualAmount = input.actualAmount;
       }
+      if (input.lineCategory !== undefined) {
+        current.lineCategory = input.lineCategory;
+      }
       await this.lineItems.withManager(manager).save(current);
       return this.requireLineItem(manager, id);
     });
@@ -198,6 +203,7 @@ export class FinancialsService {
       lineItemId: id,
       projectedAmount: item.projectedAmount,
       actualAmount: item.actualAmount,
+      lineCategory: item.lineCategory,
     });
     return item;
   }

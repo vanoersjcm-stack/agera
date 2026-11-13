@@ -29,6 +29,7 @@ export function EditStoreDrawer({ record, onClose, onSaved }: EditProps<Store>) 
     postalCode: record.postalCode ?? '',
     city: record.city ?? '',
     country: record.country ?? '',
+    region: record.region ?? '',
     status: record.status,
     clientId: record.clientId ?? '',
   });
@@ -45,6 +46,7 @@ export function EditStoreDrawer({ record, onClose, onSaved }: EditProps<Store>) 
         postalCode: opt(form.postalCode),
         city: opt(form.city),
         country: opt(form.country),
+        region: opt(form.region),
         status: form.status,
         clientId: form.clientId || null,
       }),
@@ -59,6 +61,7 @@ export function EditStoreDrawer({ record, onClose, onSaved }: EditProps<Store>) 
         <Field label={t("Postal code")}><input maxLength={20} value={form.postalCode} onChange={set('postalCode')} /></Field>
         <Field label={t("City")}><input maxLength={100} value={form.city} onChange={set('city')} /></Field>
         <Field label={t("Country")}><input maxLength={100} value={form.country} onChange={set('country')} /></Field>
+        <Field label={t("Region")} hint={t("Used to select stores for campaign rounds")}><input maxLength={100} value={form.region} onChange={set('region')} /></Field>
         <Field label={t("Client")} hint={t("The brand or client whose products this store carries")}>
           <select value={form.clientId} onChange={set('clientId')}>
             <option value="">{t("No client")}</option>

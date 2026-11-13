@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { FINANCIAL_CATEGORIES, type FinancialCategory } from '../entities/financial-line-item.entity.js';
+import { FINANCIAL_CATEGORIES, type FinancialCategory, LINE_CATEGORIES, type LineCategory } from '../entities/financial-line-item.entity.js';
 import { FINANCIAL_MODEL_STATUSES, type FinancialModelStatus } from '../entities/financial-model.entity.js';
 
 const AMOUNT_DOC = 'Decimal amount (NUMERIC(15,2)), sent as JSON number or string, returned as string';
@@ -57,6 +57,9 @@ export class CreateFinancialLineItemDto {
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 100, example: 'Retail licences' })
   subcategory?: string | null;
 
+  @ApiPropertyOptional({ enum: LINE_CATEGORIES, default: 'existing_contract', description: 'Existing contract baseline or new business / expansion' })
+  lineCategory?: LineCategory;
+
   @ApiProperty({ example: '2026-Q1', description: 'YYYY-Qn or YYYY-MM' })
   periodCode!: string;
 
@@ -71,6 +74,9 @@ export class CreateFinancialLineItemDto {
 }
 
 export class UpdateFinancialLineItemDto {
+  @ApiPropertyOptional({ enum: LINE_CATEGORIES })
+  lineCategory?: LineCategory;
+
   @ApiPropertyOptional({ type: String, example: '125000.00', description: AMOUNT_DOC })
   projectedAmount?: string;
 
@@ -93,6 +99,9 @@ export class FinancialLineItemDto {
 
   @ApiProperty({ type: String, nullable: true })
   subcategory!: string | null;
+
+  @ApiProperty({ enum: LINE_CATEGORIES })
+  lineCategory!: LineCategory;
 
   @ApiProperty({ example: '2026-Q1' })
   periodCode!: string;

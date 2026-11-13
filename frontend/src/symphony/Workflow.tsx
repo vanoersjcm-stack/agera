@@ -1,6 +1,8 @@
 import { matchesClient, useClientFilter } from '../clientFilter';
 import { type FormEvent, useEffect, useState } from 'react';
-import { api, type ApprovalEntity, type AppNotification, type ExceptionRecord, type ExceptionSeverity, type ExceptionStatus } from '../api';
+import { api, type ApprovalEntity, type AppNotification, type Contact, type ExceptionRecord, type ExceptionSeverity, type ExceptionStatus } from '../api';
+
+const contactLabel = (c: Contact) => [c.firstName, c.lastName].filter(Boolean).join(' ') + (c.email ? ` (${c.email})` : '');
 import { useUsers, userName } from '../directory';
 import { formatDate, formatDateTime } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
@@ -175,12 +177,15 @@ export function NewExceptionForm({ defaults, onDone, onCancel }: { defaults: New
   const [description, setDescription] = useState(defaults.description ?? '');
   const [severity, setSeverity] = useState<ExceptionSeverity>('medium');
   const [ownerId, setOwnerId] = useState('');
+  const [executiveId, setExecutiveId] = useState('');
+  const [contactId, setContactId] = useState('');
   const [storeId, setStoreId] = useState(defaults.storeId ?? '');
   const [clientId, setClientId] = useState(defaults.clientId ?? '');
+  const contacts = useLoad(() => (clientId ? api.client(clientId).then((c) => c.contacts) : Promise.resolve([] as Contact[])), [clientId]);
   const { busy, error, run } = useAction();
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    void run(() => api.createException({ title: title.trim(), description: description.trim() || null, severity, ownerId: ownerId || null, storeId: storeId || null, clientId: clientId || null, source: defaults.source || null })).then(
+    void run(() => api.createException({ title: title.trim(), description: description.trim() || null, severity, ownerId: ownerId || null, executiveId: executiveId || null, clientContactId: contactId || null, storeId: storeId || null, clientId: clientId || null, source: defaults.source || null })).then(
       (r) => r && onDone(`/nexus/exceptions/${r.id}`, 'Exception logged'),
     );
   };
@@ -191,11 +196,20 @@ export function NewExceptionForm({ defaults, onDone, onCancel }: { defaults: New
       <Field label={tr("Severity")}>
         <select value={severity} onChange={(e) => setSeverity(e.target.value as ExceptionSeverity)}>{Object.entries(SEVERITY).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>
       </Field>
-      <Field label={tr("Owner")} hint={tr("The owner gets a notification")}>
-        <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)}><option value="">{tr("Unassigned")}</option>{users.map((u) => <option key={u.id} value={u.id}>{userName(users, u.id)}</option>)}</select>
-      </Field>
       <Field label={tr("Store")}><select value={storeId} onChange={(e) => setStoreId(e.target.value)}><option value="">—</option>{stores.data?.items.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></Field>
-      <Field label={tr("Client")}><select value={clientId} onChange={(e) => setClientId(e.target.value)}><option value="">—</option>{clients.data?.filter((c) => c.status === 'active').map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+      <Field label={tr("Client")}><select value={clientId} onChange={(e) => (setClientId(e.target.value), setContactId(''))}><option value="">—</option>{clients.data?.filter((c) => c.status === 'active').map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></Field>
+      <fieldset className="card-panel">
+        <legend>{tr("Responsible parties")}</legend>
+        <Field label={tr("Client contact")} hint={clientId ? tr("The contact at the client who is involved") : tr("Choose a client first")}>
+          <select value={contactId} disabled={!clientId} onChange={(e) => setContactId(e.target.value)}><option value="">—</option>{contacts.data?.map((c) => <option key={c.id} value={c.id}>{contactLabel(c)}</option>)}</select>
+        </Field>
+        <Field label={tr("Agera account manager")} hint={tr("Commercial owner; gets a notification")}>
+          <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)}><option value="">{tr("Unassigned")}</option>{users.map((u) => <option key={u.id} value={u.id}>{userName(users, u.id)}</option>)}</select>
+        </Field>
+        <Field label={tr("Responsible Agera executive")} hint={tr("Escalation owner; gets a notification")}>
+          <select value={executiveId} onChange={(e) => setExecutiveId(e.target.value)}><option value="">{tr("Unassigned")}</option>{users.map((u) => <option key={u.id} value={u.id}>{userName(users, u.id)}</option>)}</select>
+        </Field>
+      </fieldset>
       <ErrorText error={error} />
       <FormActions busy={busy} submitLabel={tr("Log exception")} onCancel={onCancel} />
     </form>
@@ -216,13 +230,13 @@ export function ExceptionsView({ route }: { route: Route }) {
       {list.data?.length === 0 && <EmptyState title={tr("No exceptions")}>{tr("Log one with “+ New exception”, or from an alert.")}</EmptyState>}
       {list.data && list.data.length > 0 && (
         <table className="grid clickable">
-          <thead><tr><th>{tr("Exception")}</th><th>{tr("Severity")}</th><th>{tr("Owner")}</th><th>{tr("Store / client")}</th><th>{tr("Status")}</th></tr></thead>
+          <thead><tr><th>{tr("Exception")}</th><th>{tr("Severity")}</th><th>{tr("Responsible")}</th><th>{tr("Store / client")}</th><th>{tr("Status")}</th></tr></thead>
           <tbody>
             {list.data.filter((e) => matchesClient(clientFilter, e.clientId)).map((e) => (
               <tr key={e.id} onClick={() => navigate(`/nexus/exceptions/${e.id}`)}>
                 <td><a href={`#/nexus/exceptions/${e.id}`}>{e.title}</a><div className="muted small">{formatDate(e.createdAt)}</div></td>
                 <td><StatusBadge status={e.severity === 'high' ? 'not_compliant' : e.severity === 'medium' ? 'needs_follow_up' : 'compliant'} label={SEVERITY[e.severity]} /></td>
-                <td>{e.ownerName ?? tr("Unassigned")}</td>
+                <td>{e.ownerName ?? tr("Unassigned")}{(e.executiveName || e.clientContactName) && <div className="muted small">{[e.executiveName && `${tr("Executive")}: ${e.executiveName}`, e.clientContactName && `${tr("Client")}: ${e.clientContactName}`].filter(Boolean).join(' · ')}</div>}</td>
                 <td>{[e.storeName, e.clientName].filter(Boolean).join(' · ') || '—'}</td>
                 <td><StatusBadge status={e.status === 'resolved' ? 'active' : 'pending_approval'} label={EXC_STATUS[e.status]} /></td>
               </tr>
@@ -238,6 +252,7 @@ export function ExceptionDossier({ id }: { id: string }) {
   const { notify } = useShell();
   const users = useUsers();
   const ex = useLoad(() => api.exception(id), [id]);
+  const contacts = useLoad(() => (ex.data?.clientId ? api.client(ex.data.clientId).then((c) => c.contacts) : Promise.resolve([] as Contact[])), [ex.data?.clientId]);
   const [resolution, setResolution] = useState('');
   const action = useAction();
   const crumbs = [{ label: tr("Nexus"), href: '#/nexus' }, { label: tr("Exceptions"), href: '#/nexus/exceptions' }];
@@ -251,7 +266,9 @@ export function ExceptionDossier({ id }: { id: string }) {
       <DetailList
         items={[
           ['Severity', SEVERITY[e.severity]],
-          ['Owner', <select value={e.ownerId ?? ''} disabled={e.status === 'resolved'} onChange={(x) => save({ ownerId: x.target.value || null }, 'Owner changed')}><option value="">{tr("Unassigned")}</option>{users.map((u) => <option key={u.id} value={u.id}>{userName(users, u.id)}</option>)}</select>],
+          ['Client contact', <select value={e.clientContactId ?? ''} disabled={e.status === 'resolved' || !e.clientId} onChange={(x) => save({ clientContactId: x.target.value || null }, tr("Client contact changed"))}><option value="">{e.clientId ? '—' : tr("No client linked")}</option>{contacts.data?.map((c) => <option key={c.id} value={c.id}>{contactLabel(c)}</option>)}</select>],
+          ['Agera account manager', <select value={e.ownerId ?? ''} disabled={e.status === 'resolved'} onChange={(x) => save({ ownerId: x.target.value || null }, tr("Account manager changed"))}><option value="">{tr("Unassigned")}</option>{users.map((u) => <option key={u.id} value={u.id}>{userName(users, u.id)}</option>)}</select>],
+          ['Responsible Agera executive', <select value={e.executiveId ?? ''} disabled={e.status === 'resolved'} onChange={(x) => save({ executiveId: x.target.value || null }, tr("Executive changed"))}><option value="">{tr("Unassigned")}</option>{users.map((u) => <option key={u.id} value={u.id}>{userName(users, u.id)}</option>)}</select>],
           ['Store', e.storeId ? <a href={`#/retailpower/stores/${e.storeId}`}>{e.storeName}</a> : '—'],
           ['Client', e.clientId ? <a href={`#/nexus/clients/${e.clientId}`}>{e.clientName}</a> : '—'],
           ['Source', e.source || 'Logged manually'],

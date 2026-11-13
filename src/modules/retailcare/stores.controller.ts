@@ -19,6 +19,7 @@ function toResponse(store: Store): StoreDto {
     city: store.city ?? null,
     postalCode: store.postalCode ?? null,
     country: store.country ?? null,
+    region: store.region ?? null,
     status: store.status,
     clientId: store.clientId ?? null,
     createdAt: store.createdAt,
@@ -27,7 +28,7 @@ function toResponse(store: Store): StoreDto {
 }
 
 function parseCreateStore(body: unknown): CreateStoreInput {
-  const { storeCode, name, address, city, postalCode, country, clientId } = asObject(body);
+  const { storeCode, name, address, city, postalCode, country, region, clientId } = asObject(body);
   return {
     storeCode: requiredString('storeCode', storeCode, 50),
     name: requiredString('name', name, 200),
@@ -35,6 +36,7 @@ function parseCreateStore(body: unknown): CreateStoreInput {
     city: optionalString('city', city, 100),
     postalCode: optionalString('postalCode', postalCode, 20),
     country: optionalString('country', country, 100) ?? 'ES',
+    region: optionalString('region', region, 100),
     clientId: optionalUuid('clientId', clientId),
   };
 }
@@ -44,7 +46,7 @@ function parseUpdateStore(body: unknown): UpdateStoreInput {
   const out: UpdateStoreInput = {};
   if (raw.storeCode !== undefined) out.storeCode = requiredString('storeCode', raw.storeCode, 50);
   if (raw.name !== undefined) out.name = requiredString('name', raw.name, 200);
-  for (const [key, max] of [['address', 255], ['city', 100], ['postalCode', 20], ['country', 100]] as const) {
+  for (const [key, max] of [['address', 255], ['city', 100], ['postalCode', 20], ['country', 100], ['region', 100]] as const) {
     if (raw[key] !== undefined) out[key] = optionalString(key, raw[key], max);
   }
   if (raw.clientId !== undefined) out.clientId = optionalUuid('clientId', raw.clientId);

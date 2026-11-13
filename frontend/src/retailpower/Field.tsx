@@ -1,12 +1,13 @@
 import { matchesClient, useClientFilter } from '../clientFilter';
 import { type FormEvent, useMemo, useState } from 'react';
 import { api, type AuditRound, type FieldOrder, type FieldOrderStatus, type Planogram, type Product } from '../api';
-import { useUsers, userName } from '../directory';
+import { useClients, useUsers, userName } from '../directory';
 import { COMPLIANCE, formatDate, formatDateTime, VISIT_STATUS } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { money } from '../nexus/Clients';
 import { navigate, type Route, withParams } from '../router';
 import { type NewDefaults, useShell } from '../shell';
+import { userContext } from '../context';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
 import { t, tf, locale, live } from '../i18n';
 
@@ -302,7 +303,17 @@ export function FieldOrdersView({ route }: { route: Route }) {
   const orders = useLoad(() => api.fieldOrders(status || undefined), [status]);
   const clientFilter = useClientFilter();
   return (
-    <ViewFrame title={t("Field orders")} subtitle={t("Orders taken in stores, from draft to delivery")} crumbs={[SUITE, { label: t("Field orders") }]} actions={<button className="primary" onClick={() => openNew('field_order')}>{t("+ New field order")}</button>}>
+    <ViewFrame
+      title={t("Field orders")}
+      subtitle={t("Rep logistics and dispatch: orders taken in stores, from draft to delivery, and campaign rounds that send several merchandisers out on one date")}
+      crumbs={[SUITE, { label: t("Field orders") }]}
+      actions={
+        <>
+          {canPlanCampaign() && <button className="secondary" onClick={() => openNew('campaign_round')}>{t("+ New campaign round")}</button>}
+          <button className="primary" onClick={() => openNew('field_order')}>{t("+ New field order")}</button>
+        </>
+      }
+    >
       <div className="list-toolbar">
         <FilterChips value={status} onChange={(v) => navigate(withParams(route, { status: v || null }))} chips={[{ value: '', label: t("All") }, ...Object.entries(ORDER_STATUS).map(([value, label]) => ({ value, label }))]} />
       </div>
@@ -401,6 +412,90 @@ export function FieldOrderDossier({ id }: { id: string }) {
 
 /* ---------- Audit rounds ---------- */
 
+/** Campaign rounds are planned by coordinators (HQ admins); the backend refuses everyone else. */
+export function canPlanCampaign(): boolean {
+  const u = userContext();
+  return u.jobRole === null || u.jobRole === 'PLATFORM_ADMIN' || u.jobRole === 'HQ_ADMIN';
+}
+
+const distinct = (values: (string | null | undefined)[]) => [...new Set(values.filter((v): v is string => !!v?.trim()))].sort((a, b) => a.localeCompare(b));
+
+export function NewCampaignRoundForm({ onDone, onCancel }: FormProps) {
+  const stores = useLoad(() => api.stores(), []);
+  const crew = useLoad(() => api.crew().catch(() => []), []);
+  const users = useUsers();
+  const clients = useClients();
+  const [name, setName] = useState('');
+  const [visitDate, setVisitDate] = useState('');
+  const [chain, setChain] = useState('');
+  const [region, setRegion] = useState('');
+  const [country, setCountry] = useState('');
+  const [selected, setSelected] = useState<string[]>([]);
+  const [reps, setReps] = useState<string[]>([]);
+  const [vehicles, setVehicles] = useState('0');
+  const [pos, setPos] = useState('');
+  const [apparel, setApparel] = useState('');
+  const [checklist, setChecklist] = useState('');
+  const { busy, error, run } = useAction();
+  const all = (stores.data?.items ?? []).filter((s) => s.status !== 'closed');
+  const shown = all.filter((s) => (!chain || s.clientId === chain) && (!region || s.region === region) && (!country || s.country === country));
+  const chains = clients.filter((c) => all.some((s) => s.clientId === c.clientId));
+  const people = (crew.data ?? []).length > 0 ? (crew.data ?? []).filter((c) => c.isActive && c.availability !== 'inactive').map((c) => ({ id: c.userId, name: c.name, note: c.homeRegion })) : users.map((u) => ({ id: u.id, name: userName(users, u.id), note: null as string | null }));
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    void run(() =>
+      api.createCampaignRound({
+        name: name.trim(),
+        visitDate: new Date(visitDate).toISOString(),
+        storeIds: selected,
+        merchandiserIds: reps,
+        checklist: checklist.split('\n').map((c) => c.trim()).filter(Boolean),
+        requirements: { vehicles: Number(vehicles) || 0, posMaterials: pos.trim() || null, apparel: apparel.trim() || null },
+      }),
+    ).then((r) => r && onDone(`/retailpower/audit-rounds/${r.id}`, tf("Campaign round created: {n} store visits for {m} merchandisers", { n: selected.length, m: reps.length })));
+  };
+  return (
+    <form onSubmit={submit}>
+      <Field label={t("Name")}><input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} placeholder={t("e.g. Spring promotion week 12")} autoFocus /></Field>
+      <Field label={t("Target date and start time")}><input required type="datetime-local" value={visitDate} onChange={(e) => setVisitDate(e.target.value)} /></Field>
+      <Field label={tf("Stores ({n} selected)", { n: selected.length })} hint={t("Filter by chain, region or country, then select the stores")}>
+        <div className="field-row">
+          <select aria-label={t("Chain")} value={chain} onChange={(e) => setChain(e.target.value)}><option value="">{t("All chains")}</option>{chains.map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}</select>
+          <select aria-label={t("Region")} value={region} onChange={(e) => setRegion(e.target.value)}><option value="">{t("All regions")}</option>{distinct(all.map((s) => s.region)).map((r) => <option key={r} value={r}>{r}</option>)}</select>
+          <select aria-label={t("Country")} value={country} onChange={(e) => setCountry(e.target.value)}><option value="">{t("All countries")}</option>{distinct(all.map((s) => s.country)).map((c) => <option key={c} value={c}>{c}</option>)}</select>
+        </div>
+        <div className="check-list">
+          <label className="check-row"><input type="checkbox" checked={shown.length > 0 && shown.every((s) => selected.includes(s.id))} onChange={(e) => setSelected(e.target.checked ? [...new Set([...selected, ...shown.map((s) => s.id)])] : selected.filter((id) => !shown.some((s) => s.id === id)))} /> <strong>{tf("Select all shown ({n})", { n: shown.length })}</strong></label>
+          {shown.map((s) => (
+            <label key={s.id} className="check-row">
+              <input type="checkbox" checked={selected.includes(s.id)} onChange={(e) => setSelected(e.target.checked ? [...selected, s.id] : selected.filter((x) => x !== s.id))} /> {s.name} <span className="muted small">{[s.storeCode, s.city, s.region, s.country].filter(Boolean).join(' · ')}</span>
+            </label>
+          ))}
+        </div>
+      </Field>
+      <Field label={tf("Merchandisers ({n} selected)", { n: reps.length })} hint={t("The store visits are shared out among them in turn")}>
+        <div className="check-list">
+          {people.map((p) => (
+            <label key={p.id} className="check-row"><input type="checkbox" checked={reps.includes(p.id)} onChange={(e) => setReps(e.target.checked ? [...reps, p.id] : reps.filter((x) => x !== p.id))} /> {p.name} {p.note && <span className="muted small">{p.note}</span>}</label>
+          ))}
+        </div>
+      </Field>
+      <fieldset className="card-panel">
+        <legend>{t("Resources for this round")}</legend>
+        <Field label={t("Vehicles needed")}><input type="number" min={0} max={500} value={vehicles} onChange={(e) => setVehicles(e.target.value)} /></Field>
+        <Field label={t("POS material")}><input maxLength={1000} value={pos} onChange={(e) => setPos(e.target.value)} placeholder={t("e.g. 40 shelf wobblers, 10 floor stickers")} /></Field>
+        <Field label={t("Apparel")}><input maxLength={1000} value={apparel} onChange={(e) => setApparel(e.target.value)} placeholder={t("e.g. 4 campaign polos, size M")} /></Field>
+        <p className="muted small">{t("Order these under Procurement & POs and link the purchase order to this round.")}</p>
+      </fieldset>
+      <Field label={t("Checklist")} hint={t("One item per line; shown in every visit report of this round")}>
+        <textarea rows={3} value={checklist} onChange={(e) => setChecklist(e.target.value)} />
+      </Field>
+      <ErrorText error={error} />
+      <FormActions busy={busy || selected.length === 0 || reps.length === 0} submitLabel={t("Create round and plan visits")} onCancel={onCancel} />
+    </form>
+  );
+}
+
 export function NewAuditRoundForm({ onDone, onCancel }: FormProps) {
   const stores = useLoad(() => api.stores(), []);
   const users = useUsers();
@@ -470,7 +565,7 @@ export function AuditRoundsView() {
           <tbody>
             {rounds.data.map((r) => (
               <tr key={r.id} onClick={() => navigate(`/retailpower/audit-rounds/${r.id}`)}>
-                <td><a href={`#/retailpower/audit-rounds/${r.id}`}>{r.name}</a><div className="muted small">{r.checklist.length}  {t("checklist items")}</div></td>
+                <td><a href={`#/retailpower/audit-rounds/${r.id}`}>{r.name}</a> {r.roundType === 'campaign' && <StatusBadge status="active" label={t("Campaign")} />}<div className="muted small">{r.checklist.length}  {t("checklist items")}{r.roundType === 'campaign' ? ` · ${tf("{n} merchandisers", { n: r.merchandiserCount ?? 0 })}` : ''}</div></td>
                 <td>{r.dueDate ? formatDate(r.dueDate) : '—'}</td>
                 <td><Progress done={r.completedCount ?? 0} total={r.visitCount ?? 0} /></td>
                 <td className="num">{r.issueCount ?? 0}</td>
@@ -518,6 +613,20 @@ export function AuditRoundDossier({ id }: { id: string }) {
         <div className="kpi kpi-emerald"><span>{t("Compliant")}</span><strong>{visits.filter((v) => v.complianceStatus === 'compliant').length}</strong></div>
         <div className="kpi kpi-blue"><span>{t("Needs attention")}</span><strong>{visits.filter((v) => v.complianceStatus && v.complianceStatus !== 'compliant').length}</strong></div>
       </div>
+      {r.roundType === 'campaign' && (
+        <div className="card-panel">
+          <h2>{t("Campaign round")}</h2>
+          <DetailList
+            items={[
+              ['Merchandisers', (r.merchandiserNames ?? []).join(', ') || '—'],
+              ['Vehicles needed', String(r.requirements?.vehicles ?? 0)],
+              ['POS material', r.requirements?.posMaterials || '—'],
+              ['Apparel', r.requirements?.apparel || '—'],
+            ]}
+          />
+          <a className="button-link" href="#/retailpower/procurement">{t("Order resources under Procurement & POs")}</a>
+        </div>
+      )}
       <div className="card-panel">
         <h2>{t("Checklist")}</h2>
         {r.checklist.length === 0 ? <p className="muted">{t("No extra checklist items; the standard visit checklist applies.")}</p> : <ul>{r.checklist.map((c) => <li key={c}>{c}</li>)}</ul>}

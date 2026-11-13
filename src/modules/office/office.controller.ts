@@ -64,10 +64,10 @@ export class OfficeDocumentsController {
   @Post('scan-ingest')
   @AllowJobRoles('HQ_ADMIN', 'ACCOUNT_MANAGER', 'FIELD_REPRESENTATIVE')
   @UseFilters(DocumentUploadExceptionFilter)
-  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_DOCUMENT_BYTES, files: 1, fields: 5 } }))
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_DOCUMENT_BYTES, files: 1, fields: 6 } }))
   @ApiOperation({
     summary: 'Scan-to-Vault: store a scanned PDF/image for a client (optional client room) as a DRAFT document with SHA-256 (audit: document.scanned_to_vault)',
-    description: `multipart/form-data: file (${SCAN_FORMATS.join(', ')}, at most ${MAX_DOCUMENT_BYTES / (1024 * 1024)} MB), clientId, optional clientRoomId and title.`,
+    description: `multipart/form-data: file (${SCAN_FORMATS.join(', ')}, at most ${MAX_DOCUMENT_BYTES / (1024 * 1024)} MB), clientId, optional clientRoomId, title and notifyClients=true (e-mails the client's contacts when a client room is chosen and SMTP_* is configured; the response then has a notification summary).`,
   })
   @ApiErrors(400, 404)
   scan(
@@ -80,7 +80,14 @@ export class OfficeDocumentsController {
     const clientId = optionalUuid('clientId', raw.clientId);
     if (!clientId) throw new BadRequestException('clientId is required');
     return this.office.scan(
-      { clientId, clientRoomId: optionalUuid('clientRoomId', raw.clientRoomId), title: optionalString('title', raw.title, 200), originalName: file.originalname, data: file.buffer },
+      {
+        clientId,
+        clientRoomId: optionalUuid('clientRoomId', raw.clientRoomId),
+        title: optionalString('title', raw.title, 200),
+        originalName: file.originalname,
+        data: file.buffer,
+        notifyClients: raw.notifyClients === true || raw.notifyClients === 'true',
+      },
       identity,
     );
   }

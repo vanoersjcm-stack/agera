@@ -25,6 +25,8 @@ export interface PlanogramInput { name: string; category: string | null; storeId
 export interface OrderLineInput { productId: string; quantity: number }
 export interface OrderInput { storeId: string; visitId: string | null; notes: string | null; lines: OrderLineInput[] }
 export interface RoundInput { name: string; checklist: string[]; dueDate: string | null; visitDate: Date; fieldRepId: string | null; storeIds: string[] }
+export interface CampaignRequirements { vehicles: number; posMaterials: string | null; apparel: string | null }
+export interface CampaignInput { name: string; checklist: string[]; visitDate: Date; merchandiserIds: string[]; storeIds: string[]; requirements: CampaignRequirements }
 
 const PRODUCT_SQL = `SELECT p.id, p.sku, p.name, p.brand, p.category, p.unit_price::text AS "unitPrice", p.active, p.created_at AS "createdAt", p.updated_at AS "updatedAt" FROM products p`;
 
@@ -283,6 +285,7 @@ export class FieldService {
     return this.tx.run((m) =>
       m.query(
         `SELECT r.id, r.name, r.checklist, to_char(r.due_date, 'YYYY-MM-DD') AS "dueDate", r.status, ${PERSON('u')} AS "createdByName", r.created_at AS "createdAt",
+                r.round_type AS "roundType", cardinality(r.merchandiser_ids) AS "merchandiserCount",
                 count(v.id)::int AS "visitCount",
                 count(v.id) FILTER (WHERE v.status = 'COMPLETED')::int AS "completedCount",
                 count(v.id) FILTER (WHERE vr.audit_data->>'complianceStatus' IN ('not_compliant', 'needs_follow_up'))::int AS "issueCount"
@@ -303,7 +306,9 @@ export class FieldService {
 
   private async loadRound(m: EntityManager, id: string): Promise<Record<string, unknown>> {
     const [r] = await m.query(
-      `SELECT r.id, r.name, r.checklist, to_char(r.due_date, 'YYYY-MM-DD') AS "dueDate", r.status, ${PERSON('u')} AS "createdByName", r.created_at AS "createdAt"
+      `SELECT r.id, r.name, r.checklist, to_char(r.due_date, 'YYYY-MM-DD') AS "dueDate", r.status, ${PERSON('u')} AS "createdByName", r.created_at AS "createdAt",
+              r.round_type AS "roundType", r.requirements, r.merchandiser_ids AS "merchandiserIds",
+              (SELECT COALESCE(json_agg(${PERSON('mu')} ORDER BY mu.first_name, mu.last_name), '[]') FROM users mu WHERE mu.id = ANY(r.merchandiser_ids)) AS "merchandiserNames"
          FROM audit_rounds r LEFT JOIN users u ON u.id = r.created_by WHERE r.tenant_id = $1 AND r.id = $2`,
       [this.t, id],
     );
@@ -339,6 +344,36 @@ export class FieldService {
       return this.loadRound(m, roundId);
     });
     this.audit.logAction(this.t, actor.id, 'audit_round.created', { roundId, visits: visitIds.length });
+    return row;
+  }
+
+  /** Campaign round: one date, many stores, several merchandisers (visits shared out in turn) and the resources the round needs. */
+  async createCampaign(input: CampaignInput, identity: AuthenticatedUser): Promise<unknown> {
+    const actor = await this.userService.resolveActor(identity);
+    const storeIds = [...new Set(input.storeIds)];
+    const reps = [...new Set(input.merchandiserIds)];
+    const roundId = await this.tx.run(async (m) => {
+      const stores: { id: string }[] = await m.query(`SELECT id FROM stores WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND status <> 'closed'`, [this.t, storeIds]);
+      if (stores.length !== storeIds.length) throw new BadRequestException('storeIds must be open stores of this organisation');
+      const users: { id: string }[] = await m.query('SELECT id FROM users WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND is_active', [this.t, reps]);
+      if (users.length !== reps.length) throw new BadRequestException('merchandiserIds must be active colleagues in this organisation');
+      const [r] = await m.query(
+        `INSERT INTO audit_rounds (tenant_id, name, checklist, due_date, created_by, round_type, requirements, merchandiser_ids)
+         VALUES ($1,$2,$3,$4::date,$5,'campaign',$6,$7::uuid[]) RETURNING id`,
+        [this.t, input.name, JSON.stringify(input.checklist), input.visitDate.toISOString().slice(0, 10), actor.id, JSON.stringify(input.requirements), reps],
+      );
+      return r.id as string;
+    });
+    const visitIds: string[] = [];
+    for (const [i, storeId] of storeIds.entries()) {
+      const visit = await this.visits.create({ storeId, fieldRepId: reps[i % reps.length], workOrderId: null, visitDate: input.visitDate, notes: `Campaign round: ${input.name}` }, identity);
+      visitIds.push(visit.id);
+    }
+    const row = await this.tx.run(async (m) => {
+      await m.query('UPDATE merchandising_visits SET audit_round_id = $2 WHERE tenant_id = $1 AND id = ANY($3::uuid[])', [this.t, roundId, visitIds]);
+      return this.loadRound(m, roundId);
+    });
+    this.audit.logAction(this.t, actor.id, 'campaign_round.created', { roundId, visits: visitIds.length, merchandisers: reps.length, requirements: input.requirements });
     return row;
   }
 

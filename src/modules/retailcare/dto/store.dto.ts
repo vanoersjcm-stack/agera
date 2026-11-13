@@ -21,6 +21,9 @@ export class CreateStoreDto {
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 100, default: 'ES' })
   country?: string | null;
 
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 100, example: 'Randstad' })
+  region?: string | null;
+
   @ApiProperty({ required: false, nullable: true, type: String, format: 'uuid', description: 'Client (brand) this store belongs to' })
   clientId?: string | null;
 }
@@ -43,6 +46,9 @@ export class UpdateStoreDto {
 
   @ApiPropertyOptional({ type: String, nullable: true, maxLength: 100 })
   country?: string | null;
+
+  @ApiPropertyOptional({ type: String, nullable: true, maxLength: 100 })
+  region?: string | null;
 
   @ApiPropertyOptional({ enum: STORE_STATUSES })
   status?: StoreStatus;
@@ -75,6 +81,9 @@ export class StoreDto {
 
   @ApiProperty({ type: String, nullable: true, example: 'ES' })
   country!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, example: 'Randstad' })
+  region!: string | null;
 
   @ApiProperty({ enum: STORE_STATUSES })
   status!: StoreStatus;

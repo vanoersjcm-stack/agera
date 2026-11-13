@@ -1,14 +1,16 @@
 /** Wave B: RetailPower back office — dashboard, crew directory, validated hours, fleet, apparel, RMA and stock-protection claims. */
 import { type FormEvent, useEffect, useMemo, useState } from 'react';
 import {
-  api, type ApparelAssignment, type ClaimStatus, type CrewAvailability, type CrewMember, type OpsDashboard, type ReturnChannel, type RmaCase, type RmaStatus, type Shift, type StockClaim,
-  type VehicleAllocation, type VehicleSide,
+  api, type ApparelAssignment, type ClaimStatus, type CrewAvailability, type CrewMember, type OpsDashboard, type PoBilling, type PoCategory, type PurchaseOrder, type RackjobCheck, type ReturnChannel,
+  type RmaCase, type RmaStatus, type RotationRule, type Shift, type StockClaim, type VehicleAllocation, type VehicleSide,
 } from '../api';
+import { userContext } from '../context';
+import { formatAmount } from '../format';
 import { useClients, useUsers } from '../directory';
 import { formatDate, formatDateTime } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
-import { numberLocale, t, live } from '../i18n';
+import { numberLocale, t, tf, live } from '../i18n';
 
 const SUITE = live(() => ({ label: t("RetailPower"), href: '#/retailpower' }));
 const SIDES: VehicleSide[] = ['front', 'back', 'left', 'right'];
@@ -625,12 +627,263 @@ function ClaimsTab() {
 export function FleetView() {
   const [tab, setTab] = useState('fleet');
   return (
-    <ViewFrame title={t("Fleet, apparel & returns")} subtitle={t("Vehicles with a mandatory four-photo pre-trip check, crew apparel, return cases and stock-protection claims")} crumbs={[SUITE, { label: t("Fleet, apparel & returns") }]}>
-      <Tabs active={tab} onChange={setTab} tabs={[{ id: 'fleet', label: t("Vehicles") }, { id: 'apparel', label: t("Apparel") }, { id: 'rma', label: t("Returns (RMA)") }, { id: 'claims', label: t("Stock protection") }]} />
+    <ViewFrame title={t("Fleet & apparel")} subtitle={t("Vehicles with a mandatory four-photo pre-trip check, and crew apparel. Merchandise returns are under Rackjobbing & RMA.")} crumbs={[SUITE, { label: t("Fleet & apparel") }]}>
+      <Tabs active={tab} onChange={setTab} tabs={[{ id: 'fleet', label: t("Vehicles") }, { id: 'apparel', label: t("Apparel") }]} />
       {tab === 'fleet' && <FleetTab />}
       {tab === 'apparel' && <ApparelTab />}
+    </ViewFrame>
+  );
+}
+
+/* ---------- Rackjobbing & RMA ---------- */
+
+/** Coordinators plan; account managers only read (the backend enforces this too). */
+function isCoordinator(): boolean {
+  const u = userContext();
+  return u.jobRole === null || u.jobRole === 'PLATFORM_ADMIN' || u.jobRole === 'HQ_ADMIN';
+}
+
+const ROTATION_LABEL: Record<RotationRule, string> = live(() => ({ fifo: t("FIFO (first in, first out)"), expiry_check: t("Expiry date check"), none: t("No rotation") }));
+
+function NewRackjobForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+  const [ref, setRef] = useState({ storeId: '', productId: '', clientId: '' });
+  const [pickup, setPickup] = useState('0');
+  const [dropoff, setDropoff] = useState('0');
+  const [rotation, setRotation] = useState<RotationRule>('fifo');
+  const [priceProtection, setPriceProtection] = useState(false);
+  const [instructions, setInstructions] = useState('');
+  const { busy, error, run } = useAction();
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (await run(() => api.createRackjobCheck({ storeId: ref.storeId, productId: ref.productId || null, visitId: null, rmaCaseId: null, pickupQty: Number(pickup), dropoffQty: Number(dropoff), rotationRule: rotation, priceProtectionEligible: priceProtection, instructions: instructions.trim() || null }))) onDone();
+  };
+  return (
+    <form onSubmit={submit}>
+      <Field label={t("Store and product")}><div className="list-toolbar"><StoreProductClient value={ref} onChange={setRef} /></div></Field>
+      <div className="field-row">
+        <Field label={t("Pick up (units)")} hint={t("Old or returned stock to take away")}><input type="number" min={0} max={100000} value={pickup} onChange={(e) => setPickup(e.target.value)} /></Field>
+        <Field label={t("Drop off (units)")} hint={t("New stock to put on the shelf")}><input type="number" min={0} max={100000} value={dropoff} onChange={(e) => setDropoff(e.target.value)} /></Field>
+      </div>
+      <Field label={t("Stock rotation")}><select value={rotation} onChange={(e) => setRotation(e.target.value as RotationRule)}>{Object.entries(ROTATION_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select></Field>
+      <label className="check-row"><input type="checkbox" checked={priceProtection} onChange={(e) => setPriceProtection(e.target.checked)} /> {t("Eligible for price protection")}</label>
+      <Field label={t("Instructions")}><textarea rows={3} maxLength={2000} value={instructions} onChange={(e) => setInstructions(e.target.value)} placeholder={t("e.g. Move short-dated stock to the front")} /></Field>
+      <ErrorText error={error} />
+      <FormActions busy={busy || !ref.storeId} submitLabel={t("Create checklist")} onCancel={onCancel} />
+    </form>
+  );
+}
+
+function CompleteRackjobForm({ check, onDone, onCancel }: { check: RackjobCheck; onDone: () => void; onCancel: () => void }) {
+  const [pickup, setPickup] = useState(String(check.pickupQty));
+  const [dropoff, setDropoff] = useState(String(check.dropoffQty));
+  const [rotated, setRotated] = useState(check.rotationRule !== 'none');
+  const [notes, setNotes] = useState('');
+  const { busy, error, run } = useAction();
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (await run(() => api.completeRackjobCheck(check.id, { actualPickupQty: Number(pickup), actualDropoffQty: Number(dropoff), rotationDone: rotated, notes: notes.trim() || null }))) onDone();
+  };
+  return (
+    <form onSubmit={submit}>
+      <p className="muted">{check.storeName}{check.productName ? ` · ${check.productName}` : ''}{check.instructions ? ` · ${check.instructions}` : ''}</p>
+      <div className="field-row">
+        <Field label={tf("Picked up (planned {n})", { n: check.pickupQty })}><input type="number" min={0} max={100000} value={pickup} onChange={(e) => setPickup(e.target.value)} /></Field>
+        <Field label={tf("Dropped off (planned {n})", { n: check.dropoffQty })}><input type="number" min={0} max={100000} value={dropoff} onChange={(e) => setDropoff(e.target.value)} /></Field>
+      </div>
+      <label className="check-row"><input type="checkbox" checked={rotated} onChange={(e) => setRotated(e.target.checked)} /> {tf("Stock rotated ({rule})", { rule: ROTATION_LABEL[check.rotationRule] })}</label>
+      <Field label={t("Notes")}><textarea rows={2} maxLength={2000} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
+      <ErrorText error={error} />
+      <FormActions busy={busy} submitLabel={t("Save result")} onCancel={onCancel} />
+    </form>
+  );
+}
+
+function RackjobTab() {
+  const list = useLoad(() => api.rackjobChecks());
+  const coordinator = isCoordinator();
+  const fieldRep = userContext().jobRole === 'FIELD_REPRESENTATIVE';
+  const [adding, setAdding] = useState(false);
+  const [completing, setCompleting] = useState<RackjobCheck | null>(null);
+  return (
+    <>
+      <div className="list-toolbar">
+        <p className="muted">{t("Per store visit and product: exact pick-up and drop-off quantities, the stock rotation rule and whether price protection applies.")}</p>
+        {coordinator && <button className="primary" onClick={() => setAdding(true)}>{t("+ New rackjobbing checklist")}</button>}
+      </div>
+      {!list.data && <Loading error={list.error} />}
+      {list.data?.length === 0 && <EmptyState title={t("No rackjobbing checklists yet")} />}
+      {list.data && list.data.length > 0 && (
+        <div className="table-wrap"><table className="grid">
+          <thead><tr><th>{t("Store")}</th><th>{t("Product")}</th><th className="num">{t("Pick up")}</th><th className="num">{t("Drop off")}</th><th>{t("Rotation")}</th><th>{t("Price protection")}</th><th>{t("Instructions")}</th><th>{t("Status")}</th><th /></tr></thead>
+          <tbody>{list.data.map((k) => (
+            <tr key={k.id}>
+              <td>{k.storeName}</td>
+              <td>{k.productName ?? '—'}{k.productSku && <div className="muted small">{k.productSku}</div>}</td>
+              <td className="num">{k.pickupQty}{k.status === 'done' && <div className="muted small">{tf("actual {n}", { n: k.actualPickupQty ?? 0 })}</div>}</td>
+              <td className="num">{k.dropoffQty}{k.status === 'done' && <div className="muted small">{tf("actual {n}", { n: k.actualDropoffQty ?? 0 })}</div>}</td>
+              <td>{ROTATION_LABEL[k.rotationRule]}{k.status === 'done' && <div className="muted small">{k.rotationDone ? t("Done") : t("Not done")}</div>}</td>
+              <td>{k.priceProtectionEligible ? <StatusBadge status="approved" label={t("Eligible")} /> : <span className="muted">{t("No")}</span>}</td>
+              <td>{k.instructions ?? '—'}{k.resultNotes && <div className="muted small">{k.resultNotes}</div>}</td>
+              <td><StatusBadge status={k.status === 'done' ? 'COMPLETED' : 'PLANNED'} label={k.status === 'done' ? t("Done") : t("Planned")} />{k.completedByName && <div className="muted small">{k.completedByName} · {formatDate(k.completedAt!)}</div>}</td>
+              <td>{k.status === 'planned' && (coordinator || fieldRep) && <button onClick={() => setCompleting(k)}>{t("Record result")}</button>}</td>
+            </tr>
+          ))}</tbody>
+        </table></div>
+      )}
+      {adding && <Drawer title={t("New rackjobbing checklist")} onClose={() => setAdding(false)}><NewRackjobForm onCancel={() => setAdding(false)} onDone={() => { setAdding(false); list.reload(); }} /></Drawer>}
+      {completing && <Drawer title={t("Record rackjobbing result")} onClose={() => setCompleting(null)}><CompleteRackjobForm check={completing} onCancel={() => setCompleting(null)} onDone={() => { setCompleting(null); list.reload(); }} /></Drawer>}
+    </>
+  );
+}
+
+export function RackjobbingView() {
+  const [tab, setTab] = useState('checklists');
+  return (
+    <ViewFrame title={t("Rackjobbing & RMA")} subtitle={t("Merchandise only: rackjobbing checklists, return cases and stock-protection claims. Vehicle returns are under Fleet & apparel.")} crumbs={[SUITE, { label: t("Rackjobbing & RMA") }]}>
+      <Tabs active={tab} onChange={setTab} tabs={[{ id: 'checklists', label: t("Rackjobbing checklists") }, { id: 'rma', label: t("Returns (RMA)") }, { id: 'claims', label: t("Stock protection") }]} />
+      {tab === 'checklists' && <RackjobTab />}
       {tab === 'rma' && <RmaTab />}
       {tab === 'claims' && <ClaimsTab />}
+    </ViewFrame>
+  );
+}
+
+/* ---------- Procurement & POs ---------- */
+
+const PO_CATEGORY: Record<PoCategory, string> = live(() => ({ car_rental: t("Car rental"), apparel: t("Apparel"), pos_material: t("POS material") }));
+const PO_BILLING_LABEL: Record<PoBilling, string> = live(() => ({ client: t("Billed separately to client"), included: t("Included in visit price") }));
+const DEFAULT_BILLING: Record<PoCategory, PoBilling> = { car_rental: 'included', apparel: 'client', pos_material: 'client' };
+const PO_STATUS: Record<string, string> = live(() => ({ open: t("Open"), matched: t("Matched"), disputed: t("Disputed"), cancelled: t("Cancelled") }));
+
+interface PoLineDraft { category: PoCategory; description: string; quantity: string; unitPrice: string; billing: PoBilling }
+
+function decimal(input: string): string {
+  const s = input.replace(/[€\s]/g, '');
+  return s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, '');
+}
+
+function NewPurchaseOrderForm({ onDone, onCancel }: { onDone: () => void; onCancel: () => void }) {
+  const clients = useClients();
+  const rounds = useLoad(() => api.auditRounds()).data ?? [];
+  const [supplier, setSupplier] = useState('');
+  const [clientId, setClientId] = useState('');
+  const [roundId, setRoundId] = useState('');
+  const [notes, setNotes] = useState('');
+  const [lines, setLines] = useState<PoLineDraft[]>([{ category: 'car_rental', description: '', quantity: '1', unitPrice: '', billing: 'included' }]);
+  const { busy, error, run } = useAction();
+  const setLine = (i: number, patch: Partial<PoLineDraft>) => setLines(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
+  const total = lines.reduce((n, l) => n + (Number(decimal(l.quantity)) || 0) * (Number(decimal(l.unitPrice)) || 0), 0);
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (await run(() => api.createPurchaseOrder({
+      supplierName: supplier.trim(), clientId: clientId || null, auditRoundId: roundId || null, orderDate: null, notes: notes.trim() || null,
+      lines: lines.map((l) => ({ ...l, description: l.description.trim(), quantity: decimal(l.quantity), unitPrice: decimal(l.unitPrice) || '0' })),
+    }))) onDone();
+  };
+  return (
+    <form onSubmit={submit}>
+      <Field label={t("Supplier")}><input required maxLength={200} value={supplier} onChange={(e) => setSupplier(e.target.value)} placeholder={t("e.g. Sixt, a print shop or a uniform supplier")} autoFocus /></Field>
+      <Field label={t("Client")} hint={t("Required when a line is billed separately to the client")}>
+        <select value={clientId} onChange={(e) => setClientId(e.target.value)}><option value="">—</option>{clients.map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}</select>
+      </Field>
+      <Field label={t("Campaign or audit round")} hint={t("Optional")}>
+        <select value={roundId} onChange={(e) => setRoundId(e.target.value)}><option value="">—</option>{rounds.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select>
+      </Field>
+      <h3>{t("Lines")}</h3>
+      {lines.map((l, i) => (
+        <div key={i} className="card-panel">
+          <div className="field-row">
+            <Field label={t("Type")}><select value={l.category} onChange={(e) => { const category = e.target.value as PoCategory; setLine(i, { category, billing: DEFAULT_BILLING[category] }); }}>{Object.entries(PO_CATEGORY).map(([v, lb]) => <option key={v} value={v}>{lb}</option>)}</select></Field>
+            <Field label={t("Billing")}><select value={l.billing} onChange={(e) => setLine(i, { billing: e.target.value as PoBilling })}>{Object.entries(PO_BILLING_LABEL).map(([v, lb]) => <option key={v} value={v}>{lb}</option>)}</select></Field>
+          </div>
+          <Field label={t("Description")}><input required maxLength={200} value={l.description} onChange={(e) => setLine(i, { description: e.target.value })} /></Field>
+          <div className="field-row">
+            <Field label={t("Quantity")}><input required inputMode="decimal" value={l.quantity} onChange={(e) => setLine(i, { quantity: e.target.value })} /></Field>
+            <Field label={t("Unit price (EUR)")}><input required inputMode="decimal" value={l.unitPrice} onChange={(e) => setLine(i, { unitPrice: e.target.value })} placeholder="0,00" /></Field>
+          </div>
+          {lines.length > 1 && <button type="button" className="link-button" onClick={() => setLines(lines.filter((_, j) => j !== i))}>{t("Remove line")}</button>}
+        </div>
+      ))}
+      <button type="button" className="secondary" onClick={() => setLines([...lines, { category: 'apparel', description: '', quantity: '1', unitPrice: '', billing: 'client' }])}>{t("+ Add line")}</button>
+      <p><strong>{t("Total")}: {formatAmount(total.toFixed(2), 'EUR')}</strong></p>
+      <Field label={t("Notes")}><textarea rows={2} maxLength={2000} value={notes} onChange={(e) => setNotes(e.target.value)} /></Field>
+      <ErrorText error={error} />
+      <FormActions busy={busy} submitLabel={t("Create purchase order")} onCancel={onCancel} />
+    </form>
+  );
+}
+
+function MatchInvoiceForm({ po, onDone, onCancel }: { po: PurchaseOrder; onDone: () => void; onCancel: () => void }) {
+  const [number, setNumber] = useState(po.supplierInvoiceNumber ?? '');
+  const [date, setDate] = useState(po.supplierInvoiceDate ?? '');
+  const [amount, setAmount] = useState('');
+  const { busy, error, run } = useAction();
+  const submit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (await run(() => api.matchPurchaseOrder(po.id, { invoiceNumber: number.trim(), invoiceDate: date || null, amount: decimal(amount) }))) onDone();
+  };
+  return (
+    <form onSubmit={submit}>
+      <p className="muted">{tf("{po} from {supplier}: order total {total}. An invoice for exactly this amount is matched; any other amount is marked Disputed.", { po: po.poNumber, supplier: po.supplierName, total: formatAmount(po.total, 'EUR') })}</p>
+      <Field label={t("Supplier invoice number")}><input required maxLength={60} value={number} onChange={(e) => setNumber(e.target.value)} autoFocus /></Field>
+      <Field label={t("Invoice date")}><input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+      <Field label={t("Invoice amount (EUR)")}><input required inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0,00" /></Field>
+      <ErrorText error={error} />
+      <FormActions busy={busy} submitLabel={t("Match invoice")} onCancel={onCancel} />
+    </form>
+  );
+}
+
+export function ProcurementView() {
+  const list = useLoad(() => api.purchaseOrders());
+  const coordinator = isCoordinator();
+  const [adding, setAdding] = useState(false);
+  const [matching, setMatching] = useState<PurchaseOrder | null>(null);
+  const [status, setStatus] = useState('');
+  const { busy, error, run } = useAction();
+  const shown = (list.data ?? []).filter((p) => !status || p.status === status);
+  const sum = (k: 'billableTotal' | 'includedTotal') => (list.data ?? []).filter((p) => p.status !== 'cancelled').reduce((n, p) => n + Number(p[k]), 0);
+  return (
+    <ViewFrame
+      title={t("Procurement & POs")}
+      subtitle={t("Purchase orders for operational field costs, matched to supplier invoices. Apparel and POS material are billed separately to the client; car rental is included in the visit price.")}
+      crumbs={[SUITE, { label: t("Procurement & POs") }]}
+      actions={coordinator && <button className="primary" onClick={() => setAdding(true)}>{t("+ New purchase order")}</button>}
+    >
+      {!coordinator && <p className="callout">{t("Read-only: only HQ administrators create purchase orders and match supplier invoices.")}</p>}
+      <div className="kpi-grid">
+        <div className="kpi kpi-purple"><span>{t("Open orders")}</span><strong>{(list.data ?? []).filter((p) => p.status === 'open').length}</strong></div>
+        <div className="kpi kpi-indigo"><span>{t("Disputed invoices")}</span><strong>{(list.data ?? []).filter((p) => p.status === 'disputed').length}</strong></div>
+        <div className="kpi kpi-emerald"><span>{t("Billable to clients")}</span><strong>{formatAmount(sum('billableTotal').toFixed(2), 'EUR')}</strong></div>
+        <div className="kpi kpi-blue"><span>{t("Included in visit price")}</span><strong>{formatAmount(sum('includedTotal').toFixed(2), 'EUR')}</strong></div>
+      </div>
+      <div className="list-toolbar">
+        <FilterChips value={status} onChange={setStatus} chips={[{ value: '', label: t("All") }, ...Object.entries(PO_STATUS).map(([value, label]) => ({ value, label }))]} />
+      </div>
+      <ErrorText error={error} />
+      {!list.data && <Loading error={list.error} />}
+      {list.data && shown.length === 0 && <EmptyState title={t("No purchase orders yet")}>{coordinator ? t("Create one with “+ New purchase order”.") : null}</EmptyState>}
+      {shown.length > 0 && (
+        <div className="table-wrap"><table className="grid">
+          <thead><tr><th>{t("PO")}</th><th>{t("Supplier")}</th><th>{t("Lines")}</th><th className="num">{t("Total")}</th><th className="num">{t("Billable to client")}</th><th className="num">{t("Included")}</th><th>{t("Supplier invoice")}</th><th>{t("Status")}</th><th /></tr></thead>
+          <tbody>{shown.map((p) => (
+            <tr key={p.id}>
+              <td><strong>{p.poNumber}</strong><div className="muted small">{formatDate(p.orderDate)} · {p.createdByName}</div></td>
+              <td>{p.supplierName}{(p.clientName || p.auditRoundName) && <div className="muted small">{[p.clientName, p.auditRoundName].filter(Boolean).join(' · ')}</div>}</td>
+              <td>{p.lines.map((l) => <div key={l.id} className="small">{PO_CATEGORY[l.category]}: {l.description} · {formatAmount(l.lineTotal, 'EUR')} <span className="muted">({PO_BILLING_LABEL[l.billing]})</span></div>)}</td>
+              <td className="num">{formatAmount(p.total, 'EUR')}</td>
+              <td className="num">{formatAmount(p.billableTotal, 'EUR')}</td>
+              <td className="num">{formatAmount(p.includedTotal, 'EUR')}</td>
+              <td>{p.supplierInvoiceNumber ? <>{p.supplierInvoiceNumber} · {formatAmount(p.supplierInvoiceAmount, 'EUR')}{p.status === 'disputed' && <div className="small bad">{tf("Difference {amount}", { amount: formatAmount(p.variance, 'EUR') })}</div>}</> : '—'}</td>
+              <td><StatusBadge status={p.status === 'matched' ? 'approved' : p.status === 'disputed' ? 'not_compliant' : p.status === 'cancelled' ? 'archived' : 'pending_approval'} label={PO_STATUS[p.status]} /></td>
+              <td>{coordinator && (p.status === 'open' || p.status === 'disputed') && <button disabled={busy} onClick={() => setMatching(p)}>{t("Match invoice")}</button>}
+                {coordinator && p.status === 'open' && <button disabled={busy} onClick={async () => { if (window.confirm(t("Cancel this purchase order?")) && (await run(() => api.cancelPurchaseOrder(p.id)))) list.reload(); }}>{t("Cancel")}</button>}</td>
+            </tr>
+          ))}</tbody>
+        </table></div>
+      )}
+      {adding && <Drawer title={t("New purchase order")} onClose={() => setAdding(false)}><NewPurchaseOrderForm onCancel={() => setAdding(false)} onDone={() => { setAdding(false); list.reload(); }} /></Drawer>}
+      {matching && <Drawer title={t("Match supplier invoice")} onClose={() => setMatching(null)}><MatchInvoiceForm po={matching} onCancel={() => setMatching(null)} onDone={() => { setMatching(null); list.reload(); }} /></Drawer>}
     </ViewFrame>
   );
 }

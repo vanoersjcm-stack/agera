@@ -19,7 +19,7 @@ import { SideNav, SuiteMap } from './SideNav';
 import { ProfitLossView } from './nexus/ProfitLoss';
 import { PortalOverview } from './portal/PortalOverview';
 import { RetailOverview } from './retailpower/RetailOverview';
-import { BackOfficeView, CrewView, FleetView, HoursView } from './retailpower/Operations';
+import { BackOfficeView, CrewView, FleetView, HoursView, ProcurementView, RackjobbingView } from './retailpower/Operations';
 import { StoreDossier, StoresView } from './retailpower/Stores';
 import { StoreVisitsView, VisitDossier } from './retailpower/StoreVisits';
 import { WorkOrderDossier, WorkOrdersView } from './retailpower/WorkOrders';
@@ -94,6 +94,8 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return <CreditControlView route={route} user={user} />;
     case 'symphony/prognosis':
       return <PrognosisView route={route} />;
+    case 'symphony/profit-loss':
+      return <ProfitLossView route={route} />;
     case 'symphony/invoices':
       return <InvoicesView route={route} />;
     case 'symphony/third-parties':
@@ -134,8 +136,6 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return id ? <ClientRoomDossier id={id} route={route} external={false} /> : <ClientRoomsView route={route} external={false} />;
     case 'nexus/financial-plans':
       return id ? <PlanDossier id={id} /> : <FinancialPlansView route={route} />;
-    case 'nexus/profit-loss':
-      return <ProfitLossView route={route} />;
     case 'nexus/alerts':
       return <AlertsView route={route} />;
     case 'nexus/mail-merge':
@@ -177,6 +177,10 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return <HoursView />;
     case 'retailpower/fleet':
       return <FleetView />;
+    case 'retailpower/rackjobbing':
+      return <RackjobbingView />;
+    case 'retailpower/procurement':
+      return <ProcurementView />;
     default:
       return <NotAvailable path={route.path} />;
   }

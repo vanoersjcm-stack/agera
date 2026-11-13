@@ -6,7 +6,7 @@ import { type DocIconKind, NewMailForm, NewSpreadsheetForm, NewTextDocumentForm 
 import { NewMemoForm, OfficeOrSimple } from './office';
 import { COMPANY_SIZES, ENTITY_CATEGORY, ORGANIZATION_TYPE } from './nexus/ThirdParties';
 import { NewExceptionForm } from './symphony/Workflow';
-import { NewAuditRoundForm, NewFieldOrderForm, NewPlanogramForm, NewProductForm } from './retailpower/Field';
+import { NewAuditRoundForm, NewCampaignRoundForm, NewFieldOrderForm, NewPlanogramForm, NewProductForm } from './retailpower/Field';
 import { type FormEvent, useEffect, useState } from 'react';
 import { api, type Agreement, type BillableSources, type CompanySize, type GenerateInvoiceInput, type CreatedApiKey, type EntityCategory, type OrganizationType, type Store, type WorkOrder } from './api';
 import { activeClients, clientName, invalidateDirectory, useClients, useUsers } from './directory';
@@ -47,6 +47,7 @@ export const NEW_ITEMS: NewItem[] = live(() => ([
   { kind: 'store', label: tr("Store"), group: 'RetailPower' },
   { kind: 'field_order', label: tr("Field order"), group: 'RetailPower' },
   { kind: 'audit_round', label: tr("Audit round"), group: 'RetailPower' },
+  { kind: 'campaign_round', label: tr("Campaign round"), group: 'RetailPower', adminOnly: true },
   { kind: 'product', label: tr("Product"), group: 'RetailPower' },
   { kind: 'planogram', label: tr("Planogram"), group: 'RetailPower' },
   { kind: 'invoice', label: tr("Invoice"), group: 'Symphony' },
@@ -185,7 +186,7 @@ function StoreVisitForm({ defaults, onDone, onCancel }: FormProps) {
 }
 
 function StoreForm({ onDone, onCancel }: FormProps) {
-  const [form, setForm] = useState({ storeCode: '', name: '', address: '', postalCode: '', city: '', country: 'Netherlands', clientId: '' });
+  const [form, setForm] = useState({ storeCode: '', name: '', address: '', postalCode: '', city: '', country: 'Netherlands', region: '', clientId: '' });
   const storeClients = activeClients(useClients());
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
   const { busy, error, submit } = useSubmit(onDone);
@@ -200,6 +201,7 @@ function StoreForm({ onDone, onCancel }: FormProps) {
             postalCode: form.postalCode.trim() || undefined,
             city: form.city.trim() || undefined,
             country: form.country.trim() || undefined,
+            region: form.region.trim() || undefined,
             clientId: form.clientId || null,
           });
           return { route: `/retailpower/stores/${s.id}`, message: `Store “${s.name}” added` };
@@ -225,6 +227,9 @@ function StoreForm({ onDone, onCancel }: FormProps) {
       </div>
       <Field label={tr("Country")}>
         <input maxLength={100} value={form.country} onChange={set('country')} />
+      </Field>
+      <Field label={tr("Region")} hint={tr("Used to select stores for campaign rounds")}>
+        <input maxLength={100} value={form.region} onChange={set('region')} placeholder={tr("e.g. Randstad")} />
       </Field>
       <Field label={tr("Client")} hint={tr("Optional: the brand or client whose products this store carries")}>
         <select value={form.clientId} onChange={set('clientId')}>
@@ -768,6 +773,7 @@ const TITLES: Record<NewKind, string> = {
   planogram: 'New planogram',
   field_order: 'New field order',
   audit_round: 'New audit round',
+  campaign_round: 'New campaign round',
   work_order: 'New work order',
   deal: 'New deal',
   invoice: 'New invoice',
@@ -836,6 +842,7 @@ export function NewDrawer({
       {kind === 'planogram' && <NewPlanogramForm {...props} />}
       {kind === 'field_order' && <NewFieldOrderForm {...props} />}
       {kind === 'audit_round' && <NewAuditRoundForm {...props} />}
+      {kind === 'campaign_round' && <NewCampaignRoundForm {...props} />}
     </Drawer>
   );
 }

@@ -95,7 +95,7 @@ export class WorkflowController {
   }
 
   @Post('exceptions')
-  @ApiOperation({ summary: 'Log an exception with an owner (audit: exception.created)' })
+  @ApiOperation({ summary: 'Log an exception with three responsible parties: client contact (clientContactId), Agera account manager (ownerId) and responsible Agera executive (executiveId) (audit: exception.created)' })
   @ApiBody(OBJ)
   @ApiCreatedResponse(OBJ)
   @ApiErrors(400)
@@ -107,6 +107,8 @@ export class WorkflowController {
         description: optionalString('description', raw.description, 4000),
         severity: raw.severity === undefined ? 'medium' : oneOf('severity', raw.severity, SEVERITIES),
         ownerId: optionalUuid('ownerId', raw.ownerId),
+        clientContactId: optionalUuid('clientContactId', raw.clientContactId),
+        executiveId: optionalUuid('executiveId', raw.executiveId),
         storeId: optionalUuid('storeId', raw.storeId),
         clientId: optionalUuid('clientId', raw.clientId),
         source: optionalString('source', raw.source, 200),
@@ -131,6 +133,8 @@ export class WorkflowController {
         ...(raw.severity !== undefined ? { severity: oneOf('severity', raw.severity, SEVERITIES) } : {}),
         ...(raw.status !== undefined ? { status: oneOf('status', raw.status, EXCEPTION_STATUSES) as ExceptionStatus } : {}),
         ...(raw.ownerId !== undefined ? { ownerId: optionalUuid('ownerId', raw.ownerId) } : {}),
+        ...(raw.clientContactId !== undefined ? { clientContactId: optionalUuid('clientContactId', raw.clientContactId) } : {}),
+        ...(raw.executiveId !== undefined ? { executiveId: optionalUuid('executiveId', raw.executiveId) } : {}),
         ...(raw.resolution !== undefined ? { resolution: optionalString('resolution', raw.resolution, 4000) } : {}),
       },
       identity,

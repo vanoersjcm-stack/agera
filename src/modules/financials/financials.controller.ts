@@ -14,7 +14,8 @@ import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { parseAmount, parseOptionalAmount } from '../core/http/amounts.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
-import { asObject, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
+import { asObject, oneOf, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
+import { AllowJobRoles } from '../auth/job-roles.js';
 import {
   CreateFinancialLineItemDto,
   CreateFinancialModelDto,
@@ -24,7 +25,7 @@ import {
   UpdateFinancialLineItemDto,
   UpdateFinancialModelStatusDto,
 } from './dto/financials.dto.js';
-import { type FinancialLineItem, FINANCIAL_CATEGORIES, isFinancialCategory } from './entities/financial-line-item.entity.js';
+import { type FinancialLineItem, FINANCIAL_CATEGORIES, isFinancialCategory, LINE_CATEGORIES } from './entities/financial-line-item.entity.js';
 import { type FinancialModel, FINANCIAL_MODEL_STATUSES, isFinancialModelStatus } from './entities/financial-model.entity.js';
 import {
   type CreateLineItemInput,
@@ -55,6 +56,7 @@ function toLineItemResponse(item: FinancialLineItem): FinancialLineItemDto {
     modelId: item.modelId,
     category: item.category,
     subcategory: item.subcategory ?? null,
+    lineCategory: item.lineCategory,
     periodCode: item.periodCode,
     projectedAmount: item.projectedAmount,
     actualAmount: item.actualAmount ?? null,
@@ -90,7 +92,7 @@ function parseCreateModel(body: unknown): CreateModelInput {
 }
 
 function parseCreateLineItem(body: unknown): CreateLineItemInput {
-  const { category, subcategory, periodCode, projectedAmount, actualAmount, currency } = asObject(body);
+  const { category, subcategory, lineCategory, periodCode, projectedAmount, actualAmount, currency } = asObject(body);
   if (!isFinancialCategory(category)) {
     throw new BadRequestException(`category must be one of ${FINANCIAL_CATEGORIES.join(', ')}`);
   }
@@ -103,6 +105,7 @@ function parseCreateLineItem(body: unknown): CreateLineItemInput {
   return {
     category,
     subcategory: optionalString('subcategory', subcategory, 100),
+    lineCategory: lineCategory === undefined ? 'existing_contract' : oneOf('lineCategory', lineCategory, LINE_CATEGORIES),
     periodCode,
     projectedAmount: parseAmount('projectedAmount', projectedAmount),
     actualAmount: parseOptionalAmount('actualAmount', actualAmount),
@@ -119,8 +122,11 @@ function parseUpdateLineItem(body: unknown): UpdateLineItemInput {
   if (raw.actualAmount !== undefined) {
     input.actualAmount = parseOptionalAmount('actualAmount', raw.actualAmount);
   }
+  if (raw.lineCategory !== undefined) {
+    input.lineCategory = oneOf('lineCategory', raw.lineCategory, LINE_CATEGORIES);
+  }
   if (Object.keys(input).length === 0) {
-    throw new BadRequestException('Provide projectedAmount and/or actualAmount');
+    throw new BadRequestException('Provide projectedAmount, actualAmount and/or lineCategory');
   }
   return input;
 }
@@ -153,8 +159,9 @@ export class FinancialsController {
   }
 
   @Get('pnl')
+  @AllowJobRoles('HQ_ADMIN', 'ACCOUNT_MANAGER')
   @ApiOperation({
-    summary: 'Aggregated P&L: projection vs. actuals per period and category',
+    summary: 'Aggregated P&L: projection vs. actuals per period and category (internal margin report: platform admins, HQ admins and account managers only)',
     description:
       'Filtered by the caller\'s tenant (enforced by PostgreSQL row-level security) and optionally by model, fiscal ' +
       'year and period. Without modelId, only approved models are aggregated. A quarter (2026-Q1) also includes ' +

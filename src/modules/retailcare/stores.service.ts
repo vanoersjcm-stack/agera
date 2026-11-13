@@ -18,6 +18,7 @@ export interface CreateStoreInput {
   city: string | null;
   postalCode: string | null;
   country: string | null;
+  region: string | null;
   clientId: string | null;
 }
 

@@ -16,6 +16,7 @@ export type NewKind =
   | 'planogram'
   | 'field_order'
   | 'audit_round'
+  | 'campaign_round'
   | 'work_order'
   | 'deal'
   | 'invoice'

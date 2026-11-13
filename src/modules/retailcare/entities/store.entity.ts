@@ -29,6 +29,9 @@ export class Store {
   @Column({ type: 'varchar', length: 100, nullable: true, default: 'ES' })
   country!: string | null;
 
+  @Column({ type: 'varchar', length: 100, nullable: true })
+  region!: string | null;
+
   @Column({ type: 'varchar', length: 20, default: 'active' })
   status!: StoreStatus;
 

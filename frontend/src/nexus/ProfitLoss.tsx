@@ -41,7 +41,7 @@ export function ProfitLossView({ route }: { route: Route }) {
   if (period && !options.some((o) => o.value === period)) options.unshift({ value: period, label: periodLabel(period) });
   const filtered = !!(modelId || period);
   return (
-    <ViewFrame title={t("Profit & loss")} crumbs={[{ label: t("Nexus"), href: '#/nexus' }, { label: t("Profit & loss") }]}>
+    <ViewFrame title={t("Profit & loss")} subtitle={t("Internal margin report for HQ and account managers; not shown to clients")} crumbs={[{ label: t("Symphony"), href: '#/symphony' }, { label: t("Profit & loss") }]}>
       <div className="filters">
         <label>
           {t("Financial plan")}<select value={modelId} onChange={(e) => navigate(withParams(route, { modelId: e.target.value }))}>
@@ -59,7 +59,7 @@ export function ProfitLossView({ route }: { route: Route }) {
             ))}
           </select>
         </label>
-        {filtered && <button className="secondary align-end" onClick={() => navigate('/nexus/profit-loss')}>{t("Clear filters")}</button>}
+        {filtered && <button className="secondary align-end" onClick={() => navigate('/symphony/profit-loss')}>{t("Clear filters")}</button>}
       </div>
       {!pnl.data && <Loading error={pnl.error} />}
       {pnl.data && pnl.data.rows.length === 0 && (

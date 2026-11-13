@@ -15,6 +15,7 @@ import { StorageService } from '../core/storage/storage.service.js';
 import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
 import { DOCUMENT_TYPES, MAX_DOCUMENT_BYTES, safeName } from '../documents/documents.service.js';
+import { MailService } from '../mail/mail.service.js';
 import { UserService } from '../user/user.service.js';
 
 export const NEW_FORMATS = ['docx', 'xlsx', 'pptx'] as const;
@@ -56,7 +57,12 @@ export interface ScanInput {
   title: string | null;
   originalName: string;
   data: Buffer;
+  /** E-mail the client's contacts that a scan was added to their client room. */
+  notifyClients?: boolean;
 }
+
+/** Outcome of the optional client-contact e-mail after a scan into a client room. */
+export interface ScanNotification { requested: boolean; smtp: 'connected' | 'not_connected'; recipients: number; sent: number; failed: number }
 
 /** Scanned paper: PDF or a camera/scanner image. */
 export const SCAN_FORMATS = ['pdf', 'jpg', 'jpeg', 'png'] as const;
@@ -177,6 +183,7 @@ export class OfficeService {
     private readonly userService: UserService,
     private readonly commercial: CommercialService,
     private readonly audit: AuditService,
+    private readonly mail: MailService,
   ) {
     this.office = config.getOrThrow<OfficeConfig>('office');
     const seed = process.env.WOPI_TOKEN_SECRET || `${process.env.DB_PASSWORD ?? ''}:${process.env.KEYCLOAK_CLIENT_SECRET ?? ''}`;
@@ -299,7 +306,36 @@ export class OfficeService {
   }
 
   /** Scan-to-Vault: bind a scanned PDF/image to a client (optionally a client room) as a DRAFT document with its SHA-256. */
-  async scan(input: ScanInput, identity: AuthenticatedUser): Promise<OfficeDocumentView> {
+  /** Never blocks the scan: without SMTP_* the result says so and nothing is sent. */
+  private async notifyScan(doc: OfficeDocumentView, roomId: string, actorId: string): Promise<ScanNotification> {
+    const { configured } = await this.mail.status();
+    const [room] = await this.tx.run((m) => m.query('SELECT room_name AS name FROM digital_sales_rooms WHERE tenant_id = $1 AND id = $2', [this.context.tenantId, roomId]));
+    const contacts: { email: string; firstName: string }[] = await this.tx.run((m) =>
+      m.query(`SELECT DISTINCT ON (lower(email)) email, first_name AS "firstName" FROM contacts WHERE tenant_id = $1 AND client_id = $2 AND email IS NOT NULL AND btrim(email) <> ''`, [
+        this.context.tenantId,
+        doc.clientId,
+      ]),
+    );
+    const result: ScanNotification = { requested: true, smtp: configured ? 'connected' : 'not_connected', recipients: contacts.length, sent: 0, failed: 0 };
+    if (configured) {
+      for (const c of contacts) {
+        try {
+          await this.mail.send({
+            to: c.email,
+            subject: `New document in ${room?.name ?? 'your client room'}: ${doc.title}`,
+            text: `Hello ${c.firstName},\n\nA scanned document "${doc.title}" was added to ${room?.name ?? 'your client room'} in Agera. Open your client portal to view it.\n`,
+          });
+          result.sent += 1;
+        } catch {
+          result.failed += 1;
+        }
+      }
+    }
+    this.audit.logAction(this.context.tenantId, actorId, 'document.scan_notification', { documentId: doc.id, clientRoomId: roomId, ...result });
+    return result;
+  }
+
+  async scan(input: ScanInput, identity: AuthenticatedUser): Promise<OfficeDocumentView & { notification?: ScanNotification }> {
     const ext = (input.originalName.match(/\.([A-Za-z0-9]+)$/)?.[1] ?? '').toLowerCase();
     if (!(SCAN_FORMATS as readonly string[]).includes(ext)) throw new BadRequestException(`file type not allowed; use ${SCAN_FORMATS.join(', ')}`);
     const format = ext === 'jpeg' ? 'jpg' : ext;
@@ -333,6 +369,7 @@ export class OfficeService {
       this.audit.logAction(this.context.tenantId, actor.id, 'document.scanned_to_vault', {
         documentId: view.id, clientId: input.clientId, clientRoomId: input.clientRoomId, sha256, sizeBytes: input.data.length,
       });
+      if (input.notifyClients && input.clientRoomId) return { ...view, notification: await this.notifyScan(view, input.clientRoomId, actor.id) };
       return view;
     } catch (error) {
       if (written) await this.storage.delete(key);

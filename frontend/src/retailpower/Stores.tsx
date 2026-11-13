@@ -30,7 +30,7 @@ export function StoresView({ route }: { route: Route }) {
   const filtered = items.filter((x) => matchesClient(clientFilter, x.clientId)).filter(
     (s) =>
       (compliance === 'all' || (compliance === 'not_compliant') === flagged.has(s.id)) &&
-      includesText([s.name, s.storeCode, s.city, s.address], q),
+      includesText([s.name, s.storeCode, s.city, s.address, s.region], q),
   );
   return (
     <ViewFrame title={t("Stores")} crumbs={[SUITE_CRUMB, { label: t("Stores") }]} actions={<button className="primary" onClick={() => openNew('store')}>{t("+ New store")}</button>}>
@@ -59,6 +59,7 @@ export function StoresView({ route }: { route: Route }) {
               <th>{t("Store")}</th>
               <th>{t("Code")}</th>
               <th>{t("City")}</th>
+              <th>{t("Region")}</th>
               <th>{t("Compliance")}</th>
             </tr>
           </thead>
@@ -68,6 +69,7 @@ export function StoresView({ route }: { route: Route }) {
                 <td><a href={`#/retailpower/stores/${s.id}`}>{s.name}</a></td>
                 <td>{s.storeCode}</td>
                 <td>{s.city ?? '—'}</td>
+                <td>{s.region ?? '—'}</td>
                 <td>{flagged.has(s.id) ? <StatusBadge status="not_compliant" label={t("Not compliant")} /> : <span className="muted">{t("No open issues")}</span>}</td>
               </tr>
             ))}
@@ -117,6 +119,7 @@ export function StoreDossier({ id }: { id: string }) {
           ['Store code', store.storeCode],
           ['Status', STORE_STATUS[store.status] ?? store.status],
           ['Address', [store.address, [store.postalCode, store.city].filter(Boolean).join(' '), store.country].filter(Boolean).join(', ') || '—'],
+          ['Region', store.region ?? '—'],
           ['Added', formatDate(store.createdAt)],
         ]}
       />

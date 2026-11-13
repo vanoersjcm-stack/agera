@@ -177,23 +177,31 @@ function ScanPanel({ fieldRole }: { fieldRole: boolean }) {
   const [clientId, setClientId] = useState('');
   const [roomId, setRoomId] = useState('');
   const [title, setTitle] = useState('');
+  const [notifyClients, setNotifyClients] = useState(false);
+  const mail = useLoad(() => api.mailStatus(), []);
   const [over, setOver] = useState(false);
   const [done, setDone] = useState<OfficeDocument[]>([]);
   const record = useClientRecord(fieldRole ? '' : clientId);
   const fileInput = useRef<HTMLInputElement>(null);
   const cameraInput = useRef<HTMLInputElement>(null);
   useEffect(() => setRoomId(''), [clientId]);
+  useEffect(() => setNotifyClients(false), [roomId]);
 
   const send = (files: FileList | null) => {
     const file = files?.[0];
     if (!file) return;
     if (!clientId) return setError(t("Choose a client first."));
-    void run(() => api.scanToVault(file, { clientId, clientRoomId: roomId || undefined, title: title.trim() || undefined })).then((doc) => {
+    void run(() => api.scanToVault(file, { clientId, clientRoomId: roomId || undefined, title: title.trim() || undefined, notifyClients: !!roomId && notifyClients })).then((doc) => {
       [fileInput.current, cameraInput.current].forEach((i) => i && (i.value = ''));
       if (!doc) return;
       setTitle('');
       setDone((d) => [doc, ...d]);
-      notify(tf("{title} stored in the vault as Draft", { title: doc.title }));
+      const n = doc.notification;
+      notify(
+        !n ? tf("{title} stored in the vault as Draft", { title: doc.title })
+          : n.smtp === 'not_connected' ? tf("{title} stored in the vault as Draft. SMTP not connected: no e-mail was sent.", { title: doc.title })
+          : tf("{title} stored in the vault as Draft. E-mail sent to {n} client contact(s).", { title: doc.title, n: n.sent }),
+      );
     });
   };
   const drop = (e: DragEvent) => {
@@ -208,6 +216,12 @@ function ScanPanel({ fieldRole }: { fieldRole: boolean }) {
       <p className="muted">{t("Upload a scanned PDF or a photo (JPG, PNG). It is stored with the client as a Draft document with a SHA-256 fingerprint, and logged in the activity log.")}</p>
       <ClientSelect value={clientId} onChange={setClientId} />
       {!fieldRole && clientId && <RoomSelect record={record} value={roomId} onChange={setRoomId} optionalLabel={t("No client room")} />}
+      {!fieldRole && roomId && (
+        <div className="field">
+          <label className="check-row"><input type="checkbox" checked={notifyClients} onChange={(e) => setNotifyClients(e.target.checked)} /> {t("Notify client contacts via email")}</label>
+          {notifyClients && mail.data && !mail.data.configured && <p className="callout">{t("SMTP not connected: the scan is stored, but no e-mail is sent until SMTP_HOST and SMTP_FROM are set.")}</p>}
+        </div>
+      )}
       <Field label={t("Title")} hint={t("Optional; defaults to the file name")}>
         <input value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} />
       </Field>

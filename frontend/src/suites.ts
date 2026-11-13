@@ -50,6 +50,9 @@ function navItems(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/symphony', label: t("Overview"), description: t("Key figures across all suites") },
         { path: '/symphony/prognosis', label: t("Prognosis"), description: t("Run-rate waterfall with what-if sliders") },
         { path: '/symphony/invoices', label: t("Invoices"), description: t("Record invoices, mark them sent or paid") },
+        ...(user.jobRole === null || ['PLATFORM_ADMIN', 'HQ_ADMIN', 'ACCOUNT_MANAGER'].includes(user.jobRole)
+          ? [{ path: '/symphony/profit-loss', label: t("Profit & loss"), description: t("Internal margin report: plan versus actual per period") }]
+          : []),
         { path: '/symphony/credit-control', label: t("Credit control"), description: t("Emergency credit locks per client or organisation-wide") },
         { path: '/symphony/approvals', label: t("Approvals"), description: t("Approval chains waiting for you and all requests") },
         { path: '/symphony/health', label: t("Account health"), description: t("Health score and engagement per client") },
@@ -83,7 +86,6 @@ function navItems(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/nexus/agreements', label: t("Agreements"), description: t("Client agreements and approvals") },
         { path: '/nexus/client-rooms', label: t("Client rooms"), description: t("Online rooms per client deal, with engagement") },
         { path: '/nexus/financial-plans', label: t("Financial plans"), description: t("Plans, plan lines and approval") },
-        { path: '/nexus/profit-loss', label: t("Profit & loss"), description: t("Plan versus actual per period") },
         { path: '/nexus/price-lists', label: t("Price lists"), description: t("Client and volume prices on top of the catalogue") },
         { path: '/nexus/templates', label: t("Document templates"), description: t("Proposals and letters filled with client data") },
         { path: '/nexus/exceptions', label: t("Exceptions"), description: t("Issues with an owner, severity and resolution") },
@@ -98,13 +100,17 @@ function navItems(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/retailpower/back-office', label: t("Back office"), description: t("Chain performance, KPIs across chains and the photo audit gallery") },
         { path: '/retailpower/crew', label: t("Crew directory"), description: t("Merchandisers by availability, contract, language and brand certification") },
         { path: '/retailpower/hours', label: t("Validated hours"), description: t("Clock in/out, coordinator sign-off and HR export") },
-        { path: '/retailpower/fleet', label: t("Fleet, apparel & returns"), description: t("Vehicles with a four-photo check, apparel, RMA and stock-protection claims") },
-        { path: '/retailpower/work-orders', label: t("Work orders"), description: t("Field tasks, assignment and status") },
+        { path: '/retailpower/fleet', label: t("Fleet & apparel"), description: t("Vehicles with a four-photo check and crew apparel") },
+        ...(user.jobRole === null || ['PLATFORM_ADMIN', 'HQ_ADMIN', 'ACCOUNT_MANAGER'].includes(user.jobRole)
+          ? [{ path: '/retailpower/procurement', label: t("Procurement & POs"), description: t("Purchase orders for car rental, apparel and POS material, matched to supplier invoices") }]
+          : []),
+        { path: '/retailpower/rackjobbing', label: t("Rackjobbing & RMA"), description: t("Rackjobbing checklists, merchandise returns (RMA) and stock-protection claims") },
+        { path: '/retailpower/work-orders', label: t("Work orders"), description: t("Client-commissioned execution jobs: assignment and status") },
         { path: '/retailpower/store-visits', label: t("Store visits"), description: t("Plan visits, write reports, add photos") },
         { path: '/retailpower/stores', label: t("Stores"), description: t("Store list and compliance") },
         { path: '/retailpower/calendar', label: t("Field calendar"), description: t("Visits per rep per day, with capacity warnings") },
         { path: '/retailpower/audit-rounds', label: t("Audit rounds"), description: t("Plan visits to many stores with one checklist") },
-        { path: '/retailpower/orders', label: t("Field orders"), description: t("Orders taken in stores, draft to delivery") },
+        { path: '/retailpower/orders', label: t("Field orders"), description: t("Rep logistics and dispatch: store orders and campaign rounds") },
         { path: '/retailpower/products', label: t("Products"), description: t("Product catalogue and prices") },
         { path: '/retailpower/planograms', label: t("Planograms"), description: t("Expected shelf layouts and facings") },
         { path: '/retailpower/scan', label: t("Scan to vault"), description: t("Photograph or upload a signed form; it is stored with the client as a Draft document") },
@@ -171,7 +177,8 @@ export const LEGACY_ROUTES: Record<string, { internal: string; external: string 
   '/dashboard': { internal: '/nexus', external: '/portal' },
   '/vanguard': { internal: '/nexus/pipeline', external: '/portal' },
   '/vanguard/deals': { internal: '/nexus/deals', external: '/portal' },
-  '/financials': { internal: '/nexus/profit-loss', external: '/portal' },
+  '/financials': { internal: '/symphony/profit-loss', external: '/portal' },
+  '/nexus/profit-loss': { internal: '/symphony/profit-loss', external: '/portal' },
   '/dsr': { internal: '/nexus/client-rooms', external: '/portal/rooms' },
   '/rooms': { internal: '/nexus/client-rooms', external: '/portal/rooms' },
   '/anomalies': { internal: '/nexus/alerts', external: '/portal' },
@@ -182,7 +189,7 @@ export function currentTier(): LicenseTier {
   return activeTier;
 }
 
-export type TopicId = 'overview' | 'finance' | 'clients' | 'thirdparties' | 'workflow' | 'governance' | 'sales' | 'documents' | 'issues' | 'field' | 'stores' | 'people' | 'fleet';
+export type TopicId = 'overview' | 'finance' | 'clients' | 'thirdparties' | 'workflow' | 'governance' | 'sales' | 'documents' | 'issues' | 'field' | 'stores' | 'people' | 'fleet' | 'rackjobbing';
 
 export interface NavTopic {
   id: TopicId;
@@ -193,7 +200,7 @@ export interface NavTopic {
 const TOPICS: Record<SuiteId, [TopicId, string, string[]][]> = {
   symphony: [
     ['overview', 'Overview', ['/symphony']],
-    ['finance', 'Finance', ['/symphony/prognosis', '/symphony/invoices', '/symphony/credit-control', '/symphony/reports']],
+    ['finance', 'Finance', ['/symphony/prognosis', '/symphony/invoices', '/symphony/profit-loss', '/symphony/credit-control', '/symphony/reports']],
     ['clients', 'Clients', ['/symphony/clients', '/symphony/health', '/symphony/feedback']],
     ['thirdparties', 'Third parties', ['/symphony/third-parties']],
     ['workflow', 'Workflow', ['/symphony/approvals', '/symphony/automations']],
@@ -204,7 +211,7 @@ const TOPICS: Record<SuiteId, [TopicId, string, string[]][]> = {
     ['clients', 'Clients', ['/nexus/clients', '/nexus/client-rooms', '/nexus/surveys']],
     ['thirdparties', 'Third parties', ['/nexus/third-parties']],
     ['sales', 'Sales', ['/nexus/pipeline', '/nexus/deals', '/nexus/agreements', '/nexus/price-lists']],
-    ['finance', 'Finance', ['/nexus/financial-plans', '/nexus/profit-loss']],
+    ['finance', 'Finance', ['/nexus/financial-plans']],
     ['documents', 'Documents & mail', ['/nexus/templates', '/nexus/mail-merge', '/nexus/print']],
     ['issues', 'Issues', ['/nexus/exceptions', '/nexus/alerts']],
   ],
@@ -213,7 +220,8 @@ const TOPICS: Record<SuiteId, [TopicId, string, string[]][]> = {
     ['field', 'Field work', ['/retailpower/work-orders', '/retailpower/store-visits', '/retailpower/calendar', '/retailpower/audit-rounds', '/retailpower/scan']],
     ['stores', 'Stores & products', ['/retailpower/stores', '/retailpower/products', '/retailpower/planograms', '/retailpower/orders']],
     ['people', 'People', ['/retailpower/crew', '/retailpower/hours']],
-    ['fleet', 'Fleet & returns', ['/retailpower/fleet']],
+    ['fleet', 'Fleet & apparel', ['/retailpower/fleet', '/retailpower/procurement']],
+    ['rackjobbing', 'Rackjobbing & RMA', ['/retailpower/rackjobbing']],
   ],
 };
 

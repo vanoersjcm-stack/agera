@@ -39,7 +39,7 @@ export function NexusOverview() {
     >
       {error && <Loading error={error} />}
       <div className="tiles">
-        <Tile href="#/nexus/profit-loss" value={revenue ? formatAmount(revenue.projected, revenue.currency) : '—'} label={tr("Planned revenue (approved plans)")} />
+        <Tile href="#/symphony/profit-loss" value={revenue ? formatAmount(revenue.projected, revenue.currency) : '—'} label={tr("Planned revenue (approved plans)")} />
         <Tile href="#/nexus/agreements?status=pending_approval" value={awaiting === undefined ? '—' : String(awaiting)} label={tr("Agreements awaiting approval")} tone={awaiting ? 'warn' : undefined} />
         <Tile href="#/nexus/client-rooms" value={activeRooms === undefined ? '—' : String(activeRooms)} label={tr("Active client rooms")} />
         <Tile href="#/nexus/client-rooms" value={engagement.data ? String(engagement.data.summary.stakeholders) : '—'} label={`Client contacts active (last ${engagement.data?.windowDays ?? 30} days)`} />

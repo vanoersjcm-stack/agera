@@ -39,6 +39,14 @@ const CLAIM_TRANSITIONS: Record<ClaimStatus, ClaimStatus[]> = {
   rejected: [],
   paid: [],
 };
+export const ROTATION_RULES = ['fifo', 'expiry_check', 'none'] as const;
+export const PO_CATEGORIES = ['car_rental', 'apparel', 'pos_material'] as const;
+export type PoCategory = (typeof PO_CATEGORIES)[number];
+export const PO_BILLING = ['client', 'included'] as const;
+export type PoBilling = (typeof PO_BILLING)[number];
+/** Apparel and POS material are billed to the client separately; car rental is part of the visit price. */
+export const DEFAULT_BILLING: Record<PoCategory, PoBilling> = { car_rental: 'included', apparel: 'client', pos_material: 'client' };
+
 /** Clock-ins further than this from the store's coordinates are flagged in the validation queue. */
 export const GEOFENCE_RADIUS_M = 250;
 
@@ -56,6 +64,14 @@ export interface CrewInput {
   notes: string | null;
 }
 export interface Position { lat: number; lng: number }
+export interface RackjobInput {
+  storeId: string; productId: string | null; visitId: string | null; rmaCaseId: string | null; pickupQty: number; dropoffQty: number;
+  rotationRule: (typeof ROTATION_RULES)[number]; priceProtectionEligible: boolean; instructions: string | null;
+}
+export interface RackjobResult { actualPickupQty: number; actualDropoffQty: number; rotationDone: boolean; notes: string | null }
+export interface PoLineInput { category: PoCategory; description: string; quantity: string; unitPrice: string; billing: PoBilling }
+export interface PoInput { supplierName: string; clientId: string | null; auditRoundId: string | null; orderDate: string | null; notes: string | null; lines: PoLineInput[] }
+export interface PoMatchInput { invoiceNumber: string; invoiceDate: string | null; amount: string }
 export interface ShiftEntryInput { userId: string; storeId: string | null; clockInAt: Date; clockOutAt: Date; notes: string | null }
 export interface VehicleInput { userId: string; vehicleId: string; description: string | null; allocatedFrom: string | null; allocatedUntil: string | null }
 export interface ApparelInput { userId: string; item: (typeof APPAREL_ITEMS)[number]; size: string | null; quantity: number; issuedOn: string | null; notes: string | null }
@@ -117,6 +133,31 @@ const RMA_SQL = `
     FROM rma_cases r JOIN stores s ON s.id = r.store_id JOIN users u ON u.id = r.opened_by
     LEFT JOIN products p ON p.id = r.product_id LEFT JOIN clients c ON c.id = r.client_id`;
 
+const RACKJOB_SQL = `
+  SELECT k.id, k.store_id AS "storeId", s.name AS "storeName", k.product_id AS "productId", p.name AS "productName", p.sku AS "productSku",
+         k.visit_id AS "visitId", v.visit_date AS "visitDate", k.rma_case_id AS "rmaCaseId", r.case_number AS "rmaCaseNumber",
+         k.pickup_qty AS "pickupQty", k.dropoff_qty AS "dropoffQty", k.rotation_rule AS "rotationRule", k.price_protection_eligible AS "priceProtectionEligible",
+         k.instructions, k.status, k.actual_pickup_qty AS "actualPickupQty", k.actual_dropoff_qty AS "actualDropoffQty", k.rotation_done AS "rotationDone",
+         k.result_notes AS "resultNotes", ${PERSON('cu')} AS "completedByName", k.completed_at AS "completedAt", ${PERSON('u')} AS "createdByName", k.created_at AS "createdAt"
+    FROM rackjob_checks k JOIN stores s ON s.id = k.store_id JOIN users u ON u.id = k.created_by
+    LEFT JOIN products p ON p.id = k.product_id LEFT JOIN merchandising_visits v ON v.id = k.visit_id
+    LEFT JOIN rma_cases r ON r.id = k.rma_case_id LEFT JOIN users cu ON cu.id = k.completed_by`;
+
+const PO_SQL = `
+  SELECT o.id, o.po_number AS "poNumber", o.supplier_name AS "supplierName", o.client_id AS "clientId", c.name AS "clientName",
+         o.audit_round_id AS "auditRoundId", ar.name AS "auditRoundName", o.order_date::text AS "orderDate", o.status, o.notes,
+         o.supplier_invoice_number AS "supplierInvoiceNumber", o.supplier_invoice_date::text AS "supplierInvoiceDate", o.supplier_invoice_amount::text AS "supplierInvoiceAmount",
+         ${PERSON('mu')} AS "matchedByName", o.matched_at AS "matchedAt", ${PERSON('u')} AS "createdByName", o.created_at AS "createdAt",
+         COALESCE((SELECT sum(l.line_total) FROM purchase_order_lines l WHERE l.purchase_order_id = o.id), 0)::text AS total,
+         COALESCE((SELECT sum(l.line_total) FROM purchase_order_lines l WHERE l.purchase_order_id = o.id AND l.billing = 'client'), 0)::text AS "billableTotal",
+         COALESCE((SELECT sum(l.line_total) FROM purchase_order_lines l WHERE l.purchase_order_id = o.id AND l.billing = 'included'), 0)::text AS "includedTotal",
+         (o.supplier_invoice_amount - COALESCE((SELECT sum(l.line_total) FROM purchase_order_lines l WHERE l.purchase_order_id = o.id), 0))::text AS variance,
+         COALESCE((SELECT json_agg(json_build_object('id', l.id, 'category', l.category, 'description', l.description, 'quantity', l.quantity::text,
+                   'unitPrice', l.unit_price::text, 'lineTotal', l.line_total::text, 'billing', l.billing) ORDER BY l.position)
+                   FROM purchase_order_lines l WHERE l.purchase_order_id = o.id), '[]') AS lines
+    FROM purchase_orders o JOIN users u ON u.id = o.created_by
+    LEFT JOIN clients c ON c.id = o.client_id LEFT JOIN audit_rounds ar ON ar.id = o.audit_round_id LEFT JOIN users mu ON mu.id = o.matched_by`;
+
 const CLAIM_SQL = `
   SELECT k.id, k.store_id AS "storeId", s.name AS "storeName", k.product_id AS "productId", p.name AS "productName",
          k.client_id AS "clientId", c.name AS "clientName", k.claim_type AS "claimType", k.quantity, k.amount::text AS amount, k.status,
@@ -153,7 +194,7 @@ export class OperationsService {
     this.audit.logAction(this.t, actorId, action, details);
   }
 
-  private async assertRow(m: EntityManager, table: 'users' | 'stores' | 'products' | 'clients', id: string | null, label: string): Promise<void> {
+  private async assertRow(m: EntityManager, table: 'users' | 'stores' | 'products' | 'clients' | 'merchandising_visits' | 'rma_cases' | 'audit_rounds', id: string | null, label: string): Promise<void> {
     if (!id) return;
     const [row] = await m.query(`SELECT 1 FROM ${table} WHERE tenant_id = $1 AND id = $2`, [this.t, id]);
     if (!row) throw new BadRequestException(`${label} not found in this organisation`);
@@ -645,6 +686,128 @@ export class OperationsService {
   private async claim(id: string): Promise<unknown> {
     const [row] = await this.tx.run((m) => m.query(`${CLAIM_SQL} WHERE k.tenant_id = $1 AND k.id = $2`, [this.t, id]));
     if (!row) throw new NotFoundException('Claim not found');
+    return row;
+  }
+
+  // Rackjobbing checklists ------------------------------------------------------------------------------------------
+
+  rackjobChecks(): Promise<unknown[]> {
+    return this.tx.run((m) => m.query(`${RACKJOB_SQL} WHERE k.tenant_id = $1 ORDER BY (k.status = 'done'), k.created_at DESC LIMIT 500`, [this.t]));
+  }
+
+  async createRackjobCheck(input: RackjobInput, identity: AuthenticatedUser): Promise<unknown> {
+    const actor = await this.actorId(identity);
+    const id = await this.tx.run(async (m) => {
+      await this.assertRow(m, 'stores', input.storeId, 'store');
+      await this.assertRow(m, 'products', input.productId, 'product');
+      await this.assertRow(m, 'merchandising_visits', input.visitId, 'store visit');
+      await this.assertRow(m, 'rma_cases', input.rmaCaseId, 'return case');
+      const [r] = await m.query(
+        `INSERT INTO rackjob_checks (tenant_id, store_id, product_id, visit_id, rma_case_id, pickup_qty, dropoff_qty, rotation_rule, price_protection_eligible, instructions, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+        [this.t, input.storeId, input.productId, input.visitId, input.rmaCaseId, input.pickupQty, input.dropoffQty, input.rotationRule, input.priceProtectionEligible, input.instructions, actor],
+      );
+      return r.id as string;
+    });
+    this.log(actor, 'rackjob_check.created', { checkId: id, storeId: input.storeId, productId: input.productId, pickupQty: input.pickupQty, dropoffQty: input.dropoffQty });
+    return this.rackjobCheck(id);
+  }
+
+  async completeRackjobCheck(id: string, result: RackjobResult, identity: AuthenticatedUser): Promise<unknown> {
+    const actor = await this.actorId(identity);
+    await this.tx.run(async (m) => {
+      const [k] = await m.query('SELECT status FROM rackjob_checks WHERE tenant_id = $1 AND id = $2 FOR UPDATE', [this.t, id]);
+      if (!k) throw new NotFoundException('Rackjobbing checklist not found');
+      if (k.status === 'done') throw new ConflictException('This checklist is already completed');
+      await m.query(
+        `UPDATE rackjob_checks SET status = 'done', actual_pickup_qty = $3, actual_dropoff_qty = $4, rotation_done = $5, result_notes = $6, completed_by = $7, completed_at = now()
+          WHERE tenant_id = $1 AND id = $2`,
+        [this.t, id, result.actualPickupQty, result.actualDropoffQty, result.rotationDone, result.notes, actor],
+      );
+    });
+    this.log(actor, 'rackjob_check.completed', { checkId: id, ...result });
+    return this.rackjobCheck(id);
+  }
+
+  private async rackjobCheck(id: string): Promise<unknown> {
+    const [row] = await this.tx.run((m) => m.query(`${RACKJOB_SQL} WHERE k.tenant_id = $1 AND k.id = $2`, [this.t, id]));
+    if (!row) throw new NotFoundException('Rackjobbing checklist not found');
+    return row;
+  }
+
+  // Procurement & purchase orders -----------------------------------------------------------------------------------
+
+  purchaseOrders(): Promise<unknown[]> {
+    return this.tx.run((m) => m.query(`${PO_SQL} WHERE o.tenant_id = $1 ORDER BY (o.status IN ('matched','cancelled')), o.created_at DESC LIMIT 500`, [this.t]));
+  }
+
+  async createPurchaseOrder(input: PoInput, identity: AuthenticatedUser): Promise<unknown> {
+    const actor = await this.actorId(identity);
+    const id = await this.tx.run(async (m) => {
+      await this.assertRow(m, 'clients', input.clientId, 'client');
+      await this.assertRow(m, 'audit_rounds', input.auditRoundId, 'campaign or audit round');
+      if (!input.clientId && input.lines.some((l) => l.billing === 'client')) throw new BadRequestException('Choose the client to bill for lines that are billed separately to the client');
+      await m.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`po:${this.t}`]);
+      const year = new Date().getFullYear();
+      const [{ n }] = await m.query(
+        `SELECT COALESCE(max(substring(po_number from 9)::int), 0) + 1 AS n FROM purchase_orders WHERE tenant_id = $1 AND po_number ~ $2`,
+        [this.t, `^PO-${year}-[0-9]{4,}$`],
+      );
+      const [o] = await m.query(
+        `INSERT INTO purchase_orders (tenant_id, po_number, supplier_name, client_id, audit_round_id, order_date, notes, created_by)
+         VALUES ($1,$2,$3,$4,$5,COALESCE($6::date, CURRENT_DATE),$7,$8) RETURNING id`,
+        [this.t, `PO-${year}-${String(n).padStart(4, '0')}`, input.supplierName, input.clientId, input.auditRoundId, input.orderDate, input.notes, actor],
+      );
+      for (const [i, l] of input.lines.entries()) {
+        await m.query(
+          `INSERT INTO purchase_order_lines (tenant_id, purchase_order_id, position, category, description, quantity, unit_price, billing) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+          [this.t, o.id, i, l.category, l.description, l.quantity, l.unitPrice, l.billing],
+        );
+      }
+      return o.id as string;
+    });
+    this.log(actor, 'purchase_order.created', { purchaseOrderId: id, supplier: input.supplierName, lines: input.lines.length });
+    return this.purchaseOrder(id);
+  }
+
+  /** Matches a supplier invoice: equal to the order total (to the cent) = matched, otherwise disputed with the variance shown. */
+  async matchPurchaseOrder(id: string, input: PoMatchInput, identity: AuthenticatedUser): Promise<unknown> {
+    const actor = await this.actorId(identity);
+    const status = await this.tx.run(async (m) => {
+      const [o] = await m.query(
+        `SELECT o.status, COALESCE((SELECT sum(line_total) FROM purchase_order_lines WHERE purchase_order_id = o.id), 0)::text AS total
+           FROM purchase_orders o WHERE o.tenant_id = $1 AND o.id = $2 FOR UPDATE`,
+        [this.t, id],
+      );
+      if (!o) throw new NotFoundException('Purchase order not found');
+      if (o.status !== 'open' && o.status !== 'disputed') throw new ConflictException(`A ${o.status} purchase order cannot be matched`);
+      const next = Math.round(Number(input.amount) * 100) === Math.round(Number(o.total) * 100) ? 'matched' : 'disputed';
+      await m.query(
+        `UPDATE purchase_orders SET status = $3, supplier_invoice_number = $4, supplier_invoice_date = $5::date, supplier_invoice_amount = $6, matched_by = $7, matched_at = now()
+          WHERE tenant_id = $1 AND id = $2`,
+        [this.t, id, next, input.invoiceNumber, input.invoiceDate, input.amount, actor],
+      );
+      return next;
+    });
+    this.log(actor, 'purchase_order.invoice_matched', { purchaseOrderId: id, invoiceNumber: input.invoiceNumber, amount: input.amount, result: status });
+    return this.purchaseOrder(id);
+  }
+
+  async cancelPurchaseOrder(id: string, identity: AuthenticatedUser): Promise<unknown> {
+    const actor = await this.actorId(identity);
+    await this.tx.run(async (m) => {
+      const [o] = await m.query('SELECT status FROM purchase_orders WHERE tenant_id = $1 AND id = $2 FOR UPDATE', [this.t, id]);
+      if (!o) throw new NotFoundException('Purchase order not found');
+      if (o.status !== 'open') throw new ConflictException('Only open purchase orders can be cancelled');
+      await m.query(`UPDATE purchase_orders SET status = 'cancelled' WHERE tenant_id = $1 AND id = $2`, [this.t, id]);
+    });
+    this.log(actor, 'purchase_order.cancelled', { purchaseOrderId: id });
+    return this.purchaseOrder(id);
+  }
+
+  private async purchaseOrder(id: string): Promise<unknown> {
+    const [row] = await this.tx.run((m) => m.query(`${PO_SQL} WHERE o.tenant_id = $1 AND o.id = $2`, [this.t, id]));
+    if (!row) throw new NotFoundException('Purchase order not found');
     return row;
   }
 }

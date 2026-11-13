@@ -196,8 +196,10 @@ export interface FieldOrder {
 export interface AuditRoundVisit { id: string; storeId: string; storeName: string; storeCode: string; visitDate: string; status: VisitStatus; fieldRepName: string | null; complianceStatus: string | null; planogramScore: number | null }
 export interface AuditRound {
   id: string; name: string; checklist: string[]; dueDate: string | null; status: 'open' | 'closed'; createdByName: string | null; createdAt: string;
+  roundType: 'audit' | 'campaign'; merchandiserCount?: number; requirements?: CampaignRequirements; merchandiserIds?: string[]; merchandiserNames?: string[];
   visitCount?: number; completedCount?: number; issueCount?: number; visits?: AuditRoundVisit[];
 }
+export interface CampaignRequirements { vehicles: number; posMaterials: string | null; apparel: string | null }
 export interface VisitContext { auditRound: { id: string; name: string; checklist: string[] } | null; planograms: Planogram[] }
 
 /* ---------- Commercial ---------- */
@@ -223,6 +225,7 @@ export type ExceptionSeverity = 'low' | 'medium' | 'high';
 export type ExceptionStatus = 'open' | 'in_progress' | 'resolved';
 export interface ExceptionRecord {
   id: string; title: string; description: string | null; severity: ExceptionSeverity; status: ExceptionStatus; ownerId: string | null; ownerName: string | null;
+  clientContactId: string | null; clientContactName: string | null; clientContactEmail: string | null; executiveId: string | null; executiveName: string | null;
   storeId: string | null; storeName: string | null; clientId: string | null; clientName: string | null; source: string | null; resolution: string | null;
   createdByName: string | null; resolvedAt: string | null; createdAt: string; updatedAt: string;
 }
@@ -350,6 +353,7 @@ export interface Store {
   city: string | null;
   postalCode: string | null;
   country: string | null;
+  region: string | null;
   status: StoreStatus;
   clientId: string | null;
   createdAt: string;
@@ -408,11 +412,14 @@ export interface FinancialModel {
   updatedAt: string;
 }
 
+export type LineCategory = 'existing_contract' | 'new_business';
+
 export interface LineItem {
   id: string;
   modelId: string;
   category: Category;
   subcategory: string | null;
+  lineCategory: LineCategory;
   periodCode: string;
   projectedAmount: string;
   actualAmount: string | null;
@@ -764,6 +771,23 @@ export type VehicleSide = 'front' | 'back' | 'left' | 'right';
 export interface VehicleAllocation { id: string; userId: string; userName: string; vehicleId: string; description: string | null; allocatedFrom: string; allocatedUntil: string | null; status: 'pending_check' | 'active' | 'returned'; checkCompletedAt: string | null; odometerKm: number | null; damageNotes: string | null; returnedAt: string | null; photos: Record<VehicleSide, boolean> }
 export interface ApparelAssignment { id: string; userId: string; userName: string; item: string; size: string | null; quantity: number; issuedOn: string; returnedOn: string | null; notes: string | null }
 export type RmaStatus = 'open' | 'approved' | 'shipped' | 'credited' | 'rejected';
+export interface ScanNotification { requested: boolean; smtp: 'connected' | 'not_connected'; recipients: number; sent: number; failed: number }
+export type RotationRule = 'fifo' | 'expiry_check' | 'none';
+export interface RackjobCheck {
+  id: string; storeId: string; storeName: string; productId: string | null; productName: string | null; productSku: string | null; visitId: string | null; visitDate: string | null;
+  rmaCaseId: string | null; rmaCaseNumber: string | null; pickupQty: number; dropoffQty: number; rotationRule: RotationRule; priceProtectionEligible: boolean; instructions: string | null;
+  status: 'planned' | 'done'; actualPickupQty: number | null; actualDropoffQty: number | null; rotationDone: boolean | null; resultNotes: string | null; completedByName: string | null; completedAt: string | null;
+  createdByName: string; createdAt: string;
+}
+export type PoCategory = 'car_rental' | 'apparel' | 'pos_material';
+export type PoBilling = 'client' | 'included';
+export type PoStatus = 'open' | 'matched' | 'disputed' | 'cancelled';
+export interface PurchaseOrderLine { id: string; category: PoCategory; description: string; quantity: string; unitPrice: string; lineTotal: string; billing: PoBilling }
+export interface PurchaseOrder {
+  id: string; poNumber: string; supplierName: string; clientId: string | null; clientName: string | null; auditRoundId: string | null; auditRoundName: string | null; orderDate: string; status: PoStatus; notes: string | null;
+  supplierInvoiceNumber: string | null; supplierInvoiceDate: string | null; supplierInvoiceAmount: string | null; matchedByName: string | null; matchedAt: string | null; createdByName: string; createdAt: string;
+  total: string; billableTotal: string; includedTotal: string; variance: string | null; lines: PurchaseOrderLine[];
+}
 export interface RmaCase { id: string; caseNumber: string; storeId: string; storeName: string; productName: string | null; clientName: string | null; quantity: number; reason: string; status: RmaStatus; description: string | null; returnChannel: ReturnChannel; trackingReference: string | null; openedByName: string; createdAt: string }
 export type ReturnChannel = 'merchandiser' | 'store';
 export type ClaimStatus = 'submitted' | 'approved' | 'rejected' | 'paid';
@@ -840,6 +864,15 @@ export const api = {
   openRma: (body: { storeId: string; productId: string | null; clientId: string | null; quantity: number; reason: string; description: string | null; returnChannel: ReturnChannel; trackingReference: string | null }) => request<RmaCase>('POST', '/v1/operations/rma', body),
   setRmaStatus: (id: string, status: RmaStatus) => request<RmaCase>('PATCH', `/v1/operations/rma/${id}/status`, { status }),
   stockClaims: () => request<StockClaim[]>('GET', '/v1/operations/stock-claims'),
+  rackjobChecks: () => request<RackjobCheck[]>('GET', '/v1/operations/rackjobbing'),
+  createRackjobCheck: (body: { storeId: string; productId: string | null; visitId: string | null; rmaCaseId: string | null; pickupQty: number; dropoffQty: number; rotationRule: RotationRule; priceProtectionEligible: boolean; instructions: string | null }) =>
+    request<RackjobCheck>('POST', '/v1/operations/rackjobbing', body),
+  completeRackjobCheck: (id: string, body: { actualPickupQty: number; actualDropoffQty: number; rotationDone: boolean; notes: string | null }) => request<RackjobCheck>('POST', `/v1/operations/rackjobbing/${id}/complete`, body),
+  purchaseOrders: () => request<PurchaseOrder[]>('GET', '/v1/operations/purchase-orders'),
+  createPurchaseOrder: (body: { supplierName: string; clientId: string | null; auditRoundId: string | null; orderDate: string | null; notes: string | null; lines: { category: PoCategory; description: string; quantity: string; unitPrice: string; billing: PoBilling }[] }) =>
+    request<PurchaseOrder>('POST', '/v1/operations/purchase-orders', body),
+  matchPurchaseOrder: (id: string, body: { invoiceNumber: string; invoiceDate: string | null; amount: string }) => request<PurchaseOrder>('POST', `/v1/operations/purchase-orders/${id}/match`, body),
+  cancelPurchaseOrder: (id: string) => request<PurchaseOrder>('POST', `/v1/operations/purchase-orders/${id}/cancel`),
   submitClaim: (body: { storeId: string; productId: string | null; clientId: string | null; claimType: string; quantity: number; amount: string | number; description: string | null; returnChannel: ReturnChannel; trackingReference: string | null }) => request<StockClaim>('POST', '/v1/operations/stock-claims', body),
   setClaimStatus: (id: string, status: ClaimStatus) => request<StockClaim>('PATCH', `/v1/operations/stock-claims/${id}/status`, { status }),
   mailStatus: () => request<MailStatus>('GET', '/v1/mail/status'),
@@ -869,7 +902,7 @@ export const api = {
   setUserStatus: (id: string, isActive: boolean) => request<UserAccount>('PATCH', `/users/${id}/status`, { isActive }),
   updateWorkOrder: (id: string, body: { title?: string; description?: string | null; priority?: WorkOrderPriority }) =>
     request<WorkOrder>('PATCH', `/work-orders/${id}`, body),
-  updateStore: (id: string, body: Partial<Pick<Store, 'storeCode' | 'name' | 'address' | 'city' | 'postalCode' | 'country' | 'status' | 'clientId'>>) =>
+  updateStore: (id: string, body: Partial<Pick<Store, 'storeCode' | 'name' | 'address' | 'city' | 'postalCode' | 'country' | 'region' | 'status' | 'clientId'>>) =>
     request<Store>('PATCH', `/stores/${id}`, body),
   updateVisit: (id: string, body: { visitDate?: string; notes?: string | null; fieldRepId?: string }) =>
     request<Visit>('PATCH', `/visits/${id}`, body),
@@ -881,7 +914,7 @@ export const api = {
     request<WorkOrder>('PATCH', `/work-orders/${id}/assign`, { assignedUserId }),
   setWorkOrderStatus: (id: string, status: WorkOrderStatus) => request<WorkOrder>('PATCH', `/work-orders/${id}/status`, { status }),
   stores: () => request<Page<Store>>('GET', '/stores?limit=100'),
-  createStore: (body: { storeCode: string; name: string; address?: string; city?: string; postalCode?: string; country?: string; clientId?: string | null }) =>
+  createStore: (body: { storeCode: string; name: string; address?: string; city?: string; postalCode?: string; country?: string; region?: string; clientId?: string | null }) =>
     request<Store>('POST', '/stores', body),
   visits: (storeId?: string, clientId?: string) => request<Page<Visit>>('GET', `/visits${query({ limit: 100, storeId, clientId })}`),
   visitSummary: (id: string) => request<VisitSummary>('GET', `/visits/${id}/summary`),
@@ -912,9 +945,9 @@ export const api = {
   lineItems: (modelId: string) => request<LineItem[]>('GET', `/v1/financials/models/${modelId}/line-items`),
   createLineItem: (
     modelId: string,
-    body: { category: Category; subcategory?: string; periodCode: string; projectedAmount: string; actualAmount?: string | null },
+    body: { category: Category; subcategory?: string; lineCategory?: LineCategory; periodCode: string; projectedAmount: string; actualAmount?: string | null },
   ) => request<LineItem>('POST', `/v1/financials/models/${modelId}/line-items`, body),
-  updateLineItem: (id: string, body: { projectedAmount?: string; actualAmount?: string | null }) =>
+  updateLineItem: (id: string, body: { projectedAmount?: string; actualAmount?: string | null; lineCategory?: LineCategory }) =>
     request<LineItem>('PATCH', `/v1/financials/line-items/${id}`, body),
   pnl: (params: { modelId?: string; period?: string }) => request<Pnl>('GET', `/v1/financials/pnl${query(params)}`),
   engagement: (roomId?: string) => request<EngagementStatus>('GET', `/v1/nexus/dsr-status${query({ dsrId: roomId })}`),
@@ -965,9 +998,9 @@ export const api = {
   cancelApproval: (id: string) => request<Approval>('POST', `/v1/approvals/${id}/cancel`),
   exceptions: (status?: string) => request<ExceptionRecord[]>('GET', `/v1/exceptions${status ? `?status=${status}` : ''}`),
   exception: (id: string) => request<ExceptionRecord>('GET', `/v1/exceptions/${id}`),
-  createException: (body: { title: string; description?: string | null; severity: ExceptionSeverity; ownerId?: string | null; storeId?: string | null; clientId?: string | null; source?: string | null }) =>
+  createException: (body: { title: string; description?: string | null; severity: ExceptionSeverity; ownerId?: string | null; clientContactId?: string | null; executiveId?: string | null; storeId?: string | null; clientId?: string | null; source?: string | null }) =>
     request<ExceptionRecord>('POST', '/v1/exceptions', body),
-  updateException: (id: string, body: Partial<{ title: string; description: string | null; severity: ExceptionSeverity; status: ExceptionStatus; ownerId: string | null; resolution: string | null }>) =>
+  updateException: (id: string, body: Partial<{ title: string; description: string | null; severity: ExceptionSeverity; status: ExceptionStatus; ownerId: string | null; clientContactId: string | null; executiveId: string | null; resolution: string | null }>) =>
     request<ExceptionRecord>('PATCH', `/v1/exceptions/${id}`, body),
   notifications: () => request<{ unread: number; items: AppNotification[] }>('GET', '/v1/notifications'),
   readNotifications: (id?: string) => request<null>('POST', '/v1/notifications/read', id ? { id } : {}),
@@ -998,6 +1031,8 @@ export const api = {
   setFieldOrderStatus: (id: string, status: FieldOrderStatus) => request<FieldOrder>('PATCH', `/v1/field/orders/${id}/status`, { status }),
   auditRounds: () => request<AuditRound[]>('GET', '/v1/field/audit-rounds'),
   auditRound: (id: string) => request<AuditRound>('GET', `/v1/field/audit-rounds/${id}`),
+  createCampaignRound: (body: { name: string; checklist: string[]; visitDate: string; merchandiserIds: string[]; storeIds: string[]; requirements: CampaignRequirements }) =>
+    request<AuditRound>('POST', '/v1/field/campaign-rounds', body),
   createAuditRound: (body: { name: string; checklist: string[]; dueDate?: string | null; visitDate: string; fieldRepId?: string | null; storeIds: string[] }) =>
     request<AuditRound>('POST', '/v1/field/audit-rounds', body),
   setAuditRoundStatus: (id: string, status: 'open' | 'closed') => request<AuditRound>('PATCH', `/v1/field/audit-rounds/${id}/status`, { status }),
@@ -1016,13 +1051,14 @@ export const api = {
   printJobs: () => request<PrintJob[]>('GET', '/v1/print/jobs'),
   queuePrint: (documentId: string, copies = 1) => request<PrintJob>('POST', '/v1/print/queue', { documentId, copies }),
   releasePrint: (code: string) => request<PrintJob>('POST', '/v1/print/release', { code }),
-  scanToVault: (file: File, fields: { clientId: string; clientRoomId?: string; title?: string }) => {
+  scanToVault: (file: File, fields: { clientId: string; clientRoomId?: string; title?: string; notifyClients?: boolean }) => {
     const form = new FormData();
     form.append('clientId', fields.clientId);
     if (fields.clientRoomId) form.append('clientRoomId', fields.clientRoomId);
     if (fields.title) form.append('title', fields.title);
+    if (fields.notifyClients) form.append('notifyClients', 'true');
     form.append('file', file);
-    return send<OfficeDocument>('POST', '/v1/documents/scan-ingest', form);
+    return send<OfficeDocument & { notification?: ScanNotification }>('POST', '/v1/documents/scan-ingest', form);
   },
   officeDocuments: (clientId: string) => request<OfficeDocument[]>('GET', `/v1/documents?clientId=${clientId}`),
   officeDrafts: () => request<OfficeDocument[]>('GET', '/v1/documents?drafts=true'),

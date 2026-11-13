@@ -1,4 +1,4 @@
-import { CoordinatorOnly } from '../auth/job-roles.js';
+import { AllowJobRoles, CoordinatorOnly } from '../auth/job-roles.js';
 import {
   BadRequestException, Body, Controller, Get, Header, Param, ParseUUIDPipe, Patch, Post, Query, StreamableFile, UploadedFile, UseFilters, UseInterceptors,
 } from '@nestjs/common';
@@ -11,8 +11,8 @@ import { amount, asObject, oneOf, optionalDate, optionalString, optionalUuid, pa
 import { detectImageMimeType, IMAGE_MIME_TYPES, MAX_UPLOAD_BYTES } from '../retailcare/media/image-type.js';
 import { UploadExceptionFilter } from '../retailcare/media/upload-exception.filter.js';
 import {
-  APPAREL_ITEMS, AVAILABILITY, CLAIM_STATUSES, CLAIM_TYPES, CONTRACT_TYPES, type CrewInput, OperationsService, type Position, RETURN_CHANNELS, type ReturnChannel, RMA_REASONS, RMA_STATUSES,
-  SHIFT_DECISIONS, VEHICLE_SIDES,
+  APPAREL_ITEMS, AVAILABILITY, CLAIM_STATUSES, CLAIM_TYPES, CONTRACT_TYPES, type CrewInput, DEFAULT_BILLING, OperationsService, PO_BILLING, PO_CATEGORIES, type PoLineInput, type Position,
+  RETURN_CHANNELS, type ReturnChannel, RMA_REASONS, RMA_STATUSES, ROTATION_RULES, SHIFT_DECISIONS, VEHICLE_SIDES,
 } from './operations.service.js';
 
 /** Tracking/reference only applies to direct returns by the store. */
@@ -68,6 +68,25 @@ function crewFields(raw: Record<string, unknown>, partial: boolean): Partial<Cre
   if (!partial || raw.phone !== undefined) out.phone = optionalString('phone', raw.phone, 40);
   if (!partial || raw.notes !== undefined) out.notes = optionalString('notes', raw.notes, 2000);
   return out;
+}
+
+function bool(name: string, value: unknown, fallback: boolean): boolean {
+  if (value === undefined || value === null) return fallback;
+  if (typeof value !== 'boolean') throw new BadRequestException(`${name} must be true or false`);
+  return value;
+}
+
+function poLines(value: unknown): PoLineInput[] {
+  if (!Array.isArray(value) || value.length === 0 || value.length > 50) throw new BadRequestException('lines must be a list of 1 to 50 lines');
+  return value.map((v, i) => {
+    const o = asObject(v);
+    const category = oneOf(`lines[${i}].category`, o.category, PO_CATEGORIES);
+    const quantity = amount(`lines[${i}].quantity`, o.quantity ?? 1);
+    if (Number(quantity) <= 0) throw new BadRequestException(`lines[${i}].quantity must be more than 0`);
+    const description = optionalString(`lines[${i}].description`, o.description, 200);
+    if (!description) throw new BadRequestException(`lines[${i}].description is required`);
+    return { category, description, quantity, unitPrice: amount(`lines[${i}].unitPrice`, o.unitPrice ?? 0), billing: o.billing === undefined ? DEFAULT_BILLING[category] : oneOf(`lines[${i}].billing`, o.billing, PO_BILLING) };
+  });
 }
 
 interface UploadedImage { buffer: Buffer; mimetype: string; size: number }
@@ -379,5 +398,104 @@ export class OperationsController {
   @ApiErrors(400, 404, 409)
   claimStatus(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
     return this.ops.setClaimStatus(id, oneOf('status', asObject(body).status, CLAIM_STATUSES), identity);
+  }
+
+  @Get('rackjobbing')
+  @ApiOperation({ summary: 'Rackjobbing checklists: pick-up and drop-off quantities, stock rotation and price-protection flags per store visit / product' })
+  rackjobbing(): Promise<unknown[]> {
+    return this.ops.rackjobChecks();
+  }
+
+  @CoordinatorOnly()
+  @Post('rackjobbing')
+  @ApiOperation({ summary: 'Coordinators: create a rackjobbing checklist for a store (optionally a visit, product and return case) (audit: rackjob_check.created)' })
+  @ApiBody(OBJ)
+  @ApiErrors(400)
+  createRackjob(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    const raw = asObject(body);
+    return this.ops.createRackjobCheck(
+      {
+        storeId: required('storeId', optionalUuid('storeId', raw.storeId)),
+        productId: optionalUuid('productId', raw.productId),
+        visitId: optionalUuid('visitId', raw.visitId),
+        rmaCaseId: optionalUuid('rmaCaseId', raw.rmaCaseId),
+        pickupQty: int('pickupQty', raw.pickupQty, 0, 100000, 0),
+        dropoffQty: int('dropoffQty', raw.dropoffQty, 0, 100000, 0),
+        rotationRule: oneOf('rotationRule', raw.rotationRule ?? 'fifo', ROTATION_RULES),
+        priceProtectionEligible: bool('priceProtectionEligible', raw.priceProtectionEligible, false),
+        instructions: optionalString('instructions', raw.instructions, 2000),
+      },
+      identity,
+    );
+  }
+
+  @Post('rackjobbing/:id/complete')
+  @ApiOperation({ summary: 'Record what was actually picked up, dropped off and rotated (audit: rackjob_check.completed)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody(OBJ)
+  @ApiErrors(400, 404, 409)
+  completeRackjob(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    const raw = asObject(body);
+    return this.ops.completeRackjobCheck(
+      id,
+      {
+        actualPickupQty: int('actualPickupQty', raw.actualPickupQty, 0, 100000, 0),
+        actualDropoffQty: int('actualDropoffQty', raw.actualDropoffQty, 0, 100000, 0),
+        rotationDone: bool('rotationDone', raw.rotationDone, false),
+        notes: optionalString('notes', raw.notes, 2000),
+      },
+      identity,
+    );
+  }
+
+  @Get('purchase-orders')
+  @AllowJobRoles('HQ_ADMIN', 'ACCOUNT_MANAGER')
+  @ApiOperation({ summary: 'Procurement ledger: purchase orders for car rental, apparel and POS material, with billable vs. included totals and supplier-invoice match' })
+  purchaseOrders(): Promise<unknown[]> {
+    return this.ops.purchaseOrders();
+  }
+
+  @Post('purchase-orders')
+  @AllowJobRoles('HQ_ADMIN')
+  @ApiOperation({ summary: 'Create a purchase order (PO-YYYY-XXXX); apparel and POS lines default to billed to the client, car rental to included in the visit price (audit: purchase_order.created)' })
+  @ApiBody(OBJ)
+  @ApiErrors(400)
+  createPurchaseOrder(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    const raw = asObject(body);
+    const supplierName = optionalString('supplierName', raw.supplierName, 200);
+    if (!supplierName) throw new BadRequestException('supplierName is required');
+    return this.ops.createPurchaseOrder(
+      {
+        supplierName,
+        clientId: optionalUuid('clientId', raw.clientId),
+        auditRoundId: optionalUuid('auditRoundId', raw.auditRoundId),
+        orderDate: optionalDate('orderDate', raw.orderDate),
+        notes: optionalString('notes', raw.notes, 2000),
+        lines: poLines(raw.lines),
+      },
+      identity,
+    );
+  }
+
+  @Post('purchase-orders/:id/match')
+  @AllowJobRoles('HQ_ADMIN')
+  @ApiOperation({ summary: 'Match a supplier invoice to the order: same total = matched, otherwise disputed with the variance (audit: purchase_order.invoice_matched)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody(OBJ)
+  @ApiErrors(400, 404, 409)
+  matchPurchaseOrder(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    const raw = asObject(body);
+    const invoiceNumber = optionalString('invoiceNumber', raw.invoiceNumber, 60);
+    if (!invoiceNumber) throw new BadRequestException('invoiceNumber is required');
+    return this.ops.matchPurchaseOrder(id, { invoiceNumber, invoiceDate: optionalDate('invoiceDate', raw.invoiceDate), amount: amount('amount', raw.amount) }, identity);
+  }
+
+  @Post('purchase-orders/:id/cancel')
+  @AllowJobRoles('HQ_ADMIN')
+  @ApiOperation({ summary: 'Cancel an open purchase order (audit: purchase_order.cancelled)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiErrors(404, 409)
+  cancelPurchaseOrder(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    return this.ops.cancelPurchaseOrder(id, identity);
   }
 }
