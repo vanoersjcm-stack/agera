@@ -11,6 +11,8 @@
 #                                       import seed/agera/*.json into that tenant (idempotent); optionally
 #                                       create the matching Keycloak users (no passwords set)
 #   ./deploy.sh status                  show containers and health
+#   ./deploy.sh audit-compliance [--e2e]  read-only GDPR/DORA/NIS2/sovereignty self-audit; writes
+#                                       compliance-audit-YYYY-MM-DD.md and fails if any gate fails
 #   ./deploy.sh compose <args...>       any docker compose command with the production settings
 set -euo pipefail
 
@@ -409,7 +411,8 @@ case ${1:-up} in
   seed-agera) shift; cmd_seed_agera "$@" ;;
   seed-demo) shift; cmd_seed_demo "$@" ;;
   status) cmd_status ;;
+  audit-compliance) shift; source scripts/audit-compliance.sh; cmd_audit_compliance "$@" ;;
   compose) shift; check_tools; load_env; compose "$@" ;;
-  -h | --help | help) sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//' ;;
+  -h | --help | help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' ;;
   *) die "unknown command '$1' (try ./deploy.sh help)" ;;
 esac

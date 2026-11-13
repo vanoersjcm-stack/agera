@@ -518,6 +518,9 @@ imported.
 
 ## Verify
 
+On a server, `./deploy.sh audit-compliance` runs the GDPR / DORA / NIS2 / sovereignty self-audit
+(see [DEPLOYMENT.md](DEPLOYMENT.md#compliance-self-audit)).
+
 ```bash
 C="docker compose --env-file .env -f docker/docker-compose.yml"
 

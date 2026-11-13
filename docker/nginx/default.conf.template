@@ -36,8 +36,14 @@ server {
     ssl_session_cache   shared:SSL:10m;
     ssl_session_timeout 1d;
 
+    # Security headers (checked by ./deploy.sh audit-compliance). Agera Office (Collabora) is framed from this
+    # same origin, so framing is limited to 'self'. A location with its own add_header must repeat all of them.
+    add_header Strict-Transport-Security "max-age=31536000" always;
     add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header Content-Security-Policy "frame-ancestors 'self'" always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
+    proxy_hide_header X-Powered-By;
 
     # Photos are limited to 10 MB (voice clips to 5 MB) by the API; allow for multipart overhead.
     client_max_body_size 11m;
@@ -109,7 +115,10 @@ server {
     location = /index.html {
         root /usr/share/nginx/html;
         add_header Cache-Control "no-cache" always;
+        add_header Strict-Transport-Security "max-age=31536000" always;
         add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Content-Security-Policy "frame-ancestors 'self'" always;
         add_header Referrer-Policy strict-origin-when-cross-origin always;
     }
 }

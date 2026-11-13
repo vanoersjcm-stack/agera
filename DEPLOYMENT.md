@@ -339,6 +339,7 @@ All `docker compose` commands need the production settings; `./deploy.sh compose
 | Restart one service | `./deploy.sh compose restart backend` |
 | Stop everything (data kept) | `./deploy.sh compose down` |
 | Start again | `./deploy.sh` |
+| Compliance self-audit | `./deploy.sh audit-compliance` (see below) |
 
 Never run `docker compose down -v` on the server: `-v` deletes the database and photo volumes.
 
@@ -413,6 +414,27 @@ the admin console (`agera` realm → Clients → agera-backend → Credentials) 
   page is in place.
 - Realm defaults: passwords need at least 12 characters, and repeated failed logins lock the
   account temporarily.
+
+### Compliance self-audit
+
+`./deploy.sh audit-compliance` checks the running server against GDPR, DORA, NIS2, the IDMS lifecycle and
+the European-sovereignty rules. It only reads: test changes (a locked-record probe) run in a database
+transaction that is rolled back, and the PDF test is converted in memory and not stored.
+
+| Gate | What it checks |
+|---|---|
+| 1 RLS & isolation | every tenant table has row-level security and a policy (`schema_migrations` and `tenants` are global); the backend's `DB_USER` is not superuser, cannot bypass RLS and sees 0 rows without a tenant; the creator-only policies for private third parties, client-less documents and private appointments are active |
+| 2 Audit vault & IDMS | `DB_USER` cannot UPDATE/DELETE `audit_logs`; append-only triggers are on; the SHA-256 hash chain is verified over every row of every organisation; changing or deleting a FINAL_LOCKED / ARCHIVED_WORM record is refused; the daily retention job and its `idms.purged` audit event are in the running backend |
+| 3 Sovereignty | no Google, Microsoft, OpenAI, Sentry, jsDelivr or unpkg addresses in the deployed web app, backend or source; mail only via `SMTP_*` and print only via `CUPS_IPP_URL`; Agera Office (Collabora) renders a text and a spreadsheet PDF and the producer is Collabora/LibreOffice, not Skia/Google |
+| 4 Access control | no token gives 401; the demo logins from `demo-logins.txt` get exactly the access of their role (read-only requests); another organisation's record gives 404 |
+| 5 Supply chain & HTTPS | `npm audit --omit=dev` (high or critical fails) for backend and frontend; HSTS, `X-Content-Type-Options`, `X-Frame-Options` + `frame-ancestors` and `Referrer-Policy` are sent; no version in `Server`, no `X-Powered-By`; no access tokens in the proxy or backend logs |
+
+The result table is printed and saved as `compliance-audit-YYYY-MM-DD.md` (readable by the owner
+only and git-ignored, so server data never lands in the repository). The command exits with an error
+when any check fails. WARN means not configured yet (for example no mail server) or not provable on
+this server; SKIP means not run here. On the test stack (with `.env` and the development Keycloak),
+`./deploy.sh audit-compliance --e2e` also runs the security test suites (rls, job-roles, idms,
+office, print-scan, calendar), which write test data and therefore never run on a production server.
 
 ## Troubleshooting
 

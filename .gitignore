@@ -5,3 +5,4 @@ uploads/
 .env.production
 docker/nginx/certs/
 demo-logins.txt
+compliance-audit-*.md
