@@ -5,6 +5,7 @@ export type NewKind =
   | 'doc_sheet'
   | 'doc_slides'
   | 'doc_mail'
+  | 'memo'
   | 'automation'
   | 'user_invite'
   | 'survey'

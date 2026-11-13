@@ -2,11 +2,12 @@ import { formatNumber } from './format';
 import { NewPriceListForm, NewTemplateForm } from './nexus/Commercial';
 import { NewSurveyForm } from './nexus/Surveys';
 import { type DocIconKind, NewMailForm, NewSpreadsheetForm, NewTextDocumentForm } from './DocumentCreate';
-import { OfficeOrSimple } from './office';
+import { NewMemoForm, OfficeOrSimple } from './office';
+import { COMPANY_SIZES, ENTITY_CATEGORY, ORGANIZATION_TYPE } from './nexus/ThirdParties';
 import { NewExceptionForm } from './symphony/Workflow';
 import { NewAuditRoundForm, NewFieldOrderForm, NewPlanogramForm, NewProductForm } from './retailpower/Field';
 import { type FormEvent, useEffect, useState } from 'react';
-import { api, type Agreement, type CreatedApiKey, type Store, type WorkOrder } from './api';
+import { api, type Agreement, type CompanySize, type CreatedApiKey, type EntityCategory, type OrganizationType, type Store, type WorkOrder } from './api';
 import { activeClients, clientName, invalidateDirectory, useClients, useUsers } from './directory';
 import { navigate } from './router';
 import type { NewDefaults, NewKind } from './shell';
@@ -30,6 +31,7 @@ export const NEW_ITEMS: NewItem[] = live(() => ([
   { kind: 'doc_sheet', label: tr("New Agera.calc document"), hint: tr("Blank, price tiers or a payment schedule; opens in Agera Office"), icon: 'sheet', group: 'Document' },
   { kind: 'doc_slides', label: tr("New Agera.slides document"), hint: tr("Blank 16:9 presentation; opens in Agera Office"), icon: 'slides', group: 'Document' },
   { kind: 'doc_mail', label: tr("New Agera.email"), hint: tr("Compose from a template; opens in your e-mail program"), icon: 'mail', group: 'Document' },
+  { kind: 'memo', label: tr("Agera Memo"), hint: tr("A5 internal memo with From, To, Subject and Date; opens in Agera Office"), icon: 'text', group: 'Document' },
   { kind: 'deal', label: tr("Deal"), group: 'Nexus' },
   { kind: 'client', label: tr("Client"), group: 'Nexus' },
   { kind: 'contact', label: tr("Contact"), group: 'Nexus' },
@@ -397,8 +399,12 @@ function FinancialPlanForm({ defaults, onDone, onCancel }: FormProps) {
   );
 }
 
-function ClientForm({ onDone, onCancel }: FormProps) {
+function ClientForm({ defaults, onDone, onCancel }: FormProps) {
   const [name, setName] = useState('');
+  const [entityCategory, setEntityCategory] = useState<EntityCategory>((defaults.entityCategory as EntityCategory) || 'client');
+  const [organizationType, setOrganizationType] = useState<OrganizationType | ''>('');
+  const [companySize, setCompanySize] = useState<CompanySize | ''>('');
+  const [phone, setPhone] = useState('');
   const [legalName, setLegalName] = useState('');
   const [vatNumber, setVatNumber] = useState('');
   const [city, setCity] = useState('');
@@ -409,13 +415,38 @@ function ClientForm({ onDone, onCancel }: FormProps) {
     <form
       onSubmit={(e) =>
         submit(e, async () => {
-          const c = await api.createClient({ name: name.trim(), legalName: opt(legalName), vatNumber: opt(vatNumber), city: opt(city), country: opt(country) });
-          return { route: `/nexus/clients/${c.id}`, message: `Client “${c.name}” created` };
+          const c = await api.createClient({
+            name: name.trim(), legalName: opt(legalName), vatNumber: opt(vatNumber), city: opt(city), country: opt(country), phone: opt(phone),
+            entityCategory, organizationType: organizationType || null, companySize: organizationType === 'commercial_enterprise' ? companySize || null : null,
+          });
+          return { route: `/nexus/clients/${c.id}`, message: tf("“{name}” created", { name: c.name }) };
         })
       }
     >
       <Field label={tr("Company name")}>
         <input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("e.g. TechNova Electronics")} autoFocus />
+      </Field>
+      <Field label={tr("Category")} hint={entityCategory === 'private' ? tr("Only you can see this entry, administrators included.") : undefined}>
+        <select value={entityCategory} onChange={(e) => setEntityCategory(e.target.value as EntityCategory)}>
+          {(Object.keys(ENTITY_CATEGORY) as EntityCategory[]).map((k) => <option key={k} value={k}>{ENTITY_CATEGORY[k]}</option>)}
+        </select>
+      </Field>
+      <Field label={tr("Organisation type")} hint={tr("Optional")}>
+        <select value={organizationType} onChange={(e) => setOrganizationType(e.target.value as OrganizationType | '')}>
+          <option value="">{tr("Not specified")}</option>
+          {(Object.keys(ORGANIZATION_TYPE) as OrganizationType[]).map((k) => <option key={k} value={k}>{ORGANIZATION_TYPE[k]}</option>)}
+        </select>
+      </Field>
+      {organizationType === 'commercial_enterprise' && (
+        <Field label={tr("Company size")}>
+          <select value={companySize} onChange={(e) => setCompanySize(e.target.value as CompanySize | '')}>
+            <option value="">{tr("Not specified")}</option>
+            {COMPANY_SIZES.map((k) => <option key={k} value={k}>{k}</option>)}
+          </select>
+        </Field>
+      )}
+      <Field label={tr("Phone")} hint={tr("Optional")}>
+        <input type="tel" maxLength={50} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+31 20 123 4567" />
       </Field>
       <Field label={tr("Legal name")} hint={tr("Optional, as registered with the Chamber of Commerce")}>
         <input maxLength={200} value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder={tr("e.g. TechNova Electronics B.V.")} />
@@ -431,7 +462,7 @@ function ClientForm({ onDone, onCancel }: FormProps) {
       </Field>
       <p className="muted">{tr("After creating the client you can add contacts, agreements and client rooms from its record.")}</p>
       <ErrorText error={error} />
-      <FormActions busy={busy} submitLabel={tr("Create client")} onCancel={onCancel} />
+      <FormActions busy={busy} submitLabel={entityCategory === 'client' ? tr("Create client") : tr("Create")} onCancel={onCancel} />
     </form>
   );
 }
@@ -697,6 +728,7 @@ const TITLES: Record<NewKind, string> = {
   doc_sheet: 'New Agera.calc document',
   doc_slides: 'New Agera.slides document',
   doc_mail: 'New Agera.email',
+  memo: 'New Agera Memo',
   automation: 'New automation',
   user_invite: 'Invite a person',
   organisation: 'New organisation',
@@ -739,6 +771,7 @@ export function NewDrawer({
       {kind === 'doc_sheet' && <OfficeOrSimple format="xlsx" {...props} simple={<NewSpreadsheetForm {...props} />} />}
       {kind === 'doc_slides' && <OfficeOrSimple format="pptx" {...props} simple={null} />}
       {kind === 'doc_mail' && <NewMailForm {...props} />}
+      {kind === 'memo' && <NewMemoForm {...props} />}
       {kind === 'organisation' && <OrganisationForm {...props} />}
       {kind === 'integration_key' && <IntegrationKeyForm {...props} />}
       {kind === 'product' && <NewProductForm {...props} />}

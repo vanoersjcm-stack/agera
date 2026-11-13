@@ -39,13 +39,15 @@ export class TenantTransaction {
 }
 
 /** Sets the transaction-local RLS settings for a tenant; must run inside a transaction. */
-export async function applyTenantSettings(manager: EntityManager, tenant: Pick<ActiveTenant, 'id' | 'access'>): Promise<void> {
+export async function applyTenantSettings(manager: EntityManager, tenant: Pick<ActiveTenant, 'id' | 'access' | 'subject' | 'userId'>): Promise<void> {
   const clientId = tenant.access.scope === 'external' ? tenant.access.clientId : '';
   await manager.query(
     `SELECT set_config('app.current_tenant', $1, true),
             set_config('app.access_scope', $2, true),
-            set_config('app.current_client', $3, true)`,
-    [tenant.id, tenant.access.scope, clientId],
+            set_config('app.current_client', $3, true),
+            set_config('app.current_subject', $4, true),
+            set_config('app.current_user', $5, true)`,
+    [tenant.id, tenant.access.scope, clientId, tenant.subject ?? '', tenant.userId ?? ''],
   );
 }
 

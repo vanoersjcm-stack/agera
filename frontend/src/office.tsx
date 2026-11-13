@@ -179,22 +179,21 @@ function NewOfficeDocumentForm({ format, defaults, onDone, onCancel }: FormProps
 
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!clientId) return;
     void run(async () => {
       let starterCsv: string | null = null;
       if (format === 'xlsx' && starter === 'tiers') starterCsv = csvOf(tiersGrid(await api.products()));
       if (format === 'xlsx' && starter === 'schedule') starterCsv = csvOf(scheduleGrid(record));
-      return api.createOfficeDocument({ clientId, contactId: contactId || null, clientRoomId: roomId || null, title: docTitle, format, templateId: templateId || null, starterCsv });
+      return api.createOfficeDocument({ clientId: clientId || null, contactId: contactId || null, clientRoomId: roomId || null, title: docTitle, format, templateId: templateId || null, starterCsv });
     }).then((doc) => {
       if (!doc) return;
-      onDone(`/nexus/clients/${clientId}?tab=documents`, tf("{title} created", { title: doc.title }));
+      onDone(clientId ? `/nexus/clients/${clientId}?tab=documents` : '/nexus/drafts', tf("{title} created", { title: doc.title }));
       openOfficeEditor(doc.id);
     });
   };
 
   return (
     <form className="doc-form" onSubmit={submit}>
-      <ClientSelect value={clientId} onChange={setClientId} />
+      <ClientSelect value={clientId} onChange={setClientId} optional />
       {record && (
         <Field label={tr("Contact person")} hint={tr("Optional")}>
           <select value={contactId} onChange={(e) => setContactId(e.target.value)}>
@@ -222,11 +221,53 @@ function NewOfficeDocumentForm({ format, defaults, onDone, onCancel }: FormProps
       )}
       <Field label={tr("Title")}><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={docTitle} /></Field>
       {clientId && <RoomSelect record={record} value={roomId} onChange={setRoomId} optionalLabel={tr("Client dossier only")} />}
-      <p className="hint">{tr("The document is stored in the client dossier with version history and opens in Agera Office.")}</p>
+      <p className="hint">{clientId ? tr("The document is stored in the client dossier with version history and opens in Agera Office.") : tr("Without a client the document is personal: only you can see it, under Draft documents.")}</p>
       <ErrorText error={error} />
       <div className="form-actions">
         <button type="button" className="secondary" onClick={onCancel}>{tr("Cancel")}</button>
-        <button type="submit" className="primary" disabled={busy || !clientId}>{tr("Open in Agera Office")}</button>
+        <button type="submit" className="primary" disabled={busy}>{tr("Open in Agera Office")}</button>
+      </div>
+    </form>
+  );
+}
+
+/** + New › Agera Memo: an A5 internal memo, optionally linked to a client. */
+export function NewMemoForm({ defaults, onDone, onCancel }: FormProps) {
+  const [clientId, setClientId] = useState(initialClient(defaults));
+  const [to, setTo] = useState('');
+  const [subject, setSubject] = useState('');
+  const [date, setDate] = useState(new Date().toLocaleDateString('nl-NL'));
+  const [body, setBody] = useState('');
+  const [language, setLanguage] = useState<'nl' | 'en'>('nl');
+  const { busy, error, run } = useAction();
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    void run(() =>
+      api.createOfficeDocument({ clientId: clientId || null, title: `Memo – ${subject.trim()}`.slice(0, 200), format: 'docx', memo: { to: to.trim(), subject: subject.trim(), date: date.trim(), body, language } }),
+    ).then((doc) => {
+      if (!doc) return;
+      onDone(clientId ? `/nexus/clients/${clientId}?tab=documents` : '/nexus/drafts', tf("{title} created", { title: doc.title }));
+      openOfficeEditor(doc.id);
+    });
+  };
+  return (
+    <form className="doc-form" onSubmit={submit}>
+      <Field label={tr("To")}><input required maxLength={200} value={to} onChange={(e) => setTo(e.target.value)} placeholder={tr("e.g. All account managers")} autoFocus /></Field>
+      <Field label={tr("Subject")}><input required maxLength={200} value={subject} onChange={(e) => setSubject(e.target.value)} /></Field>
+      <Field label={tr("Date")}><input required maxLength={40} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
+      <Field label={tr("Message")}><textarea required rows={8} maxLength={20000} value={body} onChange={(e) => setBody(e.target.value)} /></Field>
+      <Field label={tr("Memo language")} hint={tr("Language of the headings and the disclaimer at the bottom")}>
+        <select value={language} onChange={(e) => setLanguage(e.target.value as 'nl' | 'en')}>
+          <option value="nl">Nederlands</option>
+          <option value="en">English</option>
+        </select>
+      </Field>
+      <ClientSelect value={clientId} onChange={setClientId} optional />
+      <p className="hint">{tr("The memo is an A5 document with the Agera logo; you are the sender. Without a client only you can see it, under Draft documents.")}</p>
+      <ErrorText error={error} />
+      <div className="form-actions">
+        <button type="button" className="secondary" onClick={onCancel}>{tr("Cancel")}</button>
+        <button type="submit" className="primary" disabled={busy}>{tr("Create memo")}</button>
       </div>
     </form>
   );

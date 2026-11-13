@@ -83,6 +83,7 @@ export class TenantsService {
     let tenant: Tenant;
     try {
       tenant = await this.tenants.save(this.tenants.create(input));
+      await this.tenants.query('SELECT seed_standard_templates($1)', [tenant.id]);
     } catch (error) {
       if (error instanceof QueryFailedError && (error.driverError as { code?: string }).code === PG_UNIQUE_VIOLATION) {
         throw new ConflictException('A tenant with this domain already exists');

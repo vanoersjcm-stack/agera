@@ -1,6 +1,6 @@
 import { ClientOfficeDocuments } from '../office';
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
-import { api, type Client, type ClientRecord, type Invoice, type Contact, type CreditStatus, type RoomActivity } from '../api';
+import { api, type Client, type CompanySize, type EntityCategory, type OrganizationType, type ClientRecord, type Invoice, type Contact, type CreditStatus, type RoomActivity } from '../api';
 import { invalidateDirectory, useUsers } from '../directory';
 import { ClientInvoicesPanel } from '../symphony/Invoices';
 import { HealthBadge } from '../symphony/Workflow';
@@ -11,6 +11,7 @@ import { useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
 import { recordClientView } from '../Navigator';
 import { ClientImportDrawer } from './ClientImport';
+import { COMPANY_SIZES, ENTITY_CATEGORY, isClientCategory, ORGANIZATION_TYPE, organizationLabel, PhoneLink } from './ThirdParties';
 import { userContext } from '../context';
 import { t as tr, tf, numberLocale, live } from '../i18n';
 
@@ -35,7 +36,7 @@ export function ClientsView({ route }: { route: Route }) {
   const role = userContext().jobRole;
   const canImport = role === null || role === 'PLATFORM_ADMIN' || role === 'HQ_ADMIN' || role === 'ACCOUNT_MANAGER';
   const { data, error } = useLoad(() => api.clients(), [imported]);
-  const items = data ?? [];
+  const items = (data ?? []).filter((c) => isClientCategory(c.entityCategory));
   const count = (s: string) => items.filter((c) => c.status === s).length;
   const filtered = items.filter((c) => (status === 'all' || c.status === status) && includesText([c.name, c.legalName, c.city, c.vatNumber, c.erpId, c.kvkNumber, c.accountManagerName], q));
   return (
@@ -113,6 +114,10 @@ function EditClientDrawer({ client, onClose, onSaved }: { client: Client; onClos
     creditLimit: client.creditLimit,
     creditStatus: client.creditStatus,
     accountManagerId: client.accountManagerId ?? '',
+    entityCategory: client.entityCategory ?? 'client',
+    organizationType: client.organizationType ?? '',
+    companySize: client.companySize ?? '',
+    phone: client.phone ?? '',
   });
   const users = useUsers();
   const { busy, error, run } = useAction();
@@ -135,6 +140,10 @@ function EditClientDrawer({ client, onClose, onSaved }: { client: Client; onClos
         creditLimit: form.creditLimit || '0',
         creditStatus: form.creditStatus,
         accountManagerId: form.accountManagerId || null,
+        entityCategory: form.entityCategory as EntityCategory,
+        organizationType: (form.organizationType || null) as OrganizationType | null,
+        companySize: form.organizationType === 'commercial_enterprise' ? ((form.companySize || null) as CompanySize | null) : null,
+        phone: opt(form.phone),
       }),
     ).then((r) => r && onSaved());
   };
@@ -142,6 +151,26 @@ function EditClientDrawer({ client, onClose, onSaved }: { client: Client; onClos
     <Drawer title={tr("Edit client")} onClose={onClose}>
       <form onSubmit={submit}>
         <Field label={tr("Company name")}><input required maxLength={200} value={form.name} onChange={set('name')} autoFocus /></Field>
+        <Field label={tr("Category")} hint={form.entityCategory === 'private' ? tr("Only you can see this entry, administrators included.") : undefined}>
+          <select value={form.entityCategory} onChange={set('entityCategory')}>
+            {(Object.keys(ENTITY_CATEGORY) as EntityCategory[]).map((k) => <option key={k} value={k}>{ENTITY_CATEGORY[k]}</option>)}
+          </select>
+        </Field>
+        <Field label={tr("Organisation type")}>
+          <select value={form.organizationType} onChange={set('organizationType')}>
+            <option value="">{tr("Not specified")}</option>
+            {(Object.keys(ORGANIZATION_TYPE) as OrganizationType[]).map((k) => <option key={k} value={k}>{ORGANIZATION_TYPE[k]}</option>)}
+          </select>
+        </Field>
+        {form.organizationType === 'commercial_enterprise' && (
+          <Field label={tr("Company size")}>
+            <select value={form.companySize} onChange={set('companySize')}>
+              <option value="">{tr("Not specified")}</option>
+              {COMPANY_SIZES.map((k) => <option key={k} value={k}>{k}</option>)}
+            </select>
+          </Field>
+        )}
+        <Field label={tr("Phone")}><input type="tel" maxLength={50} value={form.phone} onChange={set('phone')} /></Field>
         <Field label={tr("Legal name")}><input maxLength={200} value={form.legalName} onChange={set('legalName')} /></Field>
         <Field label={tr("VAT number")}><input maxLength={50} value={form.vatNumber} onChange={set('vatNumber')} /></Field>
         <Field label={tr("City")}><input maxLength={100} value={form.city} onChange={set('city')} /></Field>
@@ -358,6 +387,9 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
               ['Legal name', client.legalName ?? '—'],
               ['Chamber of Commerce (KvK)', <span className="mono">{client.kvkNumber ?? '—'}</span>],
               ['VAT number', <span className="mono">{client.vatNumber ?? '—'}</span>],
+              ['Category', ENTITY_CATEGORY[client.entityCategory] ?? client.entityCategory],
+              ['Organisation type', organizationLabel(client)],
+              ['Phone', <PhoneLink phone={client.phone} />],
               ['Sector', client.sector ?? '—'],
               ['Address', [client.address, client.city, client.country].filter(Boolean).join(', ') || '—'],
               ['Client since', formatDate(client.createdAt)],

@@ -7,9 +7,9 @@ import { ApiBearerAuth, ApiBody, ApiConsumes, ApiCreatedResponse, ApiOkResponse,
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
-import { asObject, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
+import { asObject, oneOf, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
 import { type ClientImportResult, type ClientInput, type ClientRecord, ClientsService, type ClientSummary, type ClientUpdate, type ContactInput } from './clients.service.js';
-import { CLIENT_STATUSES, type ClientStatus, CREDIT_STATUSES, type CreditStatus } from './entities/client.entity.js';
+import { CLIENT_STATUSES, type ClientStatus, COMPANY_SIZES, type CompanySize, CREDIT_STATUSES, type CreditStatus, ENTITY_CATEGORIES, type EntityCategory, ORGANIZATION_TYPES, type OrganizationType } from './entities/client.entity.js';
 import type { Contact } from './entities/contact.entity.js';
 
 export class ClientInputDto {
@@ -26,6 +26,10 @@ export class ClientInputDto {
   @ApiProperty({ required: false, enum: CREDIT_STATUSES }) creditStatus?: CreditStatus;
   @ApiProperty({ required: false, nullable: true, type: String, description: 'Customer number in the ERP system' }) erpId?: string | null;
   @ApiProperty({ required: false, nullable: true, type: String, format: 'uuid' }) accountManagerId?: string | null;
+  @ApiProperty({ required: false, enum: ENTITY_CATEGORIES, description: "'private' is visible only to its creator" }) entityCategory?: EntityCategory;
+  @ApiProperty({ required: false, nullable: true, enum: ORGANIZATION_TYPES }) organizationType?: OrganizationType | null;
+  @ApiProperty({ required: false, nullable: true, enum: COMPANY_SIZES, description: 'Only for commercial_enterprise' }) companySize?: CompanySize | null;
+  @ApiProperty({ required: false, nullable: true, type: String }) phone?: string | null;
 }
 
 export class ClientUpdateDto extends ClientInputDto {
@@ -50,6 +54,11 @@ export class ClientDto {
   @ApiProperty({ type: String, nullable: true }) erpId!: string | null;
   @ApiProperty({ type: String, nullable: true, format: 'uuid' }) accountManagerId!: string | null;
   @ApiProperty({ type: String, nullable: true }) accountManagerName!: string | null;
+  @ApiProperty({ enum: ENTITY_CATEGORIES }) entityCategory!: EntityCategory;
+  @ApiProperty({ type: String, nullable: true, enum: ORGANIZATION_TYPES }) organizationType!: OrganizationType | null;
+  @ApiProperty({ type: String, nullable: true, enum: COMPANY_SIZES }) companySize!: CompanySize | null;
+  @ApiProperty({ type: String, nullable: true }) phone!: string | null;
+  @ApiProperty({ type: String, nullable: true, format: 'uuid' }) createdBy!: string | null;
   @ApiProperty() activeAgreements!: number;
   @ApiProperty() activeRooms!: number;
   @ApiProperty({ description: 'Planned revenue of approved financial plans for this client', example: '240000.00' }) contractValue!: string;
@@ -118,6 +127,11 @@ function clientFields(raw: Record<string, unknown>, partial: boolean): ClientUpd
     out.creditStatus = raw.creditStatus as CreditStatus;
   }
   if (raw.accountManagerId !== undefined) out.accountManagerId = optionalUuid('accountManagerId', raw.accountManagerId);
+  if (!partial || raw.entityCategory !== undefined) out.entityCategory = oneOf('entityCategory', raw.entityCategory ?? 'client', ENTITY_CATEGORIES);
+  if (!partial || raw.organizationType !== undefined) out.organizationType = raw.organizationType == null || raw.organizationType === '' ? null : oneOf('organizationType', raw.organizationType, ORGANIZATION_TYPES);
+  if (!partial || raw.companySize !== undefined) out.companySize = raw.companySize == null || raw.companySize === '' ? null : oneOf('companySize', raw.companySize, COMPANY_SIZES);
+  if (out.companySize && out.organizationType !== undefined && out.organizationType !== 'commercial_enterprise') throw new BadRequestException('companySize only applies to commercial_enterprise');
+  if (!partial || raw.phone !== undefined) out.phone = optionalString('phone', raw.phone, 50)?.trim() || null;
   if (raw.status !== undefined) {
     if (!partial || !CLIENT_STATUSES.includes(raw.status as ClientStatus)) {
       throw new BadRequestException(`status must be one of ${CLIENT_STATUSES.join(', ')}`);

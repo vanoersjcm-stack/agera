@@ -41,6 +41,8 @@ services:
       - ../migrations/V26__retailpower_operations.sql:/docker-entrypoint-initdb.d/1p_V26__retailpower_operations.sql:ro
       - ../migrations/V27__return_channel.sql:/docker-entrypoint-initdb.d/1q_V27__return_channel.sql:ro
       - ../migrations/V28__idms_lifecycle.sql:/docker-entrypoint-initdb.d/1r_V28__idms_lifecycle.sql:ro
+      - ../migrations/V29__print_jobs.sql:/docker-entrypoint-initdb.d/1s_V29__print_jobs.sql:ro
+      - ../migrations/V30__entities_private_documents_templates.sql:/docker-entrypoint-initdb.d/1t_V30__entities_private_documents_templates.sql:ro
       - ./postgres/dev_seed.sql:/docker-entrypoint-initdb.d/20_dev_seed.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]

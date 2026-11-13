@@ -23,7 +23,7 @@ export class TenantResolver {
 
   /** `requested` (X-Agera-Organisation header) lets platform admins view another organisation read-only. */
   async resolve(user: AuthenticatedUser, requested?: string): Promise<ActiveTenant> {
-    const resolved = await this.resolveHome(user);
+    const resolved = { ...(await this.resolveHome(user)), subject: user.keycloakId };
     const tier = claimedTier(resolved.id, user.licenseTierClaim, user.issuedAtMs);
     const home: ActiveTenant = tier ? { ...resolved, licenseTier: tier } : resolved;
     if (!requested || requested.toLowerCase() === home.id.toLowerCase()) {
@@ -39,7 +39,7 @@ export class TenantResolver {
     if (!tenant) {
       throw new ForbiddenException('Unknown organisation in X-Agera-Organisation');
     }
-    return { id: tenant.id, name: tenant.name, domain: tenant.domain, source: 'switch', access: { scope: 'internal' }, readOnly: true };
+    return { id: tenant.id, name: tenant.name, domain: tenant.domain, source: 'switch', access: { scope: 'internal' }, readOnly: true, subject: user.keycloakId };
   }
 
   private async resolveHome(user: AuthenticatedUser): Promise<ActiveTenant> {

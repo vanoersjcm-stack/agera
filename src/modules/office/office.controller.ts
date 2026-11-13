@@ -11,7 +11,7 @@ import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
 import { asObject, oneOf, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
 import { BadRequestException } from '@nestjs/common';
 import { MAX_DOCUMENT_BYTES } from '../documents/documents.service.js';
-import { type EditorSession, NEW_FORMATS, type OfficeDocumentView, OfficeService, type OfficeVersionView, SCAN_FORMATS } from './office.service.js';
+import { type EditorSession, NEW_FORMATS, type OfficeDocumentView, OfficeService, type OfficeVersionView, SCAN_FORMATS, type MemoInput } from './office.service.js';
 
 @ApiTags('Office documents')
 @ApiBearerAuth(BEARER_AUTH)
@@ -44,7 +44,6 @@ export class OfficeDocumentsController {
   create(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<OfficeDocumentView> {
     const raw = asObject(body);
     const clientId = optionalUuid('clientId', raw.clientId);
-    if (!clientId) throw new BadRequestException('clientId is required');
     const starterCsv = typeof raw.starterCsv === 'string' && raw.starterCsv.length <= 200_000 ? raw.starterCsv : null;
     return this.office.create(
       {
@@ -56,6 +55,7 @@ export class OfficeDocumentsController {
         format: oneOf('format', raw.format, NEW_FORMATS),
         templateId: optionalUuid('templateId', raw.templateId),
         starterCsv,
+        memo: memoInput(raw.memo),
       },
       identity,
     );
@@ -199,4 +199,16 @@ export class WopiController {
     if (result.lock !== undefined) res.setHeader('X-WOPI-Lock', result.lock);
     res.status(result.status).end();
   }
+}
+
+function memoInput(value: unknown): MemoInput | null {
+  if (value === undefined || value === null) return null;
+  const raw = asObject(value);
+  return {
+    to: requiredString('memo.to', raw.to, 200),
+    subject: requiredString('memo.subject', raw.subject, 200),
+    date: requiredString('memo.date', raw.date, 40),
+    body: requiredString('memo.body', raw.body, 20000),
+    language: oneOf('memo.language', raw.language ?? 'nl', ['nl', 'en'] as const),
+  };
 }

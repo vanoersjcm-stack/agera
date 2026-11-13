@@ -9,7 +9,7 @@ import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js
 import { Agreement } from '../sales-rooms/entities/agreement.entity.js';
 import { DigitalSalesRoom } from '../sales-rooms/entities/digital-sales-room.entity.js';
 import { UserService } from '../user/user.service.js';
-import { Client, type ClientStatus, type CreditStatus } from './entities/client.entity.js';
+import { Client, type ClientStatus, type CompanySize, type CreditStatus, type EntityCategory, type OrganizationType } from './entities/client.entity.js';
 import { Contact } from './entities/contact.entity.js';
 import { type ImportRow, parseImportFile } from './client-import.js';
 
@@ -27,6 +27,10 @@ export interface ClientInput {
   creditStatus: CreditStatus;
   erpId: string | null;
   accountManagerId: string | null;
+  entityCategory: EntityCategory;
+  organizationType: OrganizationType | null;
+  companySize: CompanySize | null;
+  phone: string | null;
 }
 
 export type ClientUpdate = Partial<ClientInput> & { status?: ClientStatus };
@@ -185,7 +189,7 @@ export class ClientsService {
     await this.assertAccountManager(input.accountManagerId);
     const client = await this.tx.run(async (manager) => {
       const repository = this.clients.withManager(manager);
-      const saved = await this.saveUnique(() => repository.save(repository.create(input)));
+      const saved = await this.saveUnique(() => repository.save(repository.create({ ...input, createdBy: actor.id })));
       const [summary] = await this.withStats(manager, [saved]);
       return summary;
     });

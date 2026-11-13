@@ -479,6 +479,13 @@ export type ClientStatus = 'active' | 'archived';
 
 export type CreditStatus = 'approved' | 'review_required' | 'locked';
 
+export type EntityCategory =
+  | 'client' | 'vendor_client' | 'vendor_non_client' | 'vendor_prospect' | 'accountant' | 'notary' | 'lawyer' | 'consultant'
+  | 'shareholder' | 'bank' | 'insurer' | 'agent' | 'distributor' | 'landlord' | 'tenant' | 'office_outfitter' | 'sister_company'
+  | 'subsidiary' | 'office_supplier' | 'apparel_supplier' | 'apparel_printer' | 'taxi_company' | 'telecom_domain_provider' | 'private';
+export type OrganizationType = 'commercial_enterprise' | 'sole_proprietor' | 'foundation_nonprofit' | 'government' | 'semi_government';
+export type CompanySize = 'SME' | 'Mid-Market' | 'Large' | 'Enterprise';
+
 export interface Client {
   id: string;
   name: string;
@@ -496,6 +503,11 @@ export interface Client {
   erpId: string | null;
   accountManagerId: string | null;
   accountManagerName: string | null;
+  entityCategory: EntityCategory;
+  organizationType: OrganizationType | null;
+  companySize: CompanySize | null;
+  phone: string | null;
+  createdBy: string | null;
   activeAgreements: number;
   activeRooms: number;
   contractValue: string;
@@ -515,7 +527,7 @@ export interface Contact {
 }
 
 export type ClientInput = Pick<Client, 'name' | 'legalName' | 'vatNumber' | 'city' | 'country'> &
-  Partial<Pick<Client, 'kvkNumber' | 'sector' | 'address' | 'paymentTerms' | 'creditLimit' | 'creditStatus' | 'erpId' | 'accountManagerId'>>;
+  Partial<Pick<Client, 'kvkNumber' | 'sector' | 'address' | 'paymentTerms' | 'creditLimit' | 'creditStatus' | 'erpId' | 'accountManagerId' | 'entityCategory' | 'organizationType' | 'companySize' | 'phone'>>;
 export type ContactInput = Omit<Contact, 'id' | 'clientId'>;
 
 export interface ClientRecord {
@@ -1069,13 +1081,15 @@ export interface OfficeVersion {
 }
 
 export interface NewOfficeDocument {
-  clientId: string;
+  /** Null: a personal document visible only to its creator. */
+  clientId: string | null;
   contactId?: string | null;
   clientRoomId?: string | null;
   title: string;
   format: 'docx' | 'xlsx' | 'pptx';
   templateId?: string | null;
   starterCsv?: string | null;
+  memo?: { to: string; subject: string; date: string; body: string; language: 'nl' | 'en' } | null;
 }
 
 export interface EditorSession {

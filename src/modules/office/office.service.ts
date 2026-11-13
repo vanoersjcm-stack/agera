@@ -83,7 +83,8 @@ export interface EditorSession {
 }
 
 export interface CreateOfficeDocument {
-  clientId: string;
+  /** Null: a personal document (blank document, memo) visible only to its creator. */
+  clientId: string | null;
   contactId: string | null;
   dealId: string | null;
   clientRoomId: string | null;
@@ -91,6 +92,36 @@ export interface CreateOfficeDocument {
   format: NewFormat;
   templateId: string | null;
   starterCsv: string | null;
+  /** Agera Memo: an A5 internal memo (docx). */
+  memo?: MemoInput | null;
+}
+
+export interface MemoInput {
+  to: string;
+  subject: string;
+  date: string;
+  body: string;
+  language: 'nl' | 'en';
+}
+
+const MEMO_TEXT = {
+  nl: { from: 'Van', to: 'Aan', subject: 'Onderwerp', date: 'Datum', disclaimer: "Een memo is schriftelijke communicatie en heeft derhalve officiële status. Je kunt achteraf niet zeggen 'het was maar een memootje'." },
+  en: { from: 'From', to: 'To', subject: 'Subject', date: 'Date', disclaimer: "A memo is written communication and therefore has official status. You cannot say afterwards that 'it was only a little memo'." },
+} as const;
+
+/** A5 internal memo as HTML, converted to docx by Agera Office. */
+export function memoHtml(memo: MemoInput, from: string): string {
+  const t = MEMO_TEXT[memo.language];
+  const row = (label: string, value: string) => `<tr><td style="width:28mm;color:#555;font-weight:bold;padding:1mm 0">${label}</td><td style="padding:1mm 0">${escapeHtml(value)}</td></tr>`;
+  const body = memo.body.split(/\r?\n/).map((line) => `<p style="margin:0 0 2mm 0">${escapeHtml(line) || '&nbsp;'}</p>`).join('\n');
+  return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Memo – ${escapeHtml(memo.subject)}</title>
+<style>@page { size: 148mm 210mm; margin: 12mm 12mm 14mm 12mm; } body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; }</style></head><body>
+<p style="font-size:18pt;font-weight:bold;color:#0b5d3b;letter-spacing:2pt;margin:0">AGERA</p>
+<p style="font-size:9pt;color:#555;margin:0 0 4mm 0;border-bottom:1px solid #0b5d3b">MEMO</p>
+<table style="border-collapse:collapse;margin-bottom:4mm">${row(t.from, from)}${row(t.to, memo.to)}${row(t.subject, memo.subject)}${row(t.date, memo.date)}</table>
+${body}
+<p style="font-size:7pt;color:#888;margin-top:8mm;border-top:1px solid #ccc;padding-top:1mm">${escapeHtml(t.disclaimer)}</p>
+</body></html>`;
 }
 
 interface WopiClaims {
@@ -241,7 +272,7 @@ export class OfficeService {
     const data = await this.initialContent(input, identity);
     const fileName = `${safeName(input.title).replace(/\.(docx|xlsx|pptx)$/i, '')}.${input.format}`;
     const versionId = randomUUID();
-    const key = `${this.context.tenantId}/clients/${input.clientId}/${versionId}-${fileName}`;
+    const key = input.clientId ? `${this.context.tenantId}/clients/${input.clientId}/${versionId}-${fileName}` : `${this.context.tenantId}/personal/${actor.id}/${versionId}-${fileName}`;
     let written = false;
     try {
       const view = await this.tx.run(async (manager) => {
@@ -322,6 +353,10 @@ export class OfficeService {
 
   /** Blank file, a document template filled with the client's data, or a spreadsheet starter (CSV). */
   private async initialContent(input: CreateOfficeDocument, identity: AuthenticatedUser): Promise<Buffer> {
+    if (input.memo && input.format === 'docx') {
+      const from = [identity.firstName, identity.lastName].filter(Boolean).join(' ') || identity.email;
+      return this.convert(Buffer.from(memoHtml(input.memo, from), 'utf8'), 'memo.html', 'docx');
+    }
     if (input.templateId && input.format === 'docx') {
       const rendered = await this.commercial.render(input.templateId, { clientId: input.clientId, roomId: input.clientRoomId }, identity);
       const body = rendered.text.split(/\r?\n/).map((line) => `<p>${escapeHtml(line) || '&nbsp;'}</p>`).join('\n');
@@ -350,6 +385,10 @@ export class OfficeService {
 
   private async assertLinks(manager: EntityManager, input: CreateOfficeDocument): Promise<void> {
     const t = this.context.tenantId;
+    if (!input.clientId) {
+      if (input.contactId || input.dealId || input.clientRoomId) throw new BadRequestException('contactId, dealId and clientRoomId need a clientId');
+      return;
+    }
     const [client] = await manager.query('SELECT id FROM clients WHERE tenant_id = $1 AND id = $2', [t, input.clientId]);
     if (!client) throw new NotFoundException('Client not found');
     if (input.contactId) {
@@ -420,7 +459,7 @@ export class OfficeService {
   }
 
   private as<T>(c: WopiClaims, work: (manager: EntityManager) => Promise<T>): Promise<T> {
-    return this.context.run({ id: c.tid, name: '', domain: '', source: 'claim', access: { scope: 'internal' } }, () => this.tx.run(work));
+    return this.context.run({ id: c.tid, name: '', domain: '', source: 'claim', access: { scope: 'internal' }, userId: c.sub }, () => this.tx.run(work));
   }
 
   async checkFileInfo(fileId: string, token: string | undefined): Promise<Record<string, unknown>> {

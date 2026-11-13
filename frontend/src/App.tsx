@@ -12,6 +12,7 @@ import { AlertsView } from './nexus/Alerts';
 import { FeedbackView, PortalSurveysView, SurveyDossier, SurveysView } from './nexus/Surveys';
 import { ClientRoomDossier, ClientRoomsView } from './nexus/ClientRooms';
 import { ClientDossier, ClientsView } from './nexus/Clients';
+import { ThirdPartiesView } from './nexus/ThirdParties';
 import { FinancialPlansView, PlanDossier } from './nexus/FinancialPlans';
 import { NexusOverview } from './nexus/NexusOverview';
 import { SideNav, SuiteMap } from './SideNav';
@@ -95,6 +96,9 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return <PrognosisView route={route} />;
     case 'symphony/invoices':
       return <InvoicesView route={route} />;
+    case 'symphony/third-parties':
+    case 'nexus/third-parties':
+      return <ThirdPartiesView route={route} />;
     case 'symphony/clients':
       return id ? <ClientDossier id={id} route={route} /> : <ClientsView route={route} />;
     case 'symphony/retention':

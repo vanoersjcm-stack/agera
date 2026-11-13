@@ -258,6 +258,8 @@ async function generate(db: pg.Client, spec: TenantSpec, logins: Login[], keyclo
       city: city[0], country: 'NL', address: `${r.pick(STREETS)} ${r.int(1, 220)}, ${city[1]} ${String.fromCharCode(65 + r.int(0, 25))}${String.fromCharCode(65 + r.int(0, 25))} ${city[0]}`,
       sector: SECTORS[kind], payment_terms: r.pick(['14 days', '30 days', '30 days', '45 days', '60 days']), credit_limit: r.pick([25000, 50000, 100000, 250000, 500000]),
       credit_status: credit, erp_id: r.chance(0.6) ? `ERP-${10000 + i}` : null, account_manager_id: c.am, status, created_at: daysAgo(r.int(200, 700)),
+      organization_type: 'commercial_enterprise', company_size: (['SME', 'Mid-Market', 'Large', 'Enterprise'] as const)[i % 4],
+      phone: `+31 ${String(10 + (i * 7) % 80)} ${String(1000000 + i * 13579).slice(-7)}`, created_by: c.am,
     });
     const nContacts = r.int(2, 4);
     for (let k = 0; k < nContacts; k++) {
@@ -278,6 +280,31 @@ async function generate(db: pg.Client, spec: TenantSpec, logins: Login[], keyclo
       await w.insert('credit_holds', { id: id(`hold-old:${i}`), tenant_id: t, client_id: cid, reason: 'Credit limit exceeded after peak season orders', set_by: finance, created_at: daysAgo(160), released_at: daysAgo(130), released_by: finance });
     }
   }
+  const thirdParties: [string, string, string | null, string | null, string][] = [
+    ['Van Dijk & Partners Accountants', 'accountant', 'commercial_enterprise', 'SME', '+31 30 234 5678'],
+    ['Notariskantoor De Wit', 'notary', 'sole_proprietor', null, '+31 20 456 7890'],
+    ['Advocatenkantoor Bakker Mulder', 'lawyer', 'commercial_enterprise', 'SME', '+31 70 345 6789'],
+    ['ING Bank Zakelijk', 'bank', 'commercial_enterprise', 'Enterprise', '+31 20 228 8800'],
+    ['Nationale-Nederlanden Schade', 'insurer', 'commercial_enterprise', 'Large', '+31 88 663 3000'],
+    ['Vastgoed Utrecht Centrum', 'landlord', 'commercial_enterprise', 'Mid-Market', '+31 30 789 0123'],
+    ['Workwear Pro Textiel', 'apparel_supplier', 'commercial_enterprise', 'SME', '+31 40 567 8901'],
+    ['DrukLogo Bedrukkingen', 'apparel_printer', 'sole_proprietor', null, '+31 13 678 9012'],
+    ['Taxi Centrale Amsterdam', 'taxi_company', 'commercial_enterprise', 'Mid-Market', '+31 20 777 7777'],
+    ['KPN Zakelijk', 'telecom_domain_provider', 'commercial_enterprise', 'Enterprise', '+31 800 0403'],
+    ['Office Interieur Groep', 'office_outfitter', 'commercial_enterprise', 'SME', '+31 10 890 1234'],
+    ['Stichting Retail Opleidingen', 'consultant', 'foundation_nonprofit', null, '+31 35 901 2345'],
+    ['Gemeente Utrecht', 'vendor_non_client', 'government', null, '14 030'],
+    ['Kamer van Koophandel', 'vendor_non_client', 'semi_government', null, '+31 88 585 2222'],
+    ['Merchandise Partners Belgium', 'distributor', 'commercial_enterprise', 'Mid-Market', '+32 2 555 1234'],
+  ];
+  for (let j = 0; j < thirdParties.length; j++) {
+    const [name, category, orgType, size, phone] = thirdParties[j];
+    await w.insert('clients', {
+      id: id(`third:${j}`), tenant_id: t, name, country: name.includes('Belgium') ? 'BE' : 'NL', payment_terms: '30 days', credit_limit: 0, credit_status: 'approved',
+      status: 'active', entity_category: category, organization_type: orgType, company_size: size, phone, created_by: userId.admin, created_at: daysAgo(300 + j),
+    });
+  }
+
 
   // Client logins: the persona becomes (or replaces) a contact of its client.
   for (const p of spec.personas) {

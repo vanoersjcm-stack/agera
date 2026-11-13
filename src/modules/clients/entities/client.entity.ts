@@ -5,6 +5,17 @@ export type ClientStatus = (typeof CLIENT_STATUSES)[number];
 export const CREDIT_STATUSES = ['approved', 'review_required', 'locked'] as const;
 export type CreditStatus = (typeof CREDIT_STATUSES)[number];
 
+export const ENTITY_CATEGORIES = [
+  'client', 'vendor_client', 'vendor_non_client', 'vendor_prospect', 'accountant', 'notary', 'lawyer', 'consultant',
+  'shareholder', 'bank', 'insurer', 'agent', 'distributor', 'landlord', 'tenant', 'office_outfitter', 'sister_company',
+  'subsidiary', 'office_supplier', 'apparel_supplier', 'apparel_printer', 'taxi_company', 'telecom_domain_provider', 'private',
+] as const;
+export type EntityCategory = (typeof ENTITY_CATEGORIES)[number];
+export const ORGANIZATION_TYPES = ['commercial_enterprise', 'sole_proprietor', 'foundation_nonprofit', 'government', 'semi_government'] as const;
+export type OrganizationType = (typeof ORGANIZATION_TYPES)[number];
+export const COMPANY_SIZES = ['SME', 'Mid-Market', 'Large', 'Enterprise'] as const;
+export type CompanySize = (typeof COMPANY_SIZES)[number];
+
 /** RLS-protected: access only through TenantTransaction. */
 @Entity({ name: 'clients' })
 export class Client {
@@ -55,6 +66,22 @@ export class Client {
 
   @Column({ name: 'account_manager_id', type: 'uuid', nullable: true })
   accountManagerId!: string | null;
+
+  @Column({ name: 'entity_category', type: 'varchar', length: 30, default: 'client' })
+  entityCategory!: EntityCategory;
+
+  @Column({ name: 'organization_type', type: 'varchar', length: 30, nullable: true })
+  organizationType!: OrganizationType | null;
+
+  @Column({ name: 'company_size', type: 'varchar', length: 20, nullable: true })
+  companySize!: CompanySize | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  phone!: string | null;
+
+  /** Private entities are visible only to this user (RLS). */
+  @Column({ name: 'created_by', type: 'uuid', nullable: true })
+  createdBy!: string | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz', precision: 3 })
   createdAt!: Date;

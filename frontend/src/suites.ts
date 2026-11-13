@@ -57,6 +57,7 @@ function navItems(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/symphony/automations', label: t("Automations"), description: t("When something happens, notify someone or open an exception") },
         { path: '/symphony/reports', label: t("Reports"), description: t("KPI dashboard, CSV exports and the report builder") },
         { path: '/symphony/clients', label: t("Client dossiers"), description: t("Open360: master data, contacts, contracts and stores per client") },
+        { path: '/symphony/third-parties', label: t("Third parties"), description: t("Vendors, advisers, banks, landlords and other relations, with A–Z filter") },
         { path: '/symphony/activity', label: t("Activity log"), description: t("Who did what, and when") },
         { path: '/symphony/retention', label: t("Retention & erasure"), description: t("Document lifecycle, retention periods and GDPR erasure") },
         ...(user.role === 'admin' || user.isPlatformAdmin
@@ -74,6 +75,7 @@ function navItems(suite: SuiteId, user: UserContext): NavItem[] {
       return [
         { path: '/nexus', label: t("Overview"), description: t("Contract value, client rooms and alerts") },
         { path: '/nexus/clients', label: t("Clients"), description: t("Client companies, contacts and their deals") },
+        { path: '/nexus/third-parties', label: t("Third parties"), description: t("Vendors, advisers, banks, landlords and other relations, with A–Z filter") },
         { path: '/nexus/pipeline', label: t("Deal pipeline"), description: t("Deals per stage; move them forward with one click") },
         { path: '/nexus/deals', label: t("Deals"), description: t("Deal list with filters, owners and due dates") },
         { path: '/nexus/agreements', label: t("Agreements"), description: t("Client agreements and approvals") },
@@ -190,13 +192,13 @@ const TOPICS: Record<SuiteId, [TopicId, string, string[]][]> = {
   symphony: [
     ['overview', 'Overview', ['/symphony']],
     ['finance', 'Finance', ['/symphony/prognosis', '/symphony/invoices', '/symphony/credit-control', '/symphony/reports']],
-    ['clients', 'Clients', ['/symphony/clients', '/symphony/health', '/symphony/feedback']],
+    ['clients', 'Clients', ['/symphony/clients', '/symphony/third-parties', '/symphony/health', '/symphony/feedback']],
     ['workflow', 'Workflow', ['/symphony/approvals', '/symphony/automations']],
     ['governance', 'Governance & admin', ['/symphony/activity', '/symphony/retention', '/symphony/people', '/symphony/organisations', '/symphony/integrations', '/symphony/connections']],
   ],
   nexus: [
     ['overview', 'Overview', ['/nexus']],
-    ['clients', 'Clients', ['/nexus/clients', '/nexus/client-rooms', '/nexus/surveys']],
+    ['clients', 'Clients', ['/nexus/clients', '/nexus/third-parties', '/nexus/client-rooms', '/nexus/surveys']],
     ['sales', 'Sales', ['/nexus/pipeline', '/nexus/deals', '/nexus/agreements', '/nexus/price-lists']],
     ['finance', 'Finance', ['/nexus/financial-plans', '/nexus/profit-loss']],
     ['documents', 'Documents & mail', ['/nexus/templates', '/nexus/mail-merge', '/nexus/print']],

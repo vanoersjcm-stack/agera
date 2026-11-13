@@ -16,6 +16,10 @@ export interface ActiveTenant {
   readOnly?: boolean;
   /** Edition from the token's `tenant_license_tier` claim (home organisation only, when fresh). */
   licenseTier?: 'vanguard' | 'symphony';
+  /** Keycloak subject of the signed-in user, mirrored into `app.current_subject` (private records). */
+  subject?: string;
+  /** Database id of the acting user when known without a token (e.g. Agera Office), mirrored into `app.current_user`. */
+  userId?: string;
 }
 
 @Injectable()
