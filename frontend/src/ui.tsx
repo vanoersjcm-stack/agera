@@ -1,3 +1,4 @@
+import { CONNECTION_LOST } from './api';
 import { t, t as tr } from './i18n';
 import { cloneElement, isValidElement, type ReactNode, useCallback, useEffect, useId, useRef, useState } from 'react';
 
@@ -44,7 +45,13 @@ export function useAction() {
 }
 
 export function Loading({ error }: { error?: string | null }) {
-  return error ? <p className="error" role="alert">{error}</p> : <p className="muted">{tr("Loading…")}</p>;
+  if (!error) return <p className="muted">{tr("Loading…")}</p>;
+  return (
+    <p className="error" role="alert">
+      {tr(error)}{' '}
+      {error === CONNECTION_LOST && <button type="button" className="link-button" onClick={() => window.location.reload()}>{tr("Try again")}</button>}
+    </p>
+  );
 }
 
 export function ErrorText({ error }: { error: string | null }) {

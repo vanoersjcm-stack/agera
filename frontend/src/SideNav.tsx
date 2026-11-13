@@ -7,8 +7,13 @@ const CLOSE_DELAY = 250;
 const FOCUSABLE = 'a[href], button:not([disabled]), input, summary';
 let closeOpenTopic: (() => void) | null = null;
 
+/** A suite home (e.g. /symphony) only matches itself, otherwise every screen without its own menu item lights up Overview. */
+function isSuiteHome(path: string): boolean {
+  return path.split('/').filter(Boolean).length === 1;
+}
+
 function activeItem(items: NavItem[], path: string): NavItem | undefined {
-  return items.filter((i) => path === i.path || path.startsWith(`${i.path}/`)).sort((a, b) => b.path.length - a.path.length)[0];
+  return items.filter((i) => path === i.path || (!isSuiteHome(i.path) && path.startsWith(`${i.path}/`))).sort((a, b) => b.path.length - a.path.length)[0];
 }
 
 const hoverCapable = () => window.matchMedia('(hover: hover) and (pointer: fine)').matches;

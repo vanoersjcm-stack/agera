@@ -406,7 +406,6 @@ function UserMenu({ user, tenant, tier, tipsOn, onToggleTips }: { user: UserCont
             {email && <span>{email}</span>}
             {subtitle && <span>{subtitle}</span>}
             <span>{user.roleLabel} · {tenant?.name ?? '…'}</span>
-            <span>{editionName(tier)}</span>
           </div>
           {user.isPlatformAdmin && (
             <button role="menuitem" onClick={() => setPreviewTier(tier === 'vanguard' ? 'symphony' : 'vanguard')}>
@@ -616,14 +615,6 @@ export function App() {
               <div className="suite-indicator">
                 <span className="suite-title">{tr("Agera")} {brand}</span>
               </div>
-              <nav className="suite-nav" aria-label={tr("Suites")}>
-                {suitesFor(user).map((s) => (
-                  <a key={s.id} href={`#${s.home}`} className={s.id === suite.id ? 'active' : undefined}>
-                    <span className={`suite-dot dot-${s.id}`} aria-hidden />
-                    {suiteName(s, tier)}
-                  </a>
-                ))}
-              </nav>
             </>
           )}
           <span className="topbar-spacer" />

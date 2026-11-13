@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useRef, useState } from 'react';
+import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { api, type DocumentTemplate, type EditorSession, type OfficeDocument, type OfficeVersion } from './api';
 import { ClientSelect, csvOf, DocIcon, type DocIconKind, initialClient, RoomSelect, scheduleGrid, tiersGrid, useClientRecord } from './DocumentCreate';
 import { formatDateTime } from './labels';
@@ -43,9 +43,21 @@ export function OfficeEditorHost() {
     window.addEventListener(OPEN_EVENT, onOpen);
     return () => window.removeEventListener(OPEN_EVENT, onOpen);
   }, []);
-  const close = () => {
+  const closeNow = useCallback(() => {
     setSession(null);
     window.dispatchEvent(new Event(CLOSED_EVENT));
+  }, []);
+  // The open editor is a history entry, so the browser's Back button closes it and stays on the Agera screen.
+  useEffect(() => {
+    if (!session) return undefined;
+    window.history.pushState({ ...(window.history.state ?? {}), ageraOffice: session.documentId }, '');
+    const onPop = () => closeNow();
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [session, closeNow]);
+  const close = () => {
+    if ((window.history.state as { ageraOffice?: string } | null)?.ageraOffice) window.history.back();
+    else closeNow();
   };
   if (error) {
     return (

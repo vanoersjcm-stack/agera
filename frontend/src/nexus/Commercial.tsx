@@ -2,6 +2,7 @@ import { type FormEvent, useRef, useState } from 'react';
 import { api, type DocumentTemplate, type PriceList, type TemplateKind } from '../api';
 import { matchesClient, useClientFilter } from '../clientFilter';
 import { formatDate } from '../labels';
+import { formatNumber } from '../format';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { type NewDefaults, useShell } from '../shell';
@@ -136,7 +137,7 @@ export function PriceListDossier({ id }: { id: string }) {
                 <tr key={i.id}>
                   <td className="mono">{i.sku}</td><td>{i.productName}</td><td className="num">{i.minQuantity}</td>
                   <td className="num">{money(i.catalogPrice)}</td><td className="num"><strong>{money(i.unitPrice)}</strong></td>
-                  <td className="num">{diff === 0 ? '—' : `${diff > 0 ? '+' : ''}${diff.toFixed(1)}%`}</td>
+                  <td className="num">{diff === 0 ? '—' : `${diff > 0 ? '+' : ''}${formatNumber(diff, 1)}%`}</td>
                 </tr>
               );
             })}

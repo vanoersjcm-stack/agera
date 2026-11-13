@@ -62,7 +62,7 @@ describe('CRM bulk import and ManyMail', () => {
     assert.deepEqual(again.body.rows.slice(0, 3).map((x) => x.action), ['skip', 'skip', 'skip'], 'second import finds every duplicate');
     const other = await api<{ name: string }[]>(devAdmin, 'GET', '/v1/clients');
     assert.ok(!other.body.some((c) => c.name === `Import A ${stamp}`), 'RLS: other tenant does not see it');
-    const audit = await api<{ items: { action: string; details: { fileName: string } }[] }>(alice, 'GET', '/audit-logs?limit=50');
+    const audit = await api<{ items: { action: string; details: { fileName: string } }[] }>(alice, 'GET', '/audit-logs?limit=100');
     if (audit.status === 200) assert.ok(audit.body.items.some((a) => a.action === 'clients.bulk_imported'));
   });
 

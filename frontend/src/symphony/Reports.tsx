@@ -7,7 +7,7 @@ import { useShell } from '../shell';
 import { currentTier } from '../suites';
 import { ErrorText, Loading, useAction, useLoad } from '../ui';
 import { EnterpriseBadge } from './Automations';
-import { t, tf, locale, live } from '../i18n';
+import { t, tf, locale, numberLocale, live } from '../i18n';
 
 const SUITE = live(() => ({ label: t("Symphony"), href: '#/symphony' }));
 
@@ -72,7 +72,7 @@ export function ReportsView() {
 const emptyDef = (ds?: ReportDataset): ReportDefinition => ({ dataset: ds?.key ?? '', columns: ds?.columns.slice(0, 3).map((c) => c.key) ?? [], filters: [], groupBy: null, aggregate: null, sort: null, limit: 500 });
 
 function ResultTable({ result }: { result: ReportResult }) {
-  const fmt = (v: unknown, type: string) => (v === null || v === undefined ? '—' : type === 'date' ? formatDate(String(v)) : type === 'number' ? Number(v).toLocaleString(locale(), { maximumFractionDigits: 2 }) : String(v));
+  const fmt = (v: unknown, type: string) => (v === null || v === undefined ? '—' : type === 'date' ? formatDate(String(v)) : type === 'number' ? Number(v).toLocaleString(numberLocale(), { maximumFractionDigits: 2 }) : String(v));
   if (result.rows.length === 0) return <EmptyState title={t("No rows")}>{t("Change the filters.")}</EmptyState>;
   return (
     <table className="grid">

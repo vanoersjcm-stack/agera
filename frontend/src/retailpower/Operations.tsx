@@ -8,7 +8,7 @@ import { useClients, useUsers } from '../directory';
 import { formatDate, formatDateTime } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
-import { locale, t, live } from '../i18n';
+import { numberLocale, t, live } from '../i18n';
 
 const SUITE = live(() => ({ label: t("RetailPower"), href: '#/retailpower' }));
 const SIDES: VehicleSide[] = ['front', 'back', 'left', 'right'];
@@ -44,8 +44,8 @@ const CLAIM_TYPE: Record<string, string> = live(() => ({ price_protection: t("Pr
 const APPAREL_ITEM: Record<string, string> = live(() => ({ polo: t("Polo shirt"), jacket: t("Jacket"), trousers: t("Trousers"), cap: t("Cap"), shoes: t("Safety shoes"), badge: t("Badge"), other: t("Other") }));
 
 const today = () => new Date().toISOString().slice(0, 10);
-const num = (n: number | null | undefined, digits = 0) => (n === null || n === undefined ? '—' : n.toLocaleString(locale(), { maximumFractionDigits: digits }));
-const euro = (v: string | number) => Number(v).toLocaleString(locale(), { style: 'currency', currency: 'EUR' });
+const num = (n: number | null | undefined, digits = 0) => (n === null || n === undefined ? '—' : n.toLocaleString(numberLocale(), { maximumFractionDigits: digits }));
+const euro = (v: string | number) => Number(v).toLocaleString(numberLocale(), { style: 'currency', currency: 'EUR' });
 
 function useStores() {
   return useLoad(() => api.stores().then((p) => p.items)).data ?? [];
@@ -88,14 +88,18 @@ export function BackOfficeView() {
           </div>
           <section className="card-panel">
             <h2>{t("Chain performance")}</h2>
-            {data.chains.length === 0 ? <p className="muted">{t("No stores yet.")}</p> : (
+            {(
+
               <div className="table-wrap">
                 <table className="grid">
                   <thead><tr><th>{t("Chain")}</th><th>{t("Stores")}</th><th>{t("Visits")}</th><th>{t("Completed")}</th><th>{t("Compliant")}</th><th>{t("Not compliant")}</th><th>{t("Photos")}</th><th>{t("Last visit")}</th></tr></thead>
                   <tbody>
+                    {data.chains.length === 0 && (
+                      <tr className="muted"><td>{t("No chains yet")}</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>0</td><td>—</td></tr>
+                    )}
                     {data.chains.map((c) => (
                       <tr key={c.clientId ?? 'none'}>
-                        <td>{c.clientId ? <a href={`#/nexus/clients/${c.clientId}`}>{c.chain}</a> : t(c.chain)}</td>
+                        <td>{c.clientId ? <a href={`#/nexus/clients/${c.clientId}`}>{c.chain}</a> : c.chain ? t(c.chain) : <span className="muted">{t("No chain")}</span>}</td>
                         <td>{num(c.stores)}</td><td>{num(c.visits30)}</td><td>{num(c.completed30)}</td><td>{num(c.compliant)}</td>
                         <td>{c.nonCompliant > 0 ? <StatusBadge status="not_compliant" label={num(c.nonCompliant)} /> : 0}</td>
                         <td>{num(c.photos30)}</td><td>{c.lastVisit ? formatDate(c.lastVisit) : '—'}</td>

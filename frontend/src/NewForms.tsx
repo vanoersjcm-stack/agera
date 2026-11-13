@@ -1,3 +1,4 @@
+import { formatNumber } from './format';
 import { NewPriceListForm, NewTemplateForm } from './nexus/Commercial';
 import { NewSurveyForm } from './nexus/Surveys';
 import { type DocIconKind, NewMailForm, NewSpreadsheetForm, NewTextDocumentForm } from './DocumentCreate';
@@ -25,10 +26,10 @@ export interface NewItem {
 }
 
 export const NEW_ITEMS: NewItem[] = live(() => ([
-  { kind: 'doc_text', label: tr("Word document (.docx)"), hint: tr("Blank or from a template, filled with client data; opens in Agera Office"), icon: 'text', group: 'Document' },
-  { kind: 'doc_sheet', label: tr("Spreadsheet (.xlsx)"), hint: tr("Blank, price tiers or a payment schedule; opens in Agera Office"), icon: 'sheet', group: 'Document' },
-  { kind: 'doc_slides', label: tr("Presentation (.pptx)"), hint: tr("Blank 16:9 presentation; opens in Agera Office"), icon: 'slides', group: 'Document' },
-  { kind: 'doc_mail', label: tr("E-mail"), hint: tr("Compose from a template; opens in your e-mail program"), icon: 'mail', group: 'Document' },
+  { kind: 'doc_text', label: tr("New Agera.text document"), hint: tr("Blank or from a template, filled with client data; opens in Agera Office"), icon: 'text', group: 'Document' },
+  { kind: 'doc_sheet', label: tr("New Agera.calc document"), hint: tr("Blank, price tiers or a payment schedule; opens in Agera Office"), icon: 'sheet', group: 'Document' },
+  { kind: 'doc_slides', label: tr("New Agera.slides document"), hint: tr("Blank 16:9 presentation; opens in Agera Office"), icon: 'slides', group: 'Document' },
+  { kind: 'doc_mail', label: tr("New Agera.email"), hint: tr("Compose from a template; opens in your e-mail program"), icon: 'mail', group: 'Document' },
   { kind: 'deal', label: tr("Deal"), group: 'Nexus' },
   { kind: 'client', label: tr("Client"), group: 'Nexus' },
   { kind: 'contact', label: tr("Contact"), group: 'Nexus' },
@@ -565,7 +566,7 @@ function InvoiceForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onS
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
   const { busy, error, submit } = useSubmit(onDone);
   if (activeClients(clients).length === 0) return <NoClients onCancel={onCancel} onNewClient={() => onSwitch('client')} />;
-  const vat = form.amountExclVat ? ((Number(form.amountExclVat) * Number(form.vatRate)) / 100).toFixed(2) : '0.00';
+  const vat = form.amountExclVat ? formatNumber((Number(form.amountExclVat) * Number(form.vatRate)) / 100) : '0,00';
   return (
     <form
       onSubmit={(e) =>
@@ -692,10 +693,10 @@ const TITLES: Record<NewKind, string> = {
   contact: 'New contact',
   financial_plan: 'New financial plan',
   survey: 'New survey',
-  doc_text: 'New document',
-  doc_sheet: 'New spreadsheet',
-  doc_slides: 'New presentation',
-  doc_mail: 'New e-mail',
+  doc_text: 'New Agera.text document',
+  doc_sheet: 'New Agera.calc document',
+  doc_slides: 'New Agera.slides document',
+  doc_mail: 'New Agera.email',
   automation: 'New automation',
   user_invite: 'Invite a person',
   organisation: 'New organisation',

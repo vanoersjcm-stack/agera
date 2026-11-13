@@ -7,7 +7,7 @@ import { navigate, type Route, withParams } from '../router';
 import { editionName } from '../suites';
 import { useShell } from '../shell';
 import { DetailList, ErrorText, Loading, useAction, useLoad } from '../ui';
-import { locale, t as tr, tf, live } from '../i18n';
+import { locale, numberLocale, t as tr, tf, live } from '../i18n';
 
 const SUITE_CRUMB = live(() => ({ label: tr("Symphony"), href: '#/symphony' }));
 
@@ -76,8 +76,8 @@ export function ActivityLogView({ route }: { route: Route }) {
     >
       <ErrorText error={check.error} />
       {chain && (chain.intact
-        ? <p className="callout good">{tr("Chain intact: all")} {chain.checked.toLocaleString(locale())} {tr("entries match their fingerprints.")}</p>
-        : <p className="callout bad">{tr("Chain broken at entry")} #{chain.firstBrokenSeq} {tr("of")} {chain.checked.toLocaleString(locale())}. {tr("An entry was changed outside Agera. Contact your platform administrator.")}</p>)}
+        ? <p className="callout good">{tr("Chain intact: all")} {chain.checked.toLocaleString(numberLocale())} {tr("entries match their fingerprints.")}</p>
+        : <p className="callout bad">{tr("Chain broken at entry")} #{chain.firstBrokenSeq} {tr("of")} {chain.checked.toLocaleString(numberLocale())}. {tr("An entry was changed outside Agera. Contact your platform administrator.")}</p>)}
       {!data && <Loading error={error} />}
       {data?.items.length === 0 && <EmptyState title={tr("No activity recorded yet")} />}
       {data && data.items.length > 0 && (

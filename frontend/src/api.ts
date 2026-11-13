@@ -9,10 +9,25 @@ export class ApiError extends Error {
   }
 }
 
+export const CONNECTION_LOST = 'The connection to the Agera server was interrupted. Check your network and try again.';
+
 async function send<T>(method: string, path: string, body?: BodyInit, contentType?: string): Promise<T> {
   const headers: Record<string, string> = { Authorization: `Bearer ${await accessToken()}`, ...organisationHeader() };
   if (contentType) headers['Content-Type'] = contentType;
-  const response = await fetch(path.startsWith('/api/') ? path : `/api${path}`, { method, headers, body });
+  const url = path.startsWith('/api/') ? path : `/api${path}`;
+  let response: Response;
+  try {
+    response = await fetch(url, { method, headers, body });
+  } catch {
+    // A dropped connection (shown by browsers as "Failed to fetch") is retried once for reads.
+    if (method !== 'GET') throw new ApiError(0, CONNECTION_LOST);
+    await new Promise((r) => window.setTimeout(r, 800));
+    try {
+      response = await fetch(url, { method, headers, body });
+    } catch {
+      throw new ApiError(0, CONNECTION_LOST);
+    }
+  }
   const data: unknown = await response.json().catch(() => null);
   if (!response.ok) {
     const message = (data as { message?: string | string[] } | null)?.message;

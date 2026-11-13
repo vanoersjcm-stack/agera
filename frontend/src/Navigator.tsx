@@ -126,9 +126,10 @@ export function Navigator({ user, readOnlyTenant }: { user: UserContext; readOnl
           <Node label={t("Documents")}>
             {canCreate && (
               <>
-                <button type="button" className="nav-link" onClick={() => openNew('doc_text')}>{t("New text document")}</button>
-                <button type="button" className="nav-link" onClick={() => openNew('doc_sheet')}>{t("New spreadsheet")}</button>
-                <button type="button" className="nav-link" onClick={() => openNew('doc_slides')}>{t("New presentation")}</button>
+                <button type="button" className="nav-link" onClick={() => openNew('doc_text')}>{t("New Agera.text document")}</button>
+                <button type="button" className="nav-link" onClick={() => openNew('doc_sheet')}>{t("New Agera.calc document")}</button>
+                <button type="button" className="nav-link" onClick={() => openNew('doc_slides')}>{t("New Agera.slides document")}</button>
+                <button type="button" className="nav-link" onClick={() => openNew('doc_mail')}>{t("New Agera.email")}</button>
               </>
             )}
             <Leaf href="/nexus/drafts" label={t("Drafts")} title={t("Office documents not yet shared in a client room, newest first")} />

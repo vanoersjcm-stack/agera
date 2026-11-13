@@ -230,7 +230,7 @@ export class SalesRoomsService {
                 observed_at AS "observedAt", details, created_at AS "createdAt"
            FROM nexus_operational_anomalies
           WHERE tenant_id = $1 ${typeFilter}
-          ORDER BY observed_at ASC, source_id
+          ORDER BY observed_at DESC, source_id
           LIMIT $2`,
         params,
       );

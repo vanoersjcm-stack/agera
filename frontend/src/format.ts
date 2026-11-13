@@ -1,4 +1,4 @@
-import { locale } from './i18n';
+import { numberLocale } from './i18n';
 import type { Category } from './api';
 
 /** Above plan is good for income, bad for costs. */
@@ -8,7 +8,7 @@ export function formatAmount(value: string | null, currency: string): string {
   if (value === null) {
     return '–';
   }
-  return new Intl.NumberFormat(locale(), { style: 'currency', currency }).format(Number(value));
+  return new Intl.NumberFormat(numberLocale(), { style: 'currency', currency, signDisplay: 'auto' }).format(Number(value));
 }
 
 export function varianceTone(category: Category, variance: string | null): 'good' | 'bad' | 'neutral' {
@@ -20,5 +20,9 @@ export function varianceTone(category: Category, variance: string | null): 'good
 }
 
 export function formatPercent(value: number | null): string {
-  return value === null ? '' : `${value > 0 ? '+' : ''}${value.toFixed(1)}%`;
+  return value === null ? '' : `${value > 0 ? '+' : ''}${formatNumber(value, 1)}%`;
+}
+
+export function formatNumber(value: number, digits = 2): string {
+  return value.toLocaleString(numberLocale(), { minimumFractionDigits: digits, maximumFractionDigits: digits });
 }

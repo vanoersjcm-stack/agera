@@ -9,6 +9,9 @@ export interface Crumb {
   href?: string;
 }
 
+/** The suite name already sits next to the waffle menu, so a leading suite crumb is dropped. */
+const SUITE_CRUMBS = new Set(['Symphony', 'Nexus', 'RetailPower', 'Vanguard', 'Client portal']);
+
 /** Common frame for every view: breadcrumb (Suite › Section › Record), title and page actions. */
 export function ViewFrame({
   title,
@@ -25,6 +28,7 @@ export function ViewFrame({
 }) {
   const crumbSlot = useCrumbSlot();
   useLanguage();
+  crumbs = crumbs.length > 1 && SUITE_CRUMBS.has(crumbs[0].label) ? crumbs.slice(1) : crumbs;
   return (
     <section>
       {crumbs.length > 0 && (crumbSlot ? createPortal(

@@ -59,7 +59,7 @@ describe('Print & Scan-to-Vault', () => {
     assert.equal(doc.clientRoomId, roomId);
     assert.equal(doc.fileFormat, 'pdf');
     assert.equal(doc.sha256, createHash('sha256').update(pdf).digest('hex'));
-    const audit = await api<{ items: { action: string; details: { documentId?: string } }[] }>(alice, 'GET', '/audit-logs?limit=50');
+    const audit = await api<{ items: { action: string; details: { documentId?: string } }[] }>(alice, 'GET', '/audit-logs?limit=100');
     assert.equal(audit.status, 200);
     assert.ok(audit.body.items.some((a) => a.action === 'document.scanned_to_vault' && a.details.documentId === doc.id));
   });

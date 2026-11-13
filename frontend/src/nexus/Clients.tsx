@@ -12,13 +12,13 @@ import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, include
 import { recordClientView } from '../Navigator';
 import { ClientImportDrawer } from './ClientImport';
 import { userContext } from '../context';
-import { t as tr, tf, locale, live } from '../i18n';
+import { t as tr, tf, numberLocale, live } from '../i18n';
 
 const SUITE = live(() => ({ label: tr("Nexus"), href: '#/nexus' }));
 const LIST = live(() => ({ label: tr("Clients"), href: '#/nexus/clients' }));
 
 export function money(value: string | number): string {
-  return new Intl.NumberFormat(locale(), { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Number(value));
+  return new Intl.NumberFormat(numberLocale(), { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value));
 }
 
 export function contactName(c: Pick<Contact, 'firstName' | 'lastName'>): string {
