@@ -99,7 +99,7 @@ export function ApprovalsView({ route }: { route: Route }) {
         <FilterChips value={show} onChange={(v) => navigate(withParams(route, { show: v === 'mine' ? null : v }))} chips={[{ value: 'mine', label: tr("Waiting for me") }, { value: 'pending', label: tr("All pending") }, { value: 'all', label: tr("All") }]} />
       </div>
       {!list.data && <Loading error={list.error} />}
-      {list.data?.length === 0 && <EmptyState title={show === 'mine' ? tr("Nothing waiting for you") : tr("No approval requests")}>{tr("Use “Send for approval” on a draft financial plan or an agreement awaiting approval.")}</EmptyState>}
+      {list.data?.length === 0 && <EmptyState title={show === 'mine' ? tr("Nothing waiting for you") : tr("No approval requests")}>{tr("Use “Send for approval” on a draft financial plan, an agreement awaiting approval or a draft invoice.")}</EmptyState>}
       {list.data && list.data.length > 0 && (
         <table className="grid clickable">
           <thead><tr><th>{tr("Record")}</th><th>{tr("Type")}</th><th>{tr("Requested")}</th><th>{tr("Next approver")}</th><th>{tr("Status")}</th></tr></thead>

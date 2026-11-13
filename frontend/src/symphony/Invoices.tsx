@@ -8,14 +8,14 @@ import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { ErrorText, FilterChips, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
 import { t, tf, live } from '../i18n';
-import { IdmsControl } from '../Idms';
+import { IdmsBadge, IdmsControl } from '../Idms';
 import { useState } from 'react';
 import { ApprovalPanel } from './Workflow';
 import { Drawer } from '../ui';
 
 export const INVOICE_STATUS: Record<InvoiceStatus, string> = { draft: 'Draft', issued: 'Sent', paid: 'Paid', cancelled: 'Cancelled' };
 const NEXT: Record<InvoiceStatus, { status: InvoiceStatus; label: string }[]> = live(() => ({
-  draft: [{ status: 'issued', label: t("Mark as sent") }, { status: 'cancelled', label: t("Cancel") }],
+  draft: [{ status: 'cancelled', label: t("Cancel") }],
   issued: [{ status: 'paid', label: t("Mark as paid") }, { status: 'cancelled', label: t("Cancel") }],
   paid: [],
   cancelled: [],
@@ -99,17 +99,17 @@ export function InvoiceTable({ invoices, showClient, onChanged }: { invoices: In
               <td>{formatDate(i.issueDate)}</td>
               <td>{i.dueDate ? formatDate(i.dueDate) : '—'}</td>
               <td>{badge(i)}{i.paidAt && <div className="muted small">{formatDate(i.paidAt)}</div>}</td>
-              <td><IdmsControl kind="invoices" id={i.id} status={i.idmsStatus} onChanged={onChanged} compact /></td>
+              <td>{i.idmsStatus === 'DRAFT' || i.idmsStatus === 'IN_REVIEW' ? <IdmsBadge status={i.idmsStatus} /> : <IdmsControl kind="invoices" id={i.id} status={i.idmsStatus} onChanged={onChanged} compact />}</td>
               <td className="num">{money(i.amountExclVat)}</td>
               <td className="num">{money(i.totalAmount)}</td>
-              <td className="row-actions">
-                <button className="link-button" onClick={() => setOpen(i)}>{t("Details & approval")}</button>
+              <td><div className="row-actions">
+                <button className="link-button" onClick={() => setOpen(i)}>{i.status === 'draft' && i.idmsStatus === 'DRAFT' ? t("Send for approval…") : t("Details & approval")}</button>
                 {(i.idmsStatus === 'ARCHIVED_WORM' || i.idmsStatus === 'EXPIRED_PURGE' || i.idmsStatus === 'IN_REVIEW' ? [] : NEXT[i.status]).map((n) => (
                   <button key={n.status} className={n.status === 'cancelled' ? 'link-button danger' : 'link-button'} disabled={action.busy} onClick={() => change(i, n.status)}>
                     {n.label}
                   </button>
                 ))}
-              </td>
+              </div></td>
             </tr>
           ))}
         </tbody>
