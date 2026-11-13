@@ -15,7 +15,7 @@ describe('job roles (sec-2)', () => {
   });
 
   it('FIELD_REPRESENTATIVE works in RetailPower only', async () => {
-    for (const path of ['/stores', '/v1/operations/crew', '/v1/operations/shifts/mine/open', '/v1/operations/rma', '/v1/clients']) {
+    for (const path of ['/stores', '/v1/operations/crew', '/v1/operations/shifts/mine/open', '/v1/operations/rma', '/v1/clients', '/v1/notifications']) {
       assert.equal((await api(field, 'GET', path)).status, 200, path);
     }
     for (const path of ['/v1/invoices', '/v1/governance/credit-holds', '/audit-logs', '/audit-logs/verify', '/v1/automations', '/v1/reports/kpis', '/v1/deals', '/v1/agreements', '/v1/financials/models', '/v1/surveys', '/v1/approvals']) {

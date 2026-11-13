@@ -2,6 +2,7 @@ import { BadRequestException, Body, Controller, Get, HttpCode, Param, ParseUUIDP
 import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
+import { AllowJobRoles } from '../auth/job-roles.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
 import { asObject, oneOf, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
 import { APPROVAL_ENTITIES, EXCEPTION_STATUSES, type ExceptionStatus, SEVERITIES, WorkflowService } from './workflow.service.js';
@@ -142,6 +143,7 @@ export class WorkflowController {
   }
 
   @Get('notifications')
+  @AllowJobRoles('HQ_ADMIN', 'ACCOUNT_MANAGER', 'FIELD_REPRESENTATIVE')
   @ApiOperation({ summary: 'My latest notifications and unread count' })
   @ApiOkResponse(OBJ)
   notifications(@CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
@@ -149,6 +151,7 @@ export class WorkflowController {
   }
 
   @Post('notifications/read')
+  @AllowJobRoles('HQ_ADMIN', 'ACCOUNT_MANAGER', 'FIELD_REPRESENTATIVE')
   @HttpCode(204)
   @ApiOperation({ summary: 'Mark one notification (id) or all as read' })
   @ApiBody(OBJ)
