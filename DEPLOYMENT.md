@@ -418,13 +418,13 @@ the admin console (`agera` realm → Clients → agera-backend → Credentials) 
 ### Compliance self-audit
 
 `./deploy.sh audit-compliance` checks the running server against GDPR, DORA, NIS2, the IDMS lifecycle and
-the European-sovereignty rules. It only reads: test changes (a locked-record probe) run in a database
-transaction that is rolled back, and the PDF test is converted in memory and not stored.
+the European-sovereignty rules. It only reads: test changes (the locked-record probes and their scratch
+records) run in a database transaction that is rolled back, and the PDF test is converted in memory and not stored.
 
 | Gate | What it checks |
 |---|---|
 | 1 RLS & isolation | every tenant table has row-level security and a policy (`schema_migrations` and `tenants` are global); the backend's `DB_USER` is not superuser, cannot bypass RLS and sees 0 rows without a tenant; the creator-only policies for private third parties, client-less documents and private appointments are active |
-| 2 Audit vault & IDMS | `DB_USER` cannot UPDATE/DELETE `audit_logs`; append-only triggers are on; the SHA-256 hash chain is verified over every row of every organisation; changing or deleting a FINAL_LOCKED / ARCHIVED_WORM record is refused; the daily retention job and its `idms.purged` audit event are in the running backend |
+| 2 Audit vault & IDMS | `DB_USER` cannot UPDATE/DELETE `audit_logs`; append-only triggers are on; the SHA-256 hash chain is verified over every row of every organisation; changing or deleting a FINAL_LOCKED / ARCHIVED_WORM record is refused (a real locked record, or, where a table has none, a scratch locked record in a scratch organisation that the rollback removes); the daily retention job and its `idms.purged` audit event are in the running backend |
 | 3 Sovereignty | no Google, Microsoft, OpenAI, Sentry, jsDelivr or unpkg addresses in the deployed web app, backend or source; mail only via `SMTP_*` and print only via `CUPS_IPP_URL`; Agera Office (Collabora) renders a text and a spreadsheet PDF and the producer is Collabora/LibreOffice, not Skia/Google |
 | 4 Access control | no token gives 401; the demo logins from `demo-logins.txt` get exactly the access of their role (read-only requests); another organisation's record gives 404 |
 | 5 Supply chain & HTTPS | `npm audit --omit=dev` (high or critical fails) for backend and frontend; HSTS, `X-Content-Type-Options`, `X-Frame-Options` + `frame-ancestors` and `Referrer-Policy` are sent; no version in `Server`, no `X-Powered-By`; no access tokens in the proxy or backend logs |

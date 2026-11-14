@@ -140,16 +140,41 @@ SQL
     rec 2 "SHA-256 hash chain, 100% of rows" FAIL "broken: ${broken[*]}"
   fi
 
-  local idms result blocked=() allowed=() norow=()
+  local idms result blocked=() allowed=() norow=() scratch=()
   idms=$(asql -c "SELECT string_agg(tgrelid::regclass::text, ',' ORDER BY 1) FROM pg_trigger WHERE tgname IN ('trg_room_documents_idms', 'trg_agreements_idms', 'trg_financial_models_idms', 'trg_invoices_idms') AND tgenabled <> 'D'")
   result=$(asql 2>&1 <<'SQL'
 BEGIN;
 DO $$
-DECLARE t TEXT; rid UUID; st TEXT; op TEXT; outcome TEXT;
+DECLARE t TEXT; rid UUID; st TEXT; op TEXT; outcome TEXT; probe_tenant UUID; probe_client UUID;
 BEGIN
   FOREACH t IN ARRAY ARRAY['room_documents', 'agreements', 'financial_models', 'invoices'] LOOP
     EXECUTE format('SELECT id, idms_status FROM %I WHERE idms_status IN (''FINAL_LOCKED'', ''ARCHIVED_WORM'') ORDER BY idms_status DESC LIMIT 1', t) INTO rid, st;
-    IF rid IS NULL THEN RAISE NOTICE 'IDMS|%|-|NOROW', t; CONTINUE; END IF;
+    IF rid IS NULL THEN
+      -- No real locked record: lock a scratch one in a scratch organisation. The ROLLBACK below removes both.
+      BEGIN
+        IF probe_tenant IS NULL THEN
+          INSERT INTO tenants (name, domain) VALUES ('Compliance audit probe', 'probe-' || gen_random_uuid() || '.invalid')
+            RETURNING id INTO probe_tenant;
+          INSERT INTO clients (tenant_id, name) VALUES (probe_tenant, 'Compliance audit probe') RETURNING id INTO probe_client;
+        END IF;
+        CASE t
+          WHEN 'room_documents' THEN
+            INSERT INTO room_documents (tenant_id, title, idms_status) VALUES (probe_tenant, 'probe', 'FINAL_LOCKED') RETURNING id INTO rid;
+          WHEN 'agreements' THEN
+            INSERT INTO agreements (tenant_id, client_id, title, document_url, idms_status)
+              VALUES (probe_tenant, probe_client, 'probe', 'probe', 'FINAL_LOCKED') RETURNING id INTO rid;
+          WHEN 'financial_models' THEN
+            INSERT INTO financial_models (tenant_id, model_name, fiscal_year, idms_status)
+              VALUES (probe_tenant, 'probe', 2000, 'FINAL_LOCKED') RETURNING id INTO rid;
+          WHEN 'invoices' THEN
+            INSERT INTO invoices (tenant_id, client_id, invoice_number, issue_date, amount_excl_vat, idms_status)
+              VALUES (probe_tenant, probe_client, 'PROBE-0001', CURRENT_DATE, 0, 'FINAL_LOCKED') RETURNING id INTO rid;
+        END CASE;
+        st := 'FINAL_LOCKED*';
+      EXCEPTION WHEN OTHERS THEN
+        RAISE NOTICE 'IDMS|%|-|NOROW %', t, SQLERRM; CONTINUE;
+      END;
+    END IF;
     FOREACH op IN ARRAY ARRAY['UPDATE', 'DELETE'] LOOP
       BEGIN
         IF op = 'UPDATE' THEN
@@ -172,8 +197,8 @@ SQL
   ) || true
   while IFS='|' read -r _ table status what; do
     case $what in
-      NOROW) norow+=("$table") ;;
-      *BLOCKED) blocked+=("$table/$status ${what%% *}") ;;
+      NOROW*) norow+=("$table${what#NOROW}") ;;
+      *BLOCKED) blocked+=("$table/$status ${what%% *}"); [[ $status == *'*' ]] && scratch+=("$table") ;;
       *) allowed+=("$table/$status $what") ;;
     esac
   done < <(grep -o 'IDMS|.*' <<<"$result")
@@ -184,7 +209,9 @@ SQL
   elif ((${#norow[@]} > 0)); then
     rec 2 "IDMS FINAL_LOCKED / ARCHIVED_WORM triggers" WARN "triggers on all 4 tables; probes blocked (${#blocked[@]}); no locked record to probe in: ${norow[*]}"
   else
-    rec 2 "IDMS FINAL_LOCKED / ARCHIVED_WORM triggers" PASS "triggers on all 4 tables; UPDATE and DELETE of a locked record refused (rolled back) in all 4"
+    local how="real locked records"
+    ((${#scratch[@]} > 0)) && how="real locked records, or a scratch locked record (rolled back) for: $(printf '%s\n' "${scratch[@]}" | sort -u | paste -sd' ')"
+    rec 2 "IDMS FINAL_LOCKED / ARCHIVED_WORM triggers" PASS "triggers on all 4 tables; UPDATE and DELETE of a locked record refused in all 4 ($how)"
   fi
 
   local sched handler policies errors
@@ -349,6 +376,10 @@ SQL
     return
   fi
   local files=() s out pass fail
+  if ! command -v node >/dev/null; then
+    rec 4 "Security E2E suites (${E2E_SUITES[*]})" FAIL "node not found on PATH; install Node.js 22+ to run the suites"
+    return
+  fi
   for s in "${E2E_SUITES[@]}"; do files+=("test/$s.e2e.test.ts"); done
   out=$(node --env-file-if-exists=.env --test "${files[@]}" 2>&1) || true
   pass=$(sed -n 's/^# pass \([0-9]*\)$/\1/p' <<<"$out" | tail -n1)
