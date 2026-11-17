@@ -920,7 +920,10 @@ tr.row-error td { background: color-mix(in srgb, var(--danger, #c0392b) 12%, tra
 .invoice-line + .secondary, .invoice-line ~ .secondary { margin-top: 0.6rem; }
 
 /* Agenda: tabs, leave grid, leave items */
-.agenda-tabs { margin-bottom: 0.75rem; }
+.agenda-tabs { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin-bottom: 0.75rem; }
+.agenda-tabs .chips { margin: 0; }
+.chip.chip-action { border-color: var(--accent); color: var(--accent); font-weight: 600; }
+.chip.chip-action:hover { background: var(--accent); color: #fff; }
 .cal-leave { border-color: #0284c7; background: color-mix(in srgb, #0284c7 12%, var(--surface)); }
 .leave-grid-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); margin-bottom: 1rem; }
 .leave-grid { border-collapse: separate; border-spacing: 0; font-size: 0.72rem; }

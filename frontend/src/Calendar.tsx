@@ -78,11 +78,11 @@ export function CalendarView({ route }: { route: Route }) {
           <button className="secondary" onClick={() => go({ date: dayKey(shift(mode, anchor, -1)) })} aria-label={t("Previous")}>‹</button>
           <button className="secondary" onClick={() => go({ date: null })}>{t("Today")}</button>
           <button className="secondary" onClick={() => go({ date: dayKey(shift(mode, anchor, 1)) })} aria-label={t("Next")}>›</button>
-          <button onClick={() => setCreating(new Date())}>{t("+ New appointment")}</button>
         </>
       }
     >
       <div className="agenda-tabs">
+        <button type="button" className="chip chip-action" onClick={() => setCreating(new Date())}>{t("+ New appointment")}</button>
         <FilterChips chips={[{ value: 'agenda', label: t("Agenda") }, { value: 'leave', label: t("Leave & vacation") }, { value: 'rooms', label: t("Rooms & equipment") }]} value={tab} onChange={(v) => go({ tab: v === 'agenda' ? null : v, event: null })} />
       </div>
       {tab === 'leave' ? <LeaveGrid route={route} anchor={anchor} /> : tab === 'rooms' ? <RoomsPanel from={from} to={to} /> : (<>
