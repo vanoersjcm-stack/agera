@@ -10,10 +10,33 @@ import { UserService } from '../user/user.service.js';
 import { AgendaResourcesService, isAgendaAdmin } from './agenda-resources.service.js';
 
 export const VISIBILITIES = ['team', 'private'] as const;
-export const RESPONSES = ['accepted', 'declined'] as const;
+export const RESPONSES = ['accepted', 'declined', 'unable'] as const;
 export const NOTE_LANGUAGES = ['en', 'nl'] as const;
 export const CALENDAR_SCOPES = ['mine', 'team'] as const;
-export const PLANNING_MODES = ['fixed', 'find'] as const;
+export const PLANNING_MODES = ['fixed', 'find', 'mandatory'] as const;
+export const VISIT_CONFLICTS = ['flag', 'move'] as const;
+export const ROOM_CONFLICTS = ['free_only', 'take_over'] as const;
+
+/** HQ admins, platform admins and account managers may plan a mandatory meeting. */
+export function canMandate(identity: AuthenticatedUser): boolean {
+  const role = jobRoleOf(identity.roles);
+  return role === 'PLATFORM_ADMIN' || role === 'HQ_ADMIN' || role === 'ACCOUNT_MANAGER' || (role === null && identity.roles.includes('admin'));
+}
+
+const TZ = 'Europe/Amsterdam';
+/** Wall-clock parts of a moment in the Amsterdam office time zone. */
+function localParts(d: Date): { y: number; mo: number; day: number; h: number; mi: number; wd: number } {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', weekday: 'short' })
+    .formatToParts(d).map((x) => [x.type, x.value]));
+  return { y: +p.year, mo: +p.month, day: +p.day, h: +p.hour, mi: +p.minute, wd: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(p.weekday) };
+}
+/** The moment for a wall-clock time in Amsterdam (DST-aware). */
+function atLocal(y: number, mo: number, day: number, h: number, mi: number): Date {
+  const guess = new Date(Date.UTC(y, mo - 1, day, h, mi));
+  const p = localParts(guess);
+  const drift = Date.UTC(p.y, p.mo - 1, p.day, p.h, p.mi) - guess.getTime();
+  return new Date(guess.getTime() - drift);
+}
 
 const PERSON = (a: string) => `COALESCE(NULLIF(btrim(concat_ws(' ', ${a}.first_name, ${a}.last_name)), ''), ${a}.email)`;
 
@@ -22,6 +45,7 @@ export interface EventInput {
   visibility: (typeof VISIBILITIES)[number]; clientId: string | null; storeId: string | null; attendeeIds: string[];
   assets?: { assetId: string; bufferMinutes: number }[];
   planningMode?: (typeof PLANNING_MODES)[number]; optionalIds?: string[];
+  visitConflicts?: (typeof VISIT_CONFLICTS)[number]; roomConflicts?: (typeof ROOM_CONFLICTS)[number];
 }
 
 /** One entry on the calendar: an Agera appointment or a dated record from another module. */
@@ -40,7 +64,12 @@ const EVENT_SQL = `
                      FROM calendar_event_documents ed JOIN room_documents d ON d.tenant_id = ed.tenant_id AND d.id = ed.document_id
                      LEFT JOIN clients dc ON dc.id = d.client_id WHERE ed.event_id = e.id), '[]') AS documents,
          COALESCE((SELECT json_agg(json_build_object('assetId', ea.asset_id, 'name', ba.name, 'category', ba.category, 'bookingMode', ba.booking_mode, 'bufferMinutes', ea.buffer_minutes, 'bookedBy', ea.booked_by) ORDER BY ba.name)
-                     FROM calendar_event_assets ea JOIN bookable_assets ba ON ba.id = ea.asset_id WHERE ea.event_id = e.id), '[]') AS assets
+                     FROM calendar_event_assets ea JOIN bookable_assets ba ON ba.id = ea.asset_id WHERE ea.event_id = e.id), '[]') AS assets,
+         COALESCE((SELECT json_agg(json_build_object('kind', o.target_kind, 'action', o.action, 'detail', o.detail) ORDER BY o.created_at)
+                     FROM calendar_overrides o WHERE o.event_id = e.id), '[]') AS overrides,
+         COALESCE((SELECT json_agg(json_build_object('eventId', me.id, 'title', me.title, 'startsAt', me.starts_at) ORDER BY me.starts_at)
+                     FROM calendar_overrides o JOIN calendar_events me ON me.id = o.event_id
+                    WHERE o.target_kind = 'event' AND o.target_id = e.id AND me.status = 'scheduled'), '[]') AS "overriddenBy"
     FROM calendar_events e JOIN users u ON u.id = e.created_by
     LEFT JOIN clients c ON c.id = e.client_id LEFT JOIN stores s ON s.id = e.store_id`;
 
@@ -52,6 +81,9 @@ const NOTES_TEXT = {
   en: { title: 'Meeting notes', when: 'Date and time', allDay: 'all day', location: 'Location', organiser: 'Organiser', attendees: 'Attendees', client: 'Client', agenda: 'Agenda', notes: 'Notes', actions: 'Action items', action: 'Action', owner: 'Who', due: 'When' },
   nl: { title: 'Notulen', when: 'Datum en tijd', allDay: 'hele dag', location: 'Locatie', organiser: 'Organisator', attendees: 'Deelnemers', client: 'Klant', agenda: 'Agenda', notes: 'Aantekeningen', actions: 'Actiepunten', action: 'Actie', owner: 'Wie', due: 'Wanneer' },
 } as const;
+
+/** Raw UPDATE/DELETE ... RETURNING results come back as [rows, count] from TypeORM. */
+const returnedRows = <T>(r: unknown): T[] => (Array.isArray(r) && r.length === 2 && Array.isArray(r[0]) && typeof r[1] === 'number' ? r[0] : r) as T[];
 
 const esc = (v: string) => v.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
@@ -191,8 +223,78 @@ export class CalendarService {
     }
   }
 
+  private async notify(m: EntityManager, userId: string, title: string, body: string | null, link: string): Promise<void> {
+    await m.query('INSERT INTO notifications (tenant_id, user_id, title, body, link) VALUES ($1,$2,$3,$4,$5)', [this.t, userId, title.slice(0, 250), body, link]);
+  }
+
+  /**
+   * A mandatory meeting overrides the invitees' planning: their clashing agenda items are flagged, clashing store visits
+   * are flagged or moved to the first free slot, booked rooms/equipment are taken over when chosen. Approved leave is
+   * never overridden: those invitees are marked unable to attend. Nothing is deleted.
+   */
+  private async override(m: EntityManager, eventId: string, input: EventInput, me: string): Promise<void> {
+    const start = input.startsAt; const end = input.endsAt; const link = `/calendar?event=${eventId}`;
+    const record = (kind: string, target: string, owner: string | null, action: string, detail: string | null) => m.query(
+      'INSERT INTO calendar_overrides (tenant_id, event_id, target_kind, target_id, owner_id, action, detail) VALUES ($1,$2,$3,$4,$5,$6,$7)',
+      [this.t, eventId, kind, target, owner, action, detail?.slice(0, 300) ?? null]);
+    if (input.roomConflicts === 'take_over') {
+      for (const b of input.assets ?? []) {
+        const until = new Date(end.getTime() + b.bufferMinutes * 60_000);
+        const taken: { eventId: string; bookedBy: string; name: string }[] = await m.query(
+          `DELETE FROM calendar_event_assets ea USING bookable_assets ba
+            WHERE ea.tenant_id = $1 AND ea.asset_id = $2 AND ba.id = ea.asset_id AND ea.event_id <> $5
+              AND tstzrange(ea.starts_at, ea.blocked_until, '[)') && tstzrange($3, $4, '[)')
+          RETURNING ea.event_id AS "eventId", ea.booked_by AS "bookedBy", ba.name`,
+          [this.t, b.assetId, start, until, eventId]).then((r) => returnedRows<{ eventId: string; bookedBy: string; name: string }>(r));
+        for (const x of taken) {
+          await record('asset', x.eventId, x.bookedBy, 'taken_over', x.name);
+          if (x.bookedBy !== me) await this.notify(m, x.bookedBy, `${x.name} taken over by mandatory meeting: ${input.title}`, start.toISOString(), `/calendar?event=${x.eventId}`);
+        }
+      }
+    }
+    const people = [...new Set(input.attendeeIds)].filter((u) => u !== me);
+    if (!people.length) return;
+    const busy: { userId: string; start: Date; end: Date; source: string; refId: string; title: string | null }[] = await m.query(
+      'SELECT user_id AS "userId", starts_at AS "start", ends_at AS "end", source, ref_id AS "refId", title FROM calendar_busy($1::uuid[], $2, $3)', [people, start, end]);
+    for (const b of busy) {
+      if (b.source === 'leave') {
+        await m.query(`UPDATE calendar_event_attendees SET response = 'unable', reason = 'On approved leave' WHERE tenant_id = $1 AND event_id = $2 AND user_id = $3`, [this.t, eventId, b.userId]);
+      } else if (b.source === 'event' && b.refId !== eventId) {
+        await record('event', b.refId, b.userId, 'flagged', b.title);
+        await this.notify(m, b.userId, `Mandatory meeting overlaps your agenda: ${input.title}`, `Please reschedule ${b.title ?? 'your private agenda item'}`, link);
+      } else if (b.source === 'visit') {
+        const moved = input.visitConflicts === 'move' ? await this.moveVisit(m, b.refId, b.userId, new Date(b.start), end) : null;
+        await record('visit', b.refId, b.userId, moved ? 'moved' : 'flagged', moved ? `${b.title}: ${new Date(b.start).toISOString()} -> ${moved.toISOString()}` : b.title);
+        await this.notify(m, b.userId, moved ? `Store visit ${b.title} moved for mandatory meeting: ${input.title}` : `Mandatory meeting overlaps your store visit ${b.title}: please re-plan it`, moved ? moved.toISOString() : null, `/retailpower/store-visits/${b.refId}`);
+      }
+    }
+  }
+
+  /** First free hour for a store visit: the same day after the meeting (by 17:30), else the same time on the next weekdays. */
+  private async moveVisit(m: EntityManager, visitId: string, rep: string, was: Date, meetingEnd: Date): Promise<Date | null> {
+    const candidates: Date[] = [];
+    const e = localParts(meetingEnd);
+    const after = atLocal(e.y, e.mo, e.day, e.h, Math.ceil(e.mi / 15) * 15);
+    const latest = atLocal(e.y, e.mo, e.day, 17, 30);
+    if (after.getTime() + 3_600_000 <= latest.getTime()) candidates.push(after);
+    const w = localParts(was);
+    for (let i = 1; i <= 14; i++) {
+      const d = new Date(Date.UTC(w.y, w.mo - 1, w.day + i));
+      if (d.getUTCDay() === 0 || d.getUTCDay() === 6) continue;
+      candidates.push(atLocal(d.getUTCFullYear(), d.getUTCMonth() + 1, d.getUTCDate(), w.h, w.mi));
+    }
+    for (const c of candidates) {
+      const clash: { refId: string }[] = await m.query('SELECT ref_id AS "refId" FROM calendar_busy($1::uuid[], $2, $3)', [[rep], c, new Date(c.getTime() + 3_600_000)]);
+      if (clash.some((x) => x.refId !== visitId)) continue;
+      await m.query('UPDATE merchandising_visits SET visit_date = $3, updated_at = NOW() WHERE tenant_id = $1 AND id = $2', [this.t, visitId, c]);
+      return c;
+    }
+    return null;
+  }
+
   async create(input: EventInput, identity: AuthenticatedUser): Promise<unknown> {
     const me = (await this.users.resolveActor(identity)).id;
+    if (input.planningMode === 'mandatory' && !canMandate(identity)) throw new ForbiddenException('Only HQ admins, platform admins and account managers can plan a mandatory meeting');
     const row = await this.tx.run(async (m) => {
       await this.assertLinks(m, input);
       const [e] = await m.query(
@@ -204,12 +306,13 @@ export class CalendarService {
       if (input.optionalIds?.length) {
         await m.query('UPDATE calendar_event_attendees SET required = FALSE WHERE tenant_id = $1 AND event_id = $2 AND user_id = ANY($3::uuid[])', [this.t, e.id, input.optionalIds]);
       }
+      if (input.planningMode === 'mandatory') await this.override(m, e.id, input, me);
       for (const b of input.assets ?? []) {
         await AgendaResourcesService.insertBooking(m, this.t, { id: e.id, startsAt: input.startsAt, endsAt: input.endsAt }, b.assetId, b.bufferMinutes, me, isAgendaAdmin(identity));
       }
       return this.load(m, e.id, me);
     });
-    this.audit.logAction(this.t, me, 'calendar_event.created', { eventId: row.id, attendees: input.attendeeIds.length, visibility: input.visibility, assets: (input.assets ?? []).map((b) => b.assetId) });
+    this.audit.logAction(this.t, me, 'calendar_event.created', { eventId: row.id, attendees: input.attendeeIds.length, visibility: input.visibility, assets: (input.assets ?? []).map((b) => b.assetId), planningMode: input.planningMode ?? 'fixed', overrides: (row.overrides as unknown[]).length });
     return row;
   }
 
@@ -256,11 +359,15 @@ export class CalendarService {
     return row;
   }
 
-  async respond(id: string, response: (typeof RESPONSES)[number], identity: AuthenticatedUser): Promise<unknown> {
+  async respond(id: string, response: (typeof RESPONSES)[number], identity: AuthenticatedUser, reason: string | null = null): Promise<unknown> {
     const me = (await this.users.resolveActor(identity)).id;
     const row = await this.tx.run(async (m) => {
-      const updated = await m.query('UPDATE calendar_event_attendees SET response = $4 WHERE tenant_id = $1 AND event_id = $2 AND user_id = $3 RETURNING event_id', [this.t, id, me, response]);
+      const cur = await this.load(m, id, me);
+      if (cur.planningMode === 'mandatory' && response === 'declined') throw new BadRequestException("This is a mandatory meeting: answer 'unable' with a reason instead of declining");
+      if (response === 'unable' && !reason) throw new BadRequestException('reason is required when you cannot attend');
+      const updated = returnedRows(await m.query('UPDATE calendar_event_attendees SET response = $4, reason = $5 WHERE tenant_id = $1 AND event_id = $2 AND user_id = $3 RETURNING event_id', [this.t, id, me, response, response === 'unable' ? reason : null]));
       if (!updated.length) throw new NotFoundException('You are not invited to this appointment');
+      if (response === 'unable' && cur.createdBy !== me) await this.notify(m, String(cur.createdBy), `Can't attend: ${cur.title}`, reason, `/calendar?event=${id}`);
       return this.load(m, id, me);
     });
     this.audit.logAction(this.t, me, 'calendar_event.responded', { eventId: id, response });

@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { api, type Availability, type BusyPeriod, type PlanningMode } from './api';
+import { userContext } from './context';
 import { live, locale, t, tf } from './i18n';
 import { ErrorText, Field, FilterChips, StatusBadge } from './ui';
 
@@ -14,11 +15,42 @@ function busyLabel(b: BusyPeriod): string {
   return b.title ? tf("Busy: {title}", { title: b.title }) : t("Busy (private)");
 }
 
+/** HQ admins, platform admins and account managers may plan a mandatory meeting. */
+export function canMandate(): boolean {
+  const u = userContext();
+  return u.isPlatformAdmin || u.jobRole === 'HQ_ADMIN' || u.jobRole === 'PLATFORM_ADMIN' || u.jobRole === 'ACCOUNT_MANAGER' || (u.jobRole === null && u.role === 'admin');
+}
+
 export function PlanningChoice({ mode, onChange }: { mode: PlanningMode; onChange: (m: PlanningMode) => void }) {
+  const hint = mode === 'find' ? t("Agera finds moments when the invitees, rooms and equipment are free.")
+    : mode === 'mandatory' ? t("Overrides the invitees' planning. Invitees cannot decline, only report that they can't attend. Approved leave is never overridden.")
+      : t("You pick the moment; Agera shows who can come.");
   return (
-    <Field label={t("How do you want to plan this?")} hint={mode === 'find' ? t("Agera finds moments when the invitees, rooms and equipment are free.") : t("You pick the moment; Agera shows who can come.")}>
-      <FilterChips chips={[{ value: 'fixed', label: t("Fixed date") }, { value: 'find', label: t("Find a time") }]} value={mode} onChange={(v) => onChange(v as PlanningMode)} />
+    <Field label={t("How do you want to plan this?")} hint={hint}>
+      <FilterChips chips={[{ value: 'fixed', label: t("Fixed date") }, { value: 'find', label: t("Find a time") }, ...(canMandate() ? [{ value: 'mandatory', label: t("Mandatory meeting") }] : [])]} value={mode} onChange={(v) => onChange(v as PlanningMode)} />
     </Field>
+  );
+}
+
+export type VisitConflicts = 'flag' | 'move';
+export type RoomConflicts = 'free_only' | 'take_over';
+
+/** Mandatory meeting: what happens to clashing store visits and to rooms/equipment that are already booked. */
+export function MandatoryOptions({ visits, rooms, onVisits, onRooms }: { visits: VisitConflicts; rooms: RoomConflicts; onVisits: (v: VisitConflicts) => void; onRooms: (v: RoomConflicts) => void }) {
+  return (
+    <div className="plan-check">
+      <fieldset className="plan-radios">
+        <legend>{t("Store visits that clash")}</legend>
+        <label className="checkbox"><input type="radio" name="visitConflicts" checked={visits === 'flag'} onChange={() => onVisits('flag')} /> {t("Mark for re-planning (the field employee is notified)")}</label>
+        <label className="checkbox"><input type="radio" name="visitConflicts" checked={visits === 'move'} onChange={() => onVisits('move')} /> {t("Move automatically to the first free slot")}</label>
+      </fieldset>
+      <fieldset className="plan-radios">
+        <legend>{t("Rooms or equipment already booked")}</legend>
+        <label className="checkbox"><input type="radio" name="roomConflicts" checked={rooms === 'free_only'} onChange={() => onRooms('free_only')} /> {t("Only free rooms and equipment")}</label>
+        <label className="checkbox"><input type="radio" name="roomConflicts" checked={rooms === 'take_over'} onChange={() => onRooms('take_over')} /> {t("Take over the booking (the booker is notified)")}</label>
+      </fieldset>
+      <p className="muted small">{t("Clashing agenda items of invitees are marked as overridden and their owners are asked to reschedule. Nothing is deleted.")}</p>
+    </div>
   );
 }
 

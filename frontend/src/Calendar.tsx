@@ -5,7 +5,7 @@ import { userContext } from './context';
 import { activeClients, useClients, useUsers, userName } from './directory';
 import { getLanguage, live, locale, t, tf } from './i18n';
 import { openOfficeEditor } from './office';
-import { AttendanceCheck, FindTime, PlanningChoice } from './AgendaPlanning';
+import { AttendanceCheck, FindTime, MandatoryOptions, PlanningChoice, type RoomConflicts, type VisitConflicts } from './AgendaPlanning';
 import { AppointmentAssets, BOOKING_MODE, isAgendaAdmin, LeaveGrid, RoomsPanel } from './AgendaResources';
 import { formatDateTime } from './labels';
 import { EmptyState, ViewFrame } from './Layout';
@@ -14,7 +14,7 @@ import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, Loading
 
 type Mode = 'day' | 'week' | 'month';
 const KIND: Record<CalendarKind, string> = live(() => ({ appointment: t("Agenda item"), visit: t("Store visit"), round: t("Round"), milestone: t("Milestone"), leave: t("Leave") }));
-const RESPONSE: Record<string, string> = live(() => ({ pending: t("No answer yet"), accepted: t("Accepted"), declined: t("Declined") }));
+const RESPONSE: Record<string, string> = live(() => ({ pending: t("No answer yet"), accepted: t("Accepted"), declined: t("Declined"), unable: t("Can't attend") }));
 
 const DAY = 86_400_000;
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
@@ -157,6 +157,8 @@ function AppointmentForm({ start, event, asset, onClose, onSaved }: { start: Dat
   const [buffer, setBuffer] = useState('0');
   const [planning, setPlanning] = useState<PlanningMode>('fixed');
   const [optionalIds, setOptionalIds] = useState<string[]>([]);
+  const [visitConflicts, setVisitConflicts] = useState<VisitConflicts>('flag');
+  const [roomConflicts, setRoomConflicts] = useState<RoomConflicts>('free_only');
   const admin = isAgendaAdmin(userContext());
   const assets = useLoad(() => api.bookableAssets(), []).data ?? [];
   const stores = useLoad(() => api.stores().catch(() => ({ items: [] as Store[] })), []).data?.items ?? [];
@@ -180,7 +182,7 @@ function AppointmentForm({ start, event, asset, onClose, onSaved }: { start: Dat
     const s = allDay ? new Date(`${startsAt.slice(0, 10)}T00:00:00`) : new Date(startsAt);
     const e = allDay ? new Date(`${endsAt.slice(0, 10)}T23:59:00`) : new Date(endsAt);
     if (e < s) { setError(t("The end must be after the start")); return; }
-    const body = { title, startsAt: s.toISOString(), endsAt: e.toISOString(), allDay, location: location || null, description: description || null, visibility, clientId: clientId || null, storeId: storeId || null, attendeeIds, ...(event ? {} : { planningMode: planning, optionalIds: optionalIds.filter((id) => attendeeIds.includes(id)), assets: booked.map((assetId) => ({ assetId, bufferMinutes: Number(buffer) })) }) };
+    const body = { title, startsAt: s.toISOString(), endsAt: e.toISOString(), allDay, location: location || null, description: description || null, visibility, clientId: clientId || null, storeId: storeId || null, attendeeIds, ...(event ? {} : { planningMode: planning, optionalIds: optionalIds.filter((id) => attendeeIds.includes(id)), ...(planning === 'mandatory' ? { visitConflicts, roomConflicts } : {}), assets: booked.map((assetId) => ({ assetId, bufferMinutes: Number(buffer) })) }) };
     const saved = await run(() => (event ? api.updateCalendarEvent(event.id, body) : api.createCalendarEvent(body)));
     if (saved) onSaved(saved);
   };
@@ -243,7 +245,8 @@ function AppointmentForm({ start, event, asset, onClose, onSaved }: { start: Dat
             )}
           </Field>
         )}
-        {!event && planning === 'fixed' && !allDay && <AttendanceCheck userIds={attendeeIds} optionalIds={optionalIds} assetIds={booked} start={new Date(startsAt)} end={new Date(endsAt)} buffer={Number(buffer)} />}
+        {!event && planning === 'mandatory' && <MandatoryOptions visits={visitConflicts} rooms={roomConflicts} onVisits={setVisitConflicts} onRooms={setRoomConflicts} />}
+        {!event && planning !== 'find' && !allDay && <AttendanceCheck userIds={attendeeIds} optionalIds={optionalIds} assetIds={booked} start={new Date(startsAt)} end={new Date(endsAt)} buffer={Number(buffer)} />}
         {!event && planning === 'find' && <FindTime userIds={attendeeIds} optionalIds={optionalIds} assetIds={booked} buffer={Number(buffer)} onPick={(st, en) => { setAllDay(false); setStartsAt(toLocalInput(st)); setEndsAt(toLocalInput(en)); setPlanning('fixed'); }} />}
         <Field label={t("Visibility")}>
           <select value={visibility} onChange={(e) => setVisibility(e.target.value as 'team' | 'private')}>
@@ -277,6 +280,8 @@ function AppointmentDrawer({ id, onClose, onChanged }: { id: string; onClose: ()
       {e && (
         <>
           {e.status === 'cancelled' && <p className="notice">{t("This agenda item is cancelled.")}</p>}
+          {e.planningMode === 'mandatory' && <p className="notice">{t("Mandatory meeting: it overrides the invitees' planning.")}{e.overrides && e.overrides.length > 0 && ` ${tf("{n} items overridden.", { n: e.overrides.length })}`}</p>}
+          {e.overriddenBy?.map((o) => <p key={o.eventId} className="notice">{tf("Overridden by the mandatory meeting {title} ({when}). Please reschedule.", { title: o.title, when: formatDateTime(o.startsAt) })} <a href={`#/calendar?event=${o.eventId}`}>{t("Open")}</a></p>)}
           <DetailList items={[
             ["When", e.allDay ? `${new Date(e.startsAt).toLocaleDateString(locale())} · ${t("All day")}` : `${formatDateTime(e.startsAt)} – ${time(e.endsAt)}`],
             ["Location", e.location ?? '—'],
@@ -288,7 +293,7 @@ function AppointmentDrawer({ id, onClose, onChanged }: { id: string; onClose: ()
           <h3>{t("Invitees")}</h3>
           {e.attendees.length === 0 ? <p className="muted">{t("No invitees")}</p> : (
             <ul className="plain-list">
-              {e.attendees.map((a) => <li key={a.userId}>{a.name} <StatusBadge status={a.response === 'accepted' ? 'ok' : a.response === 'declined' ? 'danger' : 'pending'} label={RESPONSE[a.response]} /></li>)}
+              {e.attendees.map((a) => <li key={a.userId}>{a.name}{a.required === false && <span className="muted small"> · {t("optional")}</span>} <StatusBadge status={a.response === 'accepted' ? 'ok' : a.response === 'declined' || a.response === 'unable' ? 'danger' : 'pending'} label={RESPONSE[a.response]} />{a.reason && <span className="muted small"> — {a.reason}</span>}</li>)}
             </ul>
           )}
           <AppointmentAssets event={e} myId={myId} onChanged={() => { setReload((n) => n + 1); onChanged(); }} />
@@ -297,7 +302,8 @@ function AppointmentDrawer({ id, onClose, onChanged }: { id: string; onClose: ()
           {e.status === 'scheduled' && (
             <div className="form-actions">
               {mine && mine.response !== 'accepted' && <button className="primary" disabled={busy} onClick={() => act(() => api.respondCalendarEvent(id, 'accepted'))}>{t("Accept")}</button>}
-              {mine && mine.response !== 'declined' && <button className="secondary" disabled={busy} onClick={() => act(() => api.respondCalendarEvent(id, 'declined'))}>{t("Decline")}</button>}
+              {mine && e.planningMode !== 'mandatory' && mine.response !== 'declined' && <button className="secondary" disabled={busy} onClick={() => act(() => api.respondCalendarEvent(id, 'declined'))}>{t("Decline")}</button>}
+              {mine && e.planningMode === 'mandatory' && mine.response !== 'unable' && <button className="secondary" disabled={busy} onClick={() => { const reason = window.prompt(t("Why can't you attend? The organiser gets your reason.")); if (reason?.trim()) act(() => api.respondCalendarEvent(id, 'unable', reason.trim())); }}>{t("Can't attend")}</button>}
               {organiser && <button className="secondary" disabled={busy} onClick={() => setEditing(true)}>{t("Change or move")}</button>}
               {organiser && <button className="secondary danger" disabled={busy} onClick={() => window.confirm(t("Cancel this agenda item? Invitees get a notification.")) && act(() => api.cancelCalendarEvent(id))}>{t("Cancel agenda item")}</button>}
             </div>

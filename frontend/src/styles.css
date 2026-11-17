@@ -963,3 +963,6 @@ tr.row-error td { background: color-mix(in srgb, var(--danger, #c0392b) 12%, tra
 .plan-slots { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.35rem; }
 .plan-optional { margin-inline-start: auto; font-size: 0.75rem; }
 .plan-optional.on { color: var(--muted); }
+
+.plan-radios { border: 0; padding: 0; margin: 0; display: grid; gap: 0.25rem; }
+.plan-radios legend { font-weight: 600; font-size: 0.85rem; margin-bottom: 0.2rem; }

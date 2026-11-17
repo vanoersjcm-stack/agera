@@ -836,9 +836,11 @@ export interface CalendarEvent {
   id: string; title: string; description: string | null; location: string | null; startsAt: string; endsAt: string; allDay: boolean;
   visibility: 'team' | 'private'; status: 'scheduled' | 'cancelled'; clientId: string | null; clientName: string | null; storeId: string | null; storeName: string | null;
   createdBy: string; createdByName: string; attendees: CalendarAttendee[]; documents: CalendarDocument[]; planningMode?: PlanningMode;
+  overrides?: CalendarOverride[]; overriddenBy?: { eventId: string; title: string; startsAt: string }[];
 }
-export interface CalendarEventInput { title: string; description?: string | null; location?: string | null; startsAt: string; endsAt: string; allDay?: boolean; visibility?: 'team' | 'private'; clientId?: string | null; storeId?: string | null; attendeeIds?: string[]; assets?: { assetId: string; bufferMinutes: number }[]; planningMode?: PlanningMode; optionalIds?: string[] }
-export type PlanningMode = 'fixed' | 'find';
+export interface CalendarEventInput { title: string; description?: string | null; location?: string | null; startsAt: string; endsAt: string; allDay?: boolean; visibility?: 'team' | 'private'; clientId?: string | null; storeId?: string | null; attendeeIds?: string[]; assets?: { assetId: string; bufferMinutes: number }[]; planningMode?: PlanningMode; optionalIds?: string[]; visitConflicts?: 'flag' | 'move'; roomConflicts?: 'free_only' | 'take_over' }
+export type PlanningMode = 'fixed' | 'find' | 'mandatory';
+export interface CalendarOverride { kind: 'event' | 'visit' | 'asset'; action: 'flagged' | 'moved' | 'taken_over'; detail: string | null }
 export interface BusyPeriod { start: string; end: string; source?: 'event' | 'leave' | 'visit'; refId: string | null; title: string | null; mandatory?: boolean }
 export interface Availability { people: { userId: string; name: string; busy: BusyPeriod[] }[]; assets: { assetId: string; name: string; bookingMode: BookingMode; busy: BusyPeriod[] }[] }
 
@@ -1091,7 +1093,7 @@ export const api = {
   cancelLeave: (id: string) => request<LeaveRequest>('POST', `/v1/calendar/leave/${id}/cancel`),
   updateCalendarEvent: (id: string, body: Partial<CalendarEventInput>) => request<CalendarEvent>('PATCH', `/v1/calendar/events/${id}`, body),
   cancelCalendarEvent: (id: string) => request<CalendarEvent>('POST', `/v1/calendar/events/${id}/cancel`),
-  respondCalendarEvent: (id: string, response: 'accepted' | 'declined') => request<CalendarEvent>('POST', `/v1/calendar/events/${id}/respond`, { response }),
+  respondCalendarEvent: (id: string, response: 'accepted' | 'declined' | 'unable', reason?: string) => request<CalendarEvent>('POST', `/v1/calendar/events/${id}/respond`, { response, reason }),
   attachCalendarDocument: (id: string, documentId: string) =>
     request<CalendarEvent>('POST', `/v1/calendar/events/${id}/documents`, { documentId }),
   detachCalendarDocument: (id: string, documentId: string) =>

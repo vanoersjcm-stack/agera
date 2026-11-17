@@ -6,7 +6,7 @@ import { AllowJobRoles } from '../auth/job-roles.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
 import { asObject, oneOf, optionalString, optionalUuid, parseTimestamp, requiredString } from '../core/http/validation.js';
 import { ASSET_CATEGORIES, type AssetInput, AgendaResourcesService, BOOKING_MODES, BUFFERS, LEAVE_DECISIONS, LEAVE_TYPES } from './agenda-resources.service.js';
-import { CALENDAR_SCOPES, CalendarService, type EventInput, NOTE_LANGUAGES, PLANNING_MODES, RESPONSES, VISIBILITIES } from './calendar.service.js';
+import { CALENDAR_SCOPES, CalendarService, type EventInput, NOTE_LANGUAGES, PLANNING_MODES, RESPONSES, ROOM_CONFLICTS, VISIBILITIES, VISIT_CONFLICTS } from './calendar.service.js';
 
 const OBJ = { schema: { type: 'object' } };
 
@@ -57,6 +57,10 @@ function fields(raw: Record<string, unknown>, partial: boolean): Partial<EventIn
   if (!partial || raw.attendeeIds !== undefined) out.attendeeIds = attendees(raw.attendeeIds);
   if (!partial && raw.assets !== undefined && raw.assets !== null) out.assets = bookings(raw.assets);
   if (!partial) out.planningMode = oneOf('planningMode', raw.planningMode ?? 'fixed', PLANNING_MODES);
+  if (!partial && out.planningMode === 'mandatory') {
+    out.visitConflicts = oneOf('visitConflicts', raw.visitConflicts ?? 'flag', VISIT_CONFLICTS);
+    out.roomConflicts = oneOf('roomConflicts', raw.roomConflicts ?? 'free_only', ROOM_CONFLICTS);
+  }
   if (!partial && raw.optionalIds !== undefined && raw.optionalIds !== null) {
     out.optionalIds = attendees(raw.optionalIds);
     if (out.optionalIds.some((id) => !(out.attendeeIds ?? []).includes(id))) throw new BadRequestException('optionalIds must also be in attendeeIds');
@@ -268,12 +272,14 @@ export class CalendarController {
   }
 
   @Post('events/:id/respond')
-  @ApiOperation({ summary: 'Attendee: accept or decline (audit: calendar_event.responded)' })
+  @ApiOperation({ summary: "Attendee: accept, decline, or 'unable' with a reason (mandatory meetings cannot be declined; the organiser is notified) (audit: calendar_event.responded)" })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiBody(OBJ)
   @ApiErrors(400, 404)
   respond(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
-    return this.calendar.respond(id, oneOf('response', asObject(body).response, RESPONSES), identity);
+    const raw = asObject(body);
+    const reason = typeof raw.reason === 'string' && raw.reason.trim() ? raw.reason.trim().slice(0, 500) : null;
+    return this.calendar.respond(id, oneOf('response', raw.response, RESPONSES), identity, reason);
   }
 
   @Post('events/:id/documents')
