@@ -7,6 +7,7 @@ import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
 import { OfficeService } from '../office/office.service.js';
 import { UserService } from '../user/user.service.js';
+import { AgendaResourcesService } from './agenda-resources.service.js';
 
 export const VISIBILITIES = ['team', 'private'] as const;
 export const RESPONSES = ['accepted', 'declined'] as const;
@@ -22,7 +23,7 @@ export interface EventInput {
 
 /** One entry on the calendar: an Agera appointment or a dated record from another module. */
 export interface CalendarItem {
-  id: string; kind: 'appointment' | 'visit' | 'round' | 'milestone'; title: string; start: string; end: string; allDay: boolean; link: string | null;
+  id: string; kind: 'appointment' | 'visit' | 'round' | 'milestone' | 'leave'; title: string; start: string; end: string; allDay: boolean; link: string | null;
   ownerName: string | null; status: string | null; detail: string | null;
 }
 
@@ -34,7 +35,9 @@ const EVENT_SQL = `
                      FROM calendar_event_attendees a JOIN users au ON au.id = a.user_id WHERE a.event_id = e.id), '[]') AS attendees,
          COALESCE((SELECT json_agg(json_build_object('id', d.id, 'title', d.title, 'fileFormat', d.file_format, 'kind', ed.kind, 'clientName', dc.name, 'addedBy', ed.added_by) ORDER BY ed.kind DESC, ed.created_at)
                      FROM calendar_event_documents ed JOIN room_documents d ON d.tenant_id = ed.tenant_id AND d.id = ed.document_id
-                     LEFT JOIN clients dc ON dc.id = d.client_id WHERE ed.event_id = e.id), '[]') AS documents
+                     LEFT JOIN clients dc ON dc.id = d.client_id WHERE ed.event_id = e.id), '[]') AS documents,
+         COALESCE((SELECT json_agg(json_build_object('assetId', ea.asset_id, 'name', ba.name, 'category', ba.category, 'bookingMode', ba.booking_mode, 'bufferMinutes', ea.buffer_minutes, 'bookedBy', ea.booked_by) ORDER BY ba.name)
+                     FROM calendar_event_assets ea JOIN bookable_assets ba ON ba.id = ea.asset_id WHERE ea.event_id = e.id), '[]') AS assets
     FROM calendar_events e JOIN users u ON u.id = e.created_by
     LEFT JOIN clients c ON c.id = e.client_id LEFT JOIN stores s ON s.id = e.store_id`;
 
@@ -109,6 +112,17 @@ export class CalendarService {
           out.push({ id: x.id, kind: 'milestone', title: x.title, start: x.dueDate, end: x.dueDate, allDay: true, link: `/nexus/client-rooms/${x.roomId}?tab=plan`, ownerName: null, status: x.ownerSide, detail: x.roomName });
         }
       }
+      const leave = await m.query(
+        `SELECT l.id, l.leave_type AS "leaveType", to_char(d, 'YYYY-MM-DD') AS day, ${PERSON('u')} AS "userName"
+           FROM leave_requests l JOIN users u ON u.id = l.user_id
+           CROSS JOIN LATERAL generate_series(GREATEST(l.start_date, $3::date), LEAST(l.end_date, ($4::timestamptz - interval '1 second')::date), interval '1 day') AS d
+          WHERE l.tenant_id = $1 AND l.status = 'approved' AND l.start_date < $4::date + 1 AND l.end_date >= $3::date AND extract(isodow FROM d) < 6
+            ${mine ? 'AND l.user_id = $2' : 'AND $2::uuid IS NOT NULL'}`,
+        [this.t, me, from, to],
+      );
+      for (const l of leave) {
+        out.push({ id: `${l.id}-${l.day}`, kind: 'leave', title: l.userName, start: l.day, end: l.day, allDay: true, link: '/calendar?tab=leave', ownerName: l.userName, status: l.leaveType, detail: null });
+      }
       return out.sort((a, b) => String(a.start).localeCompare(String(b.start)));
     });
   }
@@ -175,6 +189,7 @@ export class CalendarService {
         `UPDATE calendar_events SET title=$3, description=$4, location=$5, starts_at=$6, ends_at=$7, all_day=$8, visibility=$9, client_id=$10, store_id=$11 WHERE tenant_id=$1 AND id=$2`,
         [this.t, id, next.title, next.description, next.location, next.startsAt, next.endsAt, next.allDay, next.visibility, next.clientId, next.storeId],
       );
+      if (changes.startsAt || changes.endsAt) await AgendaResourcesService.moveBookings(m, this.t, id, new Date(next.startsAt as Date), new Date(next.endsAt as Date));
       if (changes.attendeeIds) {
         const keep = [...new Set(changes.attendeeIds)];
         await m.query('DELETE FROM calendar_event_attendees WHERE tenant_id = $1 AND event_id = $2 AND NOT (user_id = ANY($3::uuid[]))', [this.t, id, keep]);
@@ -192,6 +207,7 @@ export class CalendarService {
       const cur = await this.load(m, id, me);
       if (cur.createdBy !== me) throw new ForbiddenException('Only the organiser can cancel this appointment');
       await m.query(`UPDATE calendar_events SET status = 'cancelled' WHERE tenant_id = $1 AND id = $2`, [this.t, id]);
+      await m.query('DELETE FROM calendar_event_assets WHERE tenant_id = $1 AND event_id = $2', [this.t, id]);
       const attendees = (cur.attendees as { userId: string }[]).filter((a) => a.userId !== me);
       for (const a of attendees) {
         await m.query('INSERT INTO notifications (tenant_id, user_id, title, body, link) VALUES ($1,$2,$3,NULL,$4)', [this.t, a.userId, `Cancelled: ${cur.title}`.slice(0, 250), '/calendar']);

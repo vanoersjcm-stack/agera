@@ -5,6 +5,7 @@ import { CurrentUser } from '../auth/current-user.decorator.js';
 import { AllowJobRoles } from '../auth/job-roles.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
 import { asObject, oneOf, optionalString, optionalUuid, parseTimestamp, requiredString } from '../core/http/validation.js';
+import { ASSET_CATEGORIES, type AssetInput, AgendaResourcesService, BOOKING_MODES, BUFFERS, LEAVE_DECISIONS, LEAVE_TYPES } from './agenda-resources.service.js';
 import { CALENDAR_SCOPES, CalendarService, type EventInput, NOTE_LANGUAGES, RESPONSES, VISIBILITIES } from './calendar.service.js';
 
 const OBJ = { schema: { type: 'object' } };
@@ -44,13 +45,141 @@ function fields(raw: Record<string, unknown>, partial: boolean): Partial<EventIn
   return out;
 }
 
+function assetFields(raw: Record<string, unknown>, partial: boolean): Partial<AssetInput> {
+  const out: Partial<AssetInput> = {};
+  if (!partial || raw.name !== undefined) out.name = requiredString('name', raw.name, 120).trim();
+  if (!partial || raw.category !== undefined) out.category = oneOf('category', raw.category ?? 'meeting_room', ASSET_CATEGORIES);
+  if (!partial || raw.bookingMode !== undefined) out.bookingMode = oneOf('bookingMode', raw.bookingMode ?? 'self_service', BOOKING_MODES);
+  if (!partial || raw.active !== undefined) {
+    if (raw.active !== undefined && typeof raw.active !== 'boolean') throw new BadRequestException('active must be true or false');
+    out.active = raw.active !== false;
+  }
+  if (!partial || raw.notes !== undefined) out.notes = optionalString('notes', raw.notes, 1000)?.trim() || null;
+  if (partial && Object.keys(out).length === 0) throw new BadRequestException('Provide at least one field to change');
+  return out;
+}
+
+const DATE = /^\d{4}-\d{2}-\d{2}$/;
+function day(name: string, value: unknown): string {
+  if (typeof value !== 'string' || !DATE.test(value) || Number.isNaN(Date.parse(`${value}T00:00:00Z`))) throw new BadRequestException(`${name} must be a date (YYYY-MM-DD)`);
+  return value;
+}
+
 @ApiTags('Calendar')
 @ApiBearerAuth(BEARER_AUTH)
 @ApiErrors(401, 403)
 @AllowJobRoles('HQ_ADMIN', 'ACCOUNT_MANAGER', 'FIELD_REPRESENTATIVE')
 @Controller({ path: 'calendar', version: '1' })
 export class CalendarController {
-  constructor(private readonly calendar: CalendarService) {}
+  constructor(
+    private readonly calendar: CalendarService,
+    private readonly resources: AgendaResourcesService,
+  ) {}
+
+  @Get('assets')
+  @ApiOperation({ summary: 'Bookable rooms and equipment (meeting rooms, AV equipment); includeInactive=true also lists deactivated ones' })
+  @ApiQuery({ name: 'includeInactive', required: false, type: Boolean })
+  assets(@Query('includeInactive') includeInactive: string | undefined): Promise<unknown[]> {
+    return this.resources.assets(includeInactive === 'true');
+  }
+
+  @Post('assets')
+  @ApiOperation({ summary: 'HQ or platform admin: add a room or piece of equipment (audit: bookable_asset.created)' })
+  @ApiBody(OBJ)
+  @ApiErrors(400, 409)
+  createAsset(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    return this.resources.createAsset(assetFields(asObject(body), false) as AssetInput, identity);
+  }
+
+  @Patch('assets/:id')
+  @ApiOperation({ summary: 'HQ or platform admin: change, deactivate or reactivate a room or piece of equipment (audit: bookable_asset.updated)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody(OBJ)
+  @ApiErrors(400, 404, 409)
+  updateAsset(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    return this.resources.updateAsset(id, assetFields(asObject(body), true), identity);
+  }
+
+  @Get('bookings')
+  @ApiOperation({ summary: 'Room and equipment bookings in a period (max 92 days), with the meeting and who booked it' })
+  @ApiQuery({ name: 'from', required: true })
+  @ApiQuery({ name: 'to', required: true })
+  @ApiErrors(400)
+  bookings(@Query('from') from: string, @Query('to') to: string): Promise<unknown[]> {
+    const start = when('from', from);
+    const end = when('to', to);
+    if (end <= start) throw new BadRequestException('to must be after from');
+    return this.resources.bookings(start, end);
+  }
+
+  @Post('events/:id/assets')
+  @ApiOperation({ summary: 'Book a room or equipment for the appointment with an optional 15/30-minute buffer; double bookings are refused (audit: calendar_event.asset_booked)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody(OBJ)
+  @ApiErrors(400, 403, 404, 409)
+  async book(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    const raw = asObject(body);
+    const assetId = optionalUuid('assetId', raw.assetId);
+    if (!assetId) throw new BadRequestException('assetId is required');
+    const buffer = raw.bufferMinutes === undefined ? 0 : Number(raw.bufferMinutes);
+    if (!(BUFFERS as readonly number[]).includes(buffer)) throw new BadRequestException('bufferMinutes must be 0, 15 or 30');
+    await this.resources.book(id, assetId, buffer, identity);
+    return this.calendar.event(id, identity);
+  }
+
+  @Delete('events/:id/assets/:assetId')
+  @ApiOperation({ summary: 'Organiser or admin: release a room or equipment (audit: calendar_event.asset_released)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiParam({ name: 'assetId', format: 'uuid' })
+  @ApiErrors(403, 404)
+  async unbook(@Param('id', ParseUUIDPipe) id: string, @Param('assetId', ParseUUIDPipe) assetId: string, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    await this.resources.unbook(id, assetId, identity);
+    return this.calendar.event(id, identity);
+  }
+
+  @Get('leave')
+  @ApiOperation({ summary: 'Leave & vacation grid: internal colleagues and leave in a period; approved leave for all, pending/rejected for the requester and admins' })
+  @ApiQuery({ name: 'from', required: true, example: '2026-11-01' })
+  @ApiQuery({ name: 'to', required: true, example: '2026-11-30' })
+  @ApiErrors(400)
+  leave(@Query('from') from: string, @Query('to') to: string, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    const start = day('from', from);
+    const end = day('to', to);
+    if (end < start || Date.parse(end) - Date.parse(start) > 92 * 86_400_000) throw new BadRequestException('Ask for at most 92 days, with to on or after from');
+    return this.resources.leave(start, end, identity);
+  }
+
+  @Post('leave')
+  @ApiOperation({ summary: 'Request leave (pending until an HQ or platform admin approves); an admin entering leave for a colleague approves it directly (audit: leave.requested)' })
+  @ApiBody(OBJ)
+  @ApiErrors(400, 403)
+  requestLeave(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    const raw = asObject(body);
+    const startDate = day('startDate', raw.startDate);
+    const endDate = day('endDate', raw.endDate ?? raw.startDate);
+    if (endDate < startDate) throw new BadRequestException('endDate must be on or after startDate');
+    return this.resources.requestLeave({
+      userId: optionalUuid('userId', raw.userId), leaveType: oneOf('leaveType', raw.leaveType ?? 'vacation', LEAVE_TYPES), startDate, endDate,
+      note: optionalString('note', raw.note, 500)?.trim() || null,
+    }, identity);
+  }
+
+  @Post('leave/:id/decision')
+  @ApiOperation({ summary: 'HQ or platform admin: approve or reject a pending leave request (audit: leave.approved / leave.rejected)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiBody(OBJ)
+  @ApiErrors(400, 403, 409)
+  decideLeave(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    return this.resources.decideLeave(id, oneOf('decision', asObject(body).decision, LEAVE_DECISIONS), identity);
+  }
+
+  @Post('leave/:id/cancel')
+  @ApiOperation({ summary: 'Requester or admin: cancel a leave request (audit: leave.cancelled)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiErrors(404, 409)
+  cancelLeave(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    return this.resources.cancelLeave(id, identity);
+  }
 
   @Get()
   @ApiOperation({ summary: 'Agera Calendar for a date range (max 92 days): appointments plus store visits, campaign/audit round due dates and client-room milestones' })

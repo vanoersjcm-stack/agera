@@ -4,10 +4,11 @@ import { OfficeModule } from '../office/office.module.js';
 import { UserModule } from '../user/user.module.js';
 import { CalendarController } from './calendar.controller.js';
 import { CalendarService } from './calendar.service.js';
+import { AgendaResourcesService } from './agenda-resources.service.js';
 
 @Module({
   imports: [CoreModule, UserModule, OfficeModule],
   controllers: [CalendarController],
-  providers: [CalendarService],
+  providers: [CalendarService, AgendaResourcesService],
 })
 export class CalendarModule {}
