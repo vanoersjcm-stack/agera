@@ -7,7 +7,7 @@ import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
 import { OfficeService } from '../office/office.service.js';
 import { UserService } from '../user/user.service.js';
-import { AgendaResourcesService } from './agenda-resources.service.js';
+import { AgendaResourcesService, isAgendaAdmin } from './agenda-resources.service.js';
 
 export const VISIBILITIES = ['team', 'private'] as const;
 export const RESPONSES = ['accepted', 'declined'] as const;
@@ -19,6 +19,7 @@ const PERSON = (a: string) => `COALESCE(NULLIF(btrim(concat_ws(' ', ${a}.first_n
 export interface EventInput {
   title: string; description: string | null; location: string | null; startsAt: Date; endsAt: Date; allDay: boolean;
   visibility: (typeof VISIBILITIES)[number]; clientId: string | null; storeId: string | null; attendeeIds: string[];
+  assets?: { assetId: string; bufferMinutes: number }[];
 }
 
 /** One entry on the calendar: an Agera appointment or a dated record from another module. */
@@ -169,9 +170,12 @@ export class CalendarService {
         [this.t, input.title, input.description, input.location, input.startsAt, input.endsAt, input.allDay, input.visibility, input.clientId, input.storeId, me],
       );
       await this.invite(m, e.id, input.title, input.startsAt, [...new Set(input.attendeeIds)], me);
+      for (const b of input.assets ?? []) {
+        await AgendaResourcesService.insertBooking(m, this.t, { id: e.id, startsAt: input.startsAt, endsAt: input.endsAt }, b.assetId, b.bufferMinutes, me, isAgendaAdmin(identity));
+      }
       return this.load(m, e.id, me);
     });
-    this.audit.logAction(this.t, me, 'calendar_event.created', { eventId: row.id, attendees: input.attendeeIds.length, visibility: input.visibility });
+    this.audit.logAction(this.t, me, 'calendar_event.created', { eventId: row.id, attendees: input.attendeeIds.length, visibility: input.visibility, assets: (input.assets ?? []).map((b) => b.assetId) });
     return row;
   }
 

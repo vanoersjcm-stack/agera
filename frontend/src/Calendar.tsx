@@ -1,18 +1,18 @@
 import { type FormEvent, useMemo, useState } from 'react';
 import { keycloak } from './auth';
-import { api, type CalendarDocument, type CalendarEvent, type CalendarItem, type CalendarKind } from './api';
+import { api, type CalendarDocument, type Store, type CalendarEvent, type CalendarItem, type CalendarKind } from './api';
 import { userContext } from './context';
 import { activeClients, useClients, useUsers, userName } from './directory';
 import { getLanguage, live, locale, t, tf } from './i18n';
 import { openOfficeEditor } from './office';
-import { AppointmentAssets, LeaveGrid, RoomsPanel } from './AgendaResources';
+import { AppointmentAssets, BOOKING_MODE, isAgendaAdmin, LeaveGrid, RoomsPanel } from './AgendaResources';
 import { formatDateTime } from './labels';
 import { EmptyState, ViewFrame } from './Layout';
 import { navigate, type Route, withParams } from './router';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, Loading, StatusBadge, useAction, useLoad } from './ui';
 
 type Mode = 'day' | 'week' | 'month';
-const KIND: Record<CalendarKind, string> = live(() => ({ appointment: t("Appointment"), visit: t("Store visit"), round: t("Round"), milestone: t("Milestone"), leave: t("Leave") }));
+const KIND: Record<CalendarKind, string> = live(() => ({ appointment: t("Agenda item"), visit: t("Store visit"), round: t("Round"), milestone: t("Milestone"), leave: t("Leave") }));
 const RESPONSE: Record<string, string> = live(() => ({ pending: t("No answer yet"), accepted: t("Accepted"), declined: t("Declined") }));
 
 const DAY = 86_400_000;
@@ -82,7 +82,7 @@ export function CalendarView({ route }: { route: Route }) {
       }
     >
       <div className="agenda-tabs">
-        <button type="button" className="chip chip-action" onClick={() => setCreating(new Date())}>{t("+ New appointment")}</button>
+        <button type="button" className="chip chip-action" onClick={() => setCreating(new Date())}>{t("+ New agenda item")}</button>
         <FilterChips chips={[{ value: 'agenda', label: t("Agenda") }, { value: 'leave', label: t("Leave & vacation") }, { value: 'rooms', label: t("Rooms & equipment") }]} value={tab} onChange={(v) => go({ tab: v === 'agenda' ? null : v, event: null })} />
       </div>
       {tab === 'leave' ? <LeaveGrid route={route} anchor={anchor} /> : tab === 'rooms' ? <RoomsPanel from={from} to={to} /> : (<>
@@ -112,7 +112,7 @@ export function CalendarView({ route }: { route: Route }) {
         </div>
       )}
       {items.data && mode === 'day' && ((byDay.get(dayKey(anchor)) ?? []).length === 0
-        ? <EmptyState title={t("Nothing planned on this day")}>{t("Create an appointment with “+ New appointment”.")}</EmptyState>
+        ? <EmptyState title={t("Nothing planned on this day")}>{t("Create an agenda item with “+ New agenda item”.")}</EmptyState>
         : (
           <ul className="agenda-day">
             {(byDay.get(dayKey(anchor)) ?? []).map((i) => (
@@ -145,6 +145,24 @@ function AppointmentForm({ start, event, onClose, onSaved }: { start: Date; even
   const [visibility, setVisibility] = useState<'team' | 'private'>(event?.visibility ?? 'team');
   const [clientId, setClientId] = useState(event?.clientId ?? '');
   const [attendeeIds, setAttendeeIds] = useState<string[]>(event?.attendees.map((a) => a.userId) ?? []);
+  const [storeId, setStoreId] = useState(event?.storeId ?? '');
+  const [booked, setBooked] = useState<string[]>([]);
+  const [buffer, setBuffer] = useState('0');
+  const admin = isAgendaAdmin(userContext());
+  const assets = useLoad(() => api.bookableAssets(), []).data ?? [];
+  const stores = useLoad(() => api.stores().catch(() => ({ items: [] as Store[] })), []).data?.items ?? [];
+  const rooms = assets.filter((a) => a.category === 'meeting_room');
+  const clientStores = stores.filter((st) => clientId && st.clientId === clientId);
+  const pickLocation = (value: string) => {
+    const [kind, id] = value.split(':');
+    const room = kind === 'room' ? rooms.find((a) => a.id === id) : undefined;
+    const store = kind === 'store' ? clientStores.find((st) => st.id === id) : undefined;
+    if (room) {
+      setLocation(room.name); setStoreId('');
+      if (!event && !(room.bookingMode === 'coordinator_only' && !admin)) setBooked((b) => (b.includes(room.id) ? b : [...b, room.id]));
+    }
+    if (store) { setLocation([store.name, store.address, store.city].filter(Boolean).join(', ').slice(0, 200)); setStoreId(store.id); }
+  };
   const { busy, error, run, setError } = useAction();
   const colleagues = users.filter((u) => u.email !== myEmail());
 
@@ -153,21 +171,28 @@ function AppointmentForm({ start, event, onClose, onSaved }: { start: Date; even
     const s = allDay ? new Date(`${startsAt.slice(0, 10)}T00:00:00`) : new Date(startsAt);
     const e = allDay ? new Date(`${endsAt.slice(0, 10)}T23:59:00`) : new Date(endsAt);
     if (e < s) { setError(t("The end must be after the start")); return; }
-    const body = { title, startsAt: s.toISOString(), endsAt: e.toISOString(), allDay, location: location || null, description: description || null, visibility, clientId: clientId || null, attendeeIds };
+    const body = { title, startsAt: s.toISOString(), endsAt: e.toISOString(), allDay, location: location || null, description: description || null, visibility, clientId: clientId || null, storeId: storeId || null, attendeeIds, ...(event ? {} : { assets: booked.map((assetId) => ({ assetId, bufferMinutes: Number(buffer) })) }) };
     const saved = await run(() => (event ? api.updateCalendarEvent(event.id, body) : api.createCalendarEvent(body)));
     if (saved) onSaved(saved);
   };
 
   return (
-    <Drawer title={event ? t("Change appointment") : t("New appointment")} onClose={onClose}>
+    <Drawer title={event ? t("Change agenda item") : t("New agenda item")} onClose={onClose}>
       <form onSubmit={submit} className="form">
         <Field label={t("Title")}><input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("e.g. Quarterly review with Jumbo")} /></Field>
         <label className="checkbox"><input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} /> {t("All day")}</label>
         <Field label={t("Start")}><input required type={allDay ? 'date' : 'datetime-local'} value={allDay ? startsAt.slice(0, 10) : startsAt} onChange={(e) => setStartsAt(allDay ? `${e.target.value}T00:00` : e.target.value)} /></Field>
         <Field label={t("End")}><input required type={allDay ? 'date' : 'datetime-local'} value={allDay ? endsAt.slice(0, 10) : endsAt} onChange={(e) => setEndsAt(allDay ? `${e.target.value}T23:59` : e.target.value)} /></Field>
-        <Field label={t("Location")}><input maxLength={200} value={location} onChange={(e) => setLocation(e.target.value)} placeholder={t("e.g. HQ meeting room 2 or the client's office")} /></Field>
-        <Field label={t("Client")} hint={t("Optional: links the appointment to a client")}>
-          <select value={clientId} onChange={(e) => setClientId(e.target.value)}>
+        <Field label={t("Location")} hint={t("Or type any location")}>
+          <select value="" onChange={(e) => pickLocation(e.target.value)} aria-label={t("Choose a location…")}>
+            <option value="">{t("Choose a location…")}</option>
+            {rooms.length > 0 && <optgroup label={t("Rooms")}>{rooms.map((a) => <option key={a.id} value={`room:${a.id}`}>{a.name}</option>)}</optgroup>}
+            {clientStores.length > 0 && <optgroup label={t("Stores of this client")}>{clientStores.map((st) => <option key={st.id} value={`store:${st.id}`}>{[st.name, st.city].filter(Boolean).join(' · ')}</option>)}</optgroup>}
+          </select>
+          <input maxLength={200} value={location} onChange={(e) => { setLocation(e.target.value); setStoreId(''); }} placeholder={t("e.g. HQ meeting room 2 or the client's office")} />
+        </Field>
+        <Field label={t("Client")} hint={t("Optional: links the agenda item to a client")}>
+          <select value={clientId} onChange={(e) => { setClientId(e.target.value); setStoreId(''); }}>
             <option value="">{t("No client")}</option>
             {clients.map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
           </select>
@@ -181,6 +206,28 @@ function AppointmentForm({ start, event, onClose, onSaved }: { start: Date; even
             ))}
           </div>
         </Field>
+        {event ? <p className="muted small">{t("Book rooms and equipment in the agenda item's details.")}</p> : (
+          <Field label={t("Rooms & equipment to book")} hint={t("Booked together with the agenda item. A double booking stops the save.")}>
+            <div className="checklist-box">
+              {assets.map((a) => {
+                const locked = a.bookingMode === 'coordinator_only' && !admin;
+                return (
+                  <label key={a.id} className="checkbox" title={locked ? t("Only HQ or platform admins can book this") : undefined}>
+                    <input type="checkbox" disabled={locked} checked={booked.includes(a.id)} onChange={(e) => setBooked(e.target.checked ? [...booked, a.id] : booked.filter((x) => x !== a.id))} />
+                    {' '}{a.name}{a.bookingMode === 'coordinator_only' ? ` (${BOOKING_MODE.coordinator_only})` : ''}
+                  </label>
+                );
+              })}
+            </div>
+            {booked.length > 0 && (
+              <select value={buffer} onChange={(e) => setBuffer(e.target.value)} aria-label={t("Buffer after the meeting")}>
+                <option value="0">{t("No buffer")}</option>
+                <option value="15">{tf("+{n} min buffer", { n: 15 })}</option>
+                <option value="30">{tf("+{n} min buffer", { n: 30 })}</option>
+              </select>
+            )}
+          </Field>
+        )}
         <Field label={t("Visibility")}>
           <select value={visibility} onChange={(e) => setVisibility(e.target.value as 'team' | 'private')}>
             <option value="team">{t("Team: colleagues see it in the team calendar")}</option>
@@ -189,7 +236,7 @@ function AppointmentForm({ start, event, onClose, onSaved }: { start: Date; even
         </Field>
         <Field label={t("Notes")}><textarea rows={3} maxLength={4000} value={description} onChange={(e) => setDescription(e.target.value)} /></Field>
         <ErrorText error={error} />
-        <FormActions busy={busy} submitLabel={event ? t("Save") : t("Create appointment")} onCancel={onClose} />
+        <FormActions busy={busy} submitLabel={event ? t("Save") : t("Create agenda item")} onCancel={onClose} />
       </form>
     </Drawer>
   );
@@ -208,11 +255,11 @@ function AppointmentDrawer({ id, onClose, onChanged }: { id: string; onClose: ()
   const act = async (fn: () => Promise<unknown>) => { if (await run(fn)) { setReload((n) => n + 1); onChanged(); } };
   if (editing && e) return <AppointmentForm start={new Date(e.startsAt)} event={e} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); setReload((n) => n + 1); onChanged(); }} />;
   return (
-    <Drawer title={e?.title ?? t("Appointment")} onClose={onClose}>
+    <Drawer title={e?.title ?? t("Agenda item")} onClose={onClose}>
       {!e && <Loading error={ev.error} />}
       {e && (
         <>
-          {e.status === 'cancelled' && <p className="notice">{t("This appointment is cancelled.")}</p>}
+          {e.status === 'cancelled' && <p className="notice">{t("This agenda item is cancelled.")}</p>}
           <DetailList items={[
             ["When", e.allDay ? `${new Date(e.startsAt).toLocaleDateString(locale())} · ${t("All day")}` : `${formatDateTime(e.startsAt)} – ${time(e.endsAt)}`],
             ["Location", e.location ?? '—'],
@@ -235,7 +282,7 @@ function AppointmentDrawer({ id, onClose, onChanged }: { id: string; onClose: ()
               {mine && mine.response !== 'accepted' && <button className="primary" disabled={busy} onClick={() => act(() => api.respondCalendarEvent(id, 'accepted'))}>{t("Accept")}</button>}
               {mine && mine.response !== 'declined' && <button className="secondary" disabled={busy} onClick={() => act(() => api.respondCalendarEvent(id, 'declined'))}>{t("Decline")}</button>}
               {organiser && <button className="secondary" disabled={busy} onClick={() => setEditing(true)}>{t("Change or move")}</button>}
-              {organiser && <button className="secondary danger" disabled={busy} onClick={() => window.confirm(t("Cancel this appointment? Invitees get a notification.")) && act(() => api.cancelCalendarEvent(id))}>{t("Cancel appointment")}</button>}
+              {organiser && <button className="secondary danger" disabled={busy} onClick={() => window.confirm(t("Cancel this agenda item? Invitees get a notification.")) && act(() => api.cancelCalendarEvent(id))}>{t("Cancel agenda item")}</button>}
             </div>
           )}
           <p className="muted">{tf("Created by {name}", { name: e.createdByName ?? userName(users, e.createdBy) })}</p>
@@ -289,7 +336,7 @@ function AppointmentDocuments({ event: e, myId, onChanged }: { event: CalendarEv
               <span className="cal-doc-title">{d.title}{d.kind === 'notes' && <> <StatusBadge status="ok" label={t("Meeting notes")} /></>}</span>
               <button className="secondary small" onClick={() => openDocument(d)}>{t("Open")}</button>
               {(organiser || d.addedBy === myId) && (
-                <button className="link-button danger" disabled={busy} onClick={() => window.confirm(t("Remove this document from the appointment? The document itself is kept.")) && act(() => api.detachCalendarDocument(e.id, d.id))}>{t("Remove")}</button>
+                <button className="link-button danger" disabled={busy} onClick={() => window.confirm(t("Remove this document from the agenda item? The document itself is kept.")) && act(() => api.detachCalendarDocument(e.id, d.id))}>{t("Remove")}</button>
               )}
             </li>
           ))}
@@ -317,7 +364,7 @@ function AppointmentDocuments({ event: e, myId, onChanged }: { event: CalendarEv
           )}
         </div>
       )}
-      <p className="muted small">{t("Everyone who can see this appointment can open its documents.")}</p>
+      <p className="muted small">{t("Everyone who can see this agenda item can open its documents.")}</p>
       <ErrorText error={error} />
     </section>
   );

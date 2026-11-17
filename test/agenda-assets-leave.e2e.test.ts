@@ -81,3 +81,19 @@ describe('leave and vacation', () => {
     assert.equal((await api(hannah, 'POST', `/v1/calendar/leave/${r.body.id}/decision`, { decision: 'rejected' })).status, 409);
   });
 });
+
+describe('creating an agenda item with rooms and equipment', () => {
+  it('books in the same step and saves nothing when a booking clashes', async () => {
+    const r = await api<Event>(adam, 'POST', '/v1/calendar/events', { title: `With room ${stamp}`, startsAt: at(6), endsAt: at(7), assets: [{ assetId: room.id, bufferMinutes: 15 }] });
+    assert.equal(r.status, 201, JSON.stringify(r.body));
+    assert.deepEqual(r.body.assets.map((a) => [a.assetId, a.bufferMinutes]), [[room.id, 15]]);
+    const clash = await api(adam, 'POST', '/v1/calendar/events', { title: `Clash ${stamp}`, startsAt: at(7, 10), endsAt: at(8), assets: [{ assetId: room.id }] });
+    assert.equal(clash.status, 409, 'starts inside the 15-minute buffer');
+    assert.equal((await api(adam, 'POST', '/v1/calendar/events', { title: `Screen ${stamp}`, startsAt: at(9), endsAt: at(10), assets: [{ assetId: tv.id }] })).status, 403);
+    assert.equal((await api(adam, 'POST', '/v1/calendar/events', { title: 'Bad', startsAt: at(9), endsAt: at(10), assets: [{ assetId: room.id, bufferMinutes: 20 }] })).status, 400);
+    const items = (await api<{ title: string }[]>(adam, 'GET', `/v1/calendar?from=${at(5)}&to=${at(11)}&scope=mine`)).body;
+    const titles = (Array.isArray(items) ? items : (items as unknown as { items: { title: string }[] }).items).map((i) => i.title);
+    assert.ok(titles.includes(`With room ${stamp}`));
+    assert.ok(!titles.includes(`Clash ${stamp}`) && !titles.includes(`Screen ${stamp}`), 'refused items are not saved');
+  });
+});

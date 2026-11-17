@@ -26,6 +26,20 @@ function attendees(value: unknown): string[] {
   });
 }
 
+function bookings(value: unknown): { assetId: string; bufferMinutes: number }[] {
+  if (!Array.isArray(value) || value.length > 10) throw new BadRequestException('assets must be a list of at most 10 bookings');
+  const out = value.map((v, i) => {
+    const raw = asObject(v);
+    const assetId = optionalUuid(`assets[${i}].assetId`, raw.assetId);
+    if (!assetId) throw new BadRequestException(`assets[${i}].assetId must be a uuid`);
+    const bufferMinutes = raw.bufferMinutes === undefined ? 0 : Number(raw.bufferMinutes);
+    if (!(BUFFERS as readonly number[]).includes(bufferMinutes)) throw new BadRequestException(`assets[${i}].bufferMinutes must be 0, 15 or 30`);
+    return { assetId, bufferMinutes };
+  });
+  if (new Set(out.map((b) => b.assetId)).size !== out.length) throw new BadRequestException('Each room or equipment can be booked once per appointment');
+  return out;
+}
+
 function fields(raw: Record<string, unknown>, partial: boolean): Partial<EventInput> {
   const out: Partial<EventInput> = {};
   if (!partial || raw.title !== undefined) out.title = requiredString('title', raw.title, 200);
@@ -41,6 +55,7 @@ function fields(raw: Record<string, unknown>, partial: boolean): Partial<EventIn
   if (!partial || raw.clientId !== undefined) out.clientId = optionalUuid('clientId', raw.clientId);
   if (!partial || raw.storeId !== undefined) out.storeId = optionalUuid('storeId', raw.storeId);
   if (!partial || raw.attendeeIds !== undefined) out.attendeeIds = attendees(raw.attendeeIds);
+  if (!partial && raw.assets !== undefined && raw.assets !== null) out.assets = bookings(raw.assets);
   if (out.startsAt && out.endsAt && out.endsAt < out.startsAt) throw new BadRequestException('endsAt must be after startsAt');
   return out;
 }
@@ -195,9 +210,9 @@ export class CalendarController {
   }
 
   @Post('events')
-  @ApiOperation({ summary: 'Create an appointment; invitees get a notification (audit: calendar_event.created)' })
+  @ApiOperation({ summary: 'Create an agenda item, optionally booking rooms/equipment in the same transaction (assets: [{assetId, bufferMinutes}]); invitees get a notification (audit: calendar_event.created)' })
   @ApiBody(OBJ)
-  @ApiErrors(400)
+  @ApiErrors(400, 403, 404, 409)
   create(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
     return this.calendar.create(fields(asObject(body), false) as EventInput, identity);
   }

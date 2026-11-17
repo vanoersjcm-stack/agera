@@ -83,7 +83,7 @@ export function RoomsPanel({ from, to }: { from: Date; to: Date }) {
               <tr key={`${b.assetId}-${b.eventId}`}>
                 <td>{b.assetName}</td>
                 <td>{formatDateTime(b.startsAt)} – {time(b.endsAt)}</td>
-                <td>{b.private ? <span className="muted">{t("Private appointment")}</span> : <a href={`#/calendar?event=${b.eventId}`}>{b.eventTitle}</a>}</td>
+                <td>{b.private ? <span className="muted">{t("Private agenda item")}</span> : <a href={`#/calendar?event=${b.eventId}`}>{b.eventTitle}</a>}</td>
                 <td>{b.bookedByName}</td>
                 <td>{b.bufferMinutes ? tf("+{n} min, free from {time}", { n: b.bufferMinutes, time: time(b.blockedUntil) }) : '—'}</td>
               </tr>
@@ -140,7 +140,7 @@ function AssetForm({ asset, onClose, onSaved }: { asset: BookableAsset | null; o
             {(Object.keys(ASSET_CATEGORY) as AssetCategory[]).map((k) => <option key={k} value={k}>{ASSET_CATEGORY[k]}</option>)}
           </select>
         </Field>
-        <Field label={t("Booking")} hint={t("Self-service: anyone books it on their own appointment. Assigned by HQ admins: only HQ or platform admins book it; everyone sees for which meeting.")}>
+        <Field label={t("Booking")} hint={t("Self-service: anyone books it on their own agenda item. Assigned by HQ admins: only HQ or platform admins book it; everyone sees for which meeting.")}>
           <select value={bookingMode} onChange={(e) => setBookingMode(e.target.value as BookingMode)}>
             {(Object.keys(BOOKING_MODE) as BookingMode[]).map((k) => <option key={k} value={k}>{BOOKING_MODE[k]}</option>)}
           </select>

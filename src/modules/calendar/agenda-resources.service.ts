@@ -118,31 +118,38 @@ export class AgendaResourcesService {
       if (!e) throw new NotFoundException('Appointment not found');
       if (e.status !== 'scheduled') throw new ConflictException('This appointment is cancelled');
       if (e.createdBy !== me && !admin) throw new ForbiddenException('Only the organiser or an admin can book rooms and equipment for this appointment');
-      const [a] = await m.query(`${ASSET_SQL} WHERE tenant_id = $1 AND id = $2`, [this.t, assetId]);
-      if (!a || !a.active) throw new NotFoundException('Room or equipment not found');
-      if (a.bookingMode === 'coordinator_only' && !admin) throw new ForbiddenException(`${a.name} is assigned by HQ or platform admins only`);
-      const until = new Date(new Date(e.endsAt).getTime() + buffer * 60_000);
-      try {
-        await m.query('SAVEPOINT book');
-        await m.query(
-          `INSERT INTO calendar_event_assets (tenant_id, event_id, asset_id, buffer_minutes, starts_at, ends_at, blocked_until, booked_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
-          [this.t, eventId, assetId, buffer, e.startsAt, e.endsAt, until, me],
-        );
-      } catch (err) {
-        await m.query('ROLLBACK TO SAVEPOINT book');
-        if (pgCode(err) === '23505') throw new ConflictException(`${a.name} is already booked for this appointment`);
-        if (pgCode(err) === '23P01') {
-          const [clash] = await m.query(
-            `SELECT to_char(ea.starts_at AT TIME ZONE 'Europe/Amsterdam', 'DD-MM HH24:MI') AS "from", to_char(ea.blocked_until AT TIME ZONE 'Europe/Amsterdam', 'HH24:MI') AS "until"
-               FROM calendar_event_assets ea WHERE ea.tenant_id = $1 AND ea.asset_id = $2 AND tstzrange(ea.starts_at, ea.blocked_until, '[)') && tstzrange($3, $4, '[)') LIMIT 1`,
-            [this.t, assetId, e.startsAt, until],
-          );
-          throw new ConflictException(`${a.name} is already booked${clash ? ` from ${clash.from} to ${clash.until}` : ''} (buffer included)`);
-        }
-        throw err;
-      }
+      await AgendaResourcesService.insertBooking(m, this.t, e, assetId, buffer, me, admin);
     });
     this.audit.logAction(this.t, me, 'calendar_event.asset_booked', { eventId, assetId, bufferMinutes: buffer });
+  }
+
+  /** Book one asset on an event inside the caller's transaction; the database exclusion constraint refuses overlaps (buffer included). */
+  static async insertBooking(
+    m: EntityManager, tenantId: string, e: { id: string; startsAt: Date | string; endsAt: Date | string }, assetId: string, buffer: number, me: string, admin: boolean,
+  ): Promise<void> {
+    const [a] = await m.query(`${ASSET_SQL} WHERE tenant_id = $1 AND id = $2`, [tenantId, assetId]);
+    if (!a || !a.active) throw new NotFoundException('Room or equipment not found');
+    if (a.bookingMode === 'coordinator_only' && !admin) throw new ForbiddenException(`${a.name} is assigned by HQ or platform admins only`);
+    const until = new Date(new Date(e.endsAt).getTime() + buffer * 60_000);
+    try {
+      await m.query('SAVEPOINT book');
+      await m.query(
+        `INSERT INTO calendar_event_assets (tenant_id, event_id, asset_id, buffer_minutes, starts_at, ends_at, blocked_until, booked_by) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
+        [tenantId, e.id, assetId, buffer, e.startsAt, e.endsAt, until, me],
+      );
+    } catch (err) {
+      await m.query('ROLLBACK TO SAVEPOINT book');
+      if (pgCode(err) === '23505') throw new ConflictException(`${a.name} is already booked for this appointment`);
+      if (pgCode(err) === '23P01') {
+        const [clash] = await m.query(
+          `SELECT to_char(ea.starts_at AT TIME ZONE 'Europe/Amsterdam', 'DD-MM HH24:MI') AS "from", to_char(ea.blocked_until AT TIME ZONE 'Europe/Amsterdam', 'HH24:MI') AS "until"
+             FROM calendar_event_assets ea WHERE ea.tenant_id = $1 AND ea.asset_id = $2 AND tstzrange(ea.starts_at, ea.blocked_until, '[)') && tstzrange($3, $4, '[)') LIMIT 1`,
+          [tenantId, assetId, e.startsAt, until],
+        );
+        throw new ConflictException(`${a.name} is already booked${clash ? ` from ${clash.from} to ${clash.until}` : ''} (buffer included)`);
+      }
+      throw err;
+    }
   }
 
   async unbook(eventId: string, assetId: string, identity: AuthenticatedUser): Promise<void> {

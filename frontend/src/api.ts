@@ -837,7 +837,7 @@ export interface CalendarEvent {
   visibility: 'team' | 'private'; status: 'scheduled' | 'cancelled'; clientId: string | null; clientName: string | null; storeId: string | null; storeName: string | null;
   createdBy: string; createdByName: string; attendees: CalendarAttendee[]; documents: CalendarDocument[];
 }
-export interface CalendarEventInput { title: string; description?: string | null; location?: string | null; startsAt: string; endsAt: string; allDay?: boolean; visibility?: 'team' | 'private'; clientId?: string | null; attendeeIds?: string[] }
+export interface CalendarEventInput { title: string; description?: string | null; location?: string | null; startsAt: string; endsAt: string; allDay?: boolean; visibility?: 'team' | 'private'; clientId?: string | null; storeId?: string | null; attendeeIds?: string[]; assets?: { assetId: string; bufferMinutes: number }[] }
 
 export const api = {
   // Symphony
