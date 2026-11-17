@@ -5,13 +5,14 @@ import { userContext } from './context';
 import { activeClients, useClients, useUsers, userName } from './directory';
 import { getLanguage, live, locale, t, tf } from './i18n';
 import { openOfficeEditor } from './office';
+import { AppointmentAssets, LeaveGrid, RoomsPanel } from './AgendaResources';
 import { formatDateTime } from './labels';
 import { EmptyState, ViewFrame } from './Layout';
 import { navigate, type Route, withParams } from './router';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, Loading, StatusBadge, useAction, useLoad } from './ui';
 
 type Mode = 'day' | 'week' | 'month';
-const KIND: Record<CalendarKind, string> = live(() => ({ appointment: t("Appointment"), visit: t("Store visit"), round: t("Round"), milestone: t("Milestone") }));
+const KIND: Record<CalendarKind, string> = live(() => ({ appointment: t("Appointment"), visit: t("Store visit"), round: t("Round"), milestone: t("Milestone"), leave: t("Leave") }));
 const RESPONSE: Record<string, string> = live(() => ({ pending: t("No answer yet"), accepted: t("Accepted"), declined: t("Declined") }));
 
 const DAY = 86_400_000;
@@ -59,7 +60,8 @@ export function CalendarView({ route }: { route: Route }) {
     : anchor.toLocaleDateString(locale(), { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   const today = dayKey(new Date());
 
-  const open = (i: CalendarItem) => (i.kind === 'appointment' ? go({ event: i.id }) : i.link && navigate(i.link));
+  const tab = (['leave', 'rooms'].includes(route.params.get('tab') ?? '') ? route.params.get('tab') : 'agenda') as 'agenda' | 'leave' | 'rooms';
+  const open = (i: CalendarItem) => (i.kind === 'appointment' ? go({ event: i.id }) : i.kind === 'leave' ? go({ tab: 'leave' }) : i.link && navigate(i.link));
   const chip = (i: CalendarItem) => (
     <button key={`${i.kind}-${i.id}`} type="button" className={`cal-item cal-${i.kind}`} onClick={() => open(i)} title={[KIND[i.kind], i.ownerName, i.detail].filter(Boolean).join(' · ')}>
       {!i.allDay && <span className="cal-time">{time(i.start)}</span>} {i.title}
@@ -80,6 +82,10 @@ export function CalendarView({ route }: { route: Route }) {
         </>
       }
     >
+      <div className="agenda-tabs">
+        <FilterChips chips={[{ value: 'agenda', label: t("Agenda") }, { value: 'leave', label: t("Leave & vacation") }, { value: 'rooms', label: t("Rooms & equipment") }]} value={tab} onChange={(v) => go({ tab: v === 'agenda' ? null : v, event: null })} />
+      </div>
+      {tab === 'leave' ? <LeaveGrid route={route} anchor={anchor} /> : tab === 'rooms' ? <RoomsPanel from={from} to={to} /> : (<>
       <div className="cal-toolbar">
         <FilterChips chips={[{ value: 'day', label: t("Day") }, { value: 'week', label: t("Week") }, { value: 'month', label: t("Month") }]} value={mode} onChange={(v) => go({ view: v === 'week' ? null : v })} />
         {!field && <FilterChips chips={[{ value: 'mine', label: t("My calendar") }, { value: 'team', label: t("Team calendar") }]} value={scope} onChange={(v) => go({ scope: v === 'mine' ? null : v })} />}
@@ -118,6 +124,7 @@ export function CalendarView({ route }: { route: Route }) {
             ))}
           </ul>
         ))}
+      </>)}
       {creating && <AppointmentForm start={creating} onClose={() => setCreating(null)} onSaved={(e) => { setCreating(null); setReload((n) => n + 1); go({ event: e.id, date: dayKey(new Date(e.startsAt)) }); }} />}
       {eventId && <AppointmentDrawer id={eventId} onClose={() => go({ event: null })} onChanged={() => setReload((n) => n + 1)} />}
     </ViewFrame>
@@ -220,6 +227,7 @@ function AppointmentDrawer({ id, onClose, onChanged }: { id: string; onClose: ()
               {e.attendees.map((a) => <li key={a.userId}>{a.name} <StatusBadge status={a.response === 'accepted' ? 'ok' : a.response === 'declined' ? 'danger' : 'pending'} label={RESPONSE[a.response]} /></li>)}
             </ul>
           )}
+          <AppointmentAssets event={e} myId={myId} onChanged={() => { setReload((n) => n + 1); onChanged(); }} />
           <AppointmentDocuments event={e} myId={myId} onChanged={() => setReload((n) => n + 1)} />
           <ErrorText error={error} />
           {e.status === 'scheduled' && (

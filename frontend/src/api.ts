@@ -805,7 +805,21 @@ export interface OpsDashboard {
 }
 
 
-export type CalendarKind = 'appointment' | 'visit' | 'round' | 'milestone';
+export type CalendarKind = 'appointment' | 'visit' | 'round' | 'milestone' | 'leave';
+export type BookingMode = 'self_service' | 'coordinator_only';
+export type AssetCategory = 'meeting_room' | 'av_equipment' | 'other';
+export interface BookableAsset { id: string; name: string; category: AssetCategory; bookingMode: BookingMode; active: boolean; notes: string | null }
+export interface EventAsset { assetId: string; name: string; category: AssetCategory; bookingMode: BookingMode; bufferMinutes: number; bookedBy: string }
+export interface AssetBooking {
+  assetId: string; assetName: string; bookingMode: BookingMode; eventId: string; eventTitle: string | null; private: boolean;
+  startsAt: string; endsAt: string; blockedUntil: string; bufferMinutes: number; bookedByName: string;
+}
+export type LeaveType = 'vacation' | 'leave' | 'sick' | 'other';
+export interface LeaveRequest {
+  id: string; userId: string; userName: string; leaveType: LeaveType; startDate: string; endDate: string; note: string | null;
+  status: 'pending' | 'approved' | 'rejected' | 'cancelled'; decidedByName: string | null; decidedAt: string | null; createdAt: string;
+}
+export interface LeaveGridData { employees: { id: string; name: string }[]; requests: LeaveRequest[]; canApprove: boolean }
 export interface CalendarItem { id: string; kind: CalendarKind; title: string; start: string; end: string; allDay: boolean; link: string | null; ownerName: string | null; status: string | null; detail: string | null }
 export interface CalendarAttendee { userId: string; name: string; response: 'pending' | 'accepted' | 'declined' }
 export interface CalendarDocument {
@@ -818,6 +832,7 @@ export interface CalendarDocument {
 }
 
 export interface CalendarEvent {
+  assets: EventAsset[];
   id: string; title: string; description: string | null; location: string | null; startsAt: string; endsAt: string; allDay: boolean;
   visibility: 'team' | 'private'; status: 'scheduled' | 'cancelled'; clientId: string | null; clientName: string | null; storeId: string | null; storeName: string | null;
   createdBy: string; createdByName: string; attendees: CalendarAttendee[]; documents: CalendarDocument[];
@@ -1060,6 +1075,16 @@ export const api = {
     request<CalendarItem[]>('GET', `/v1/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&scope=${scope}`),
   calendarEvent: (id: string) => request<CalendarEvent>('GET', `/v1/calendar/events/${id}`),
   createCalendarEvent: (body: CalendarEventInput) => request<CalendarEvent>('POST', '/v1/calendar/events', body),
+  bookableAssets: (includeInactive = false) => request<BookableAsset[]>('GET', `/v1/calendar/assets${includeInactive ? '?includeInactive=true' : ''}`),
+  createAsset: (body: Partial<Omit<BookableAsset, 'id'>>) => request<BookableAsset>('POST', '/v1/calendar/assets', body),
+  updateAsset: (id: string, body: Partial<Omit<BookableAsset, 'id'>>) => request<BookableAsset>('PATCH', `/v1/calendar/assets/${id}`, body),
+  assetBookings: (from: string, to: string) => request<AssetBooking[]>('GET', `/v1/calendar/bookings?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`),
+  bookAsset: (eventId: string, assetId: string, bufferMinutes: number) => request<CalendarEvent>('POST', `/v1/calendar/events/${eventId}/assets`, { assetId, bufferMinutes }),
+  releaseAsset: (eventId: string, assetId: string) => request<CalendarEvent>('DELETE', `/v1/calendar/events/${eventId}/assets/${assetId}`),
+  leave: (from: string, to: string) => request<LeaveGridData>('GET', `/v1/calendar/leave?from=${from}&to=${to}`),
+  requestLeave: (body: { userId: string | null; leaveType: LeaveType; startDate: string; endDate: string; note: string | null }) => request<LeaveRequest>('POST', '/v1/calendar/leave', body),
+  decideLeave: (id: string, decision: 'approved' | 'rejected') => request<LeaveRequest>('POST', `/v1/calendar/leave/${id}/decision`, { decision }),
+  cancelLeave: (id: string) => request<LeaveRequest>('POST', `/v1/calendar/leave/${id}/cancel`),
   updateCalendarEvent: (id: string, body: Partial<CalendarEventInput>) => request<CalendarEvent>('PATCH', `/v1/calendar/events/${id}`, body),
   cancelCalendarEvent: (id: string) => request<CalendarEvent>('POST', `/v1/calendar/events/${id}/cancel`),
   respondCalendarEvent: (id: string, response: 'accepted' | 'declined') => request<CalendarEvent>('POST', `/v1/calendar/events/${id}/respond`, { response }),
