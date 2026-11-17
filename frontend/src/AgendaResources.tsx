@@ -1,5 +1,5 @@
 import { type FormEvent, useState } from 'react';
-import { api, type AssetCategory, type BookableAsset, type BookingMode, type CalendarEvent, type LeaveRequest, type LeaveType } from './api';
+import { api, type AssetBooking, type AssetCategory, type BookableAsset, type BookingMode, type CalendarEvent, type LeaveRequest, type LeaveType } from './api';
 import { userContext, type UserContext } from './context';
 import { live, locale, t, tf } from './i18n';
 import { formatDateTime } from './labels';
@@ -65,15 +65,19 @@ export function AppointmentAssets({ event: e, myId, onChanged }: { event: Calend
 }
 
 /** Agenda › Rooms & equipment: who has which room or screen in the period; admins manage the list. */
-export function RoomsPanel({ from, to }: { from: Date; to: Date }) {
+export function RoomsPanel({ from, to, days, reload: outer, onCreate }: { from: Date; to: Date; days: Date[]; reload: number; onCreate: (day: Date, asset: BookableAsset) => void }) {
   const admin = isAgendaAdmin(userContext());
   const [reload, setReload] = useState(0);
   const [editing, setEditing] = useState<BookableAsset | 'new' | null>(null);
   const assets = useLoad(() => api.bookableAssets(admin), [admin, reload]);
-  const bookings = useLoad(() => api.assetBookings(from.toISOString(), to.toISOString()), [from.getTime(), to.getTime(), reload]);
+  const bookings = useLoad(() => api.assetBookings(from.toISOString(), to.toISOString()), [from.getTime(), to.getTime(), reload, outer]);
   const { busy, error, run } = useAction();
   return (
     <>
+      <h2>{t("Availability")}</h2>
+      {!assets.data || !bookings.data ? <Loading error={assets.error ?? bookings.error} /> : (
+        <AssetSchedule assets={assets.data.filter((a) => a.active)} bookings={bookings.data} days={days} admin={admin} onCreate={onCreate} />
+      )}
       <h2>{t("Bookings in this period")}</h2>
       {!bookings.data ? <Loading error={bookings.error} /> : bookings.data.length === 0 ? <p className="muted">{t("No rooms or equipment booked in this period.")}</p> : (
         <table className="grid">
@@ -268,5 +272,64 @@ function LeaveForm({ employees, canChooseEmployee, onClose, onSaved }: { employe
         <FormActions busy={busy} submitLabel={t("Send request")} onCancel={onClose} />
       </form>
     </Drawer>
+  );
+}
+
+/** The agenda of the rooms and equipment: one row per asset, one column per day, booked times (buffer included) and free days. */
+function AssetSchedule({ assets, bookings, days, admin, onCreate }: { assets: BookableAsset[]; bookings: AssetBooking[]; days: Date[]; admin: boolean; onCreate: (day: Date, asset: BookableAsset) => void }) {
+  const today = dayKey(new Date());
+  const startFor = (d: Date) => {
+    const s = new Date(d); const now = new Date();
+    if (dayKey(d) === today && now.getHours() >= 9) s.setHours(now.getHours() + 1, 0, 0, 0); else s.setHours(9, 0, 0, 0);
+    return s;
+  };
+  return (
+    <div className="asset-grid-wrap">
+      <table className="asset-grid">
+        <thead>
+          <tr>
+            <th className="asset-name">{t("Room or equipment")}</th>
+            {days.map((d) => (
+              <th key={dayKey(d)} className={`${dayKey(d) === today ? 'today' : ''}${d.getDay() % 6 === 0 ? ' weekend' : ''}`}>
+                {d.toLocaleDateString(locale(), { weekday: 'short' })}<br />{d.toLocaleDateString(locale(), { day: 'numeric', month: 'short' })}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {assets.map((a) => {
+            const locked = a.bookingMode === 'coordinator_only' && !admin;
+            return (
+              <tr key={a.id}>
+                <th className="asset-name" scope="row">{a.name}<div className="muted small">{a.bookingMode === 'coordinator_only' ? BOOKING_MODE.coordinator_only : ASSET_CATEGORY[a.category]}</div></th>
+                {days.map((d) => {
+                  const start = d.getTime(); const end = start + 86_400_000;
+                  const mine = bookings.filter((b) => b.assetId === a.id && new Date(b.startsAt).getTime() < end && new Date(b.blockedUntil).getTime() > start)
+                    .sort((x, y) => x.startsAt.localeCompare(y.startsAt));
+                  const past = dayKey(d) < today;
+                  return (
+                    <td key={dayKey(d)} className={`asset-cell${mine.length ? '' : ' free'}${d.getDay() % 6 === 0 ? ' weekend' : ''}`}>
+                      {mine.map((b) => (
+                        <a key={b.eventId} className="asset-booking" href={`#/calendar?event=${b.eventId}`} title={`${b.private ? t("Private agenda item") : b.eventTitle ?? ''} · ${tf("Booked by {name}", { name: b.bookedByName })}`}>
+                          <span className="cal-time">{time(b.startsAt)}–{time(b.endsAt)}</span>
+                          {b.bufferMinutes > 0 && <span className="asset-buffer">{tf("+{n} min", { n: b.bufferMinutes })}</span>}
+                          <span className="asset-title">{b.private ? t("Private agenda item") : b.eventTitle}</span>
+                          <span className="muted small">{b.bookedByName}</span>
+                        </a>
+                      ))}
+                      {!mine.length && <span className="asset-free">{t("Free")}</span>}
+                      {!past && !locked && (
+                        <button type="button" className="asset-add" onClick={() => onCreate(startFor(d), a)} aria-label={tf("New agenda item with {name}", { name: a.name })} title={tf("New agenda item with {name}", { name: a.name })}>+</button>
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <p className="muted small">{t("Booked times include the buffer after the meeting. Click + to plan a new agenda item with that room or equipment.")}</p>
+    </div>
   );
 }

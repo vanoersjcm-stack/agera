@@ -1,6 +1,6 @@
 import { type FormEvent, useMemo, useState } from 'react';
 import { keycloak } from './auth';
-import { api, type CalendarDocument, type Store, type CalendarEvent, type CalendarItem, type CalendarKind } from './api';
+import { api, type BookableAsset, type CalendarDocument, type Store, type CalendarEvent, type CalendarItem, type CalendarKind } from './api';
 import { userContext } from './context';
 import { activeClients, useClients, useUsers, userName } from './directory';
 import { getLanguage, live, locale, t, tf } from './i18n';
@@ -49,6 +49,7 @@ export function CalendarView({ route }: { route: Route }) {
   const { from, to, days } = range(mode, anchor);
   const [reload, setReload] = useState(0);
   const [creating, setCreating] = useState<Date | null>(null);
+  const [creatingAsset, setCreatingAsset] = useState<BookableAsset | undefined>(undefined);
   const items = useLoad(() => api.calendar(from.toISOString(), to.toISOString(), scope), [from.getTime(), to.getTime(), scope, reload]);
   const eventId = route.params.get('event');
   const byDay = new Map<string, CalendarItem[]>();
@@ -82,10 +83,15 @@ export function CalendarView({ route }: { route: Route }) {
       }
     >
       <div className="agenda-tabs">
-        <button type="button" className="chip chip-action" onClick={() => setCreating(new Date())}>{t("+ New agenda item")}</button>
+        <button type="button" className="chip chip-action" onClick={() => { setCreatingAsset(undefined); setCreating(new Date()); }}>{t("+ New agenda item")}</button>
         <FilterChips chips={[{ value: 'agenda', label: t("Agenda") }, { value: 'leave', label: t("Leave & vacation") }, { value: 'rooms', label: t("Rooms & equipment") }]} value={tab} onChange={(v) => go({ tab: v === 'agenda' ? null : v, event: null })} />
       </div>
-      {tab === 'leave' ? <LeaveGrid route={route} anchor={anchor} /> : tab === 'rooms' ? <RoomsPanel from={from} to={to} /> : (<>
+      {tab === 'leave' ? <LeaveGrid route={route} anchor={anchor} /> : tab === 'rooms' ? (<>
+        <div className="cal-toolbar">
+          <FilterChips chips={[{ value: 'day', label: t("Day") }, { value: 'week', label: t("Week") }, { value: 'month', label: t("Month") }]} value={mode} onChange={(v) => go({ view: v === 'week' ? null : v })} />
+        </div>
+        <RoomsPanel from={from} to={to} reload={reload} days={mode === 'month' ? days.filter((d) => d.getMonth() === anchor.getMonth()) : days} onCreate={(day, asset) => { setCreatingAsset(asset); setCreating(day); }} />
+      </>) : (<>
       <div className="cal-toolbar">
         <FilterChips chips={[{ value: 'day', label: t("Day") }, { value: 'week', label: t("Week") }, { value: 'month', label: t("Month") }]} value={mode} onChange={(v) => go({ view: v === 'week' ? null : v })} />
         {!field && <FilterChips chips={[{ value: 'mine', label: t("My calendar") }, { value: 'team', label: t("Team calendar") }]} value={scope} onChange={(v) => go({ scope: v === 'mine' ? null : v })} />}
@@ -125,13 +131,13 @@ export function CalendarView({ route }: { route: Route }) {
           </ul>
         ))}
       </>)}
-      {creating && <AppointmentForm start={creating} onClose={() => setCreating(null)} onSaved={(e) => { setCreating(null); setReload((n) => n + 1); go({ event: e.id, date: dayKey(new Date(e.startsAt)) }); }} />}
+      {creating && <AppointmentForm start={creating} asset={creatingAsset} onClose={() => { setCreating(null); setCreatingAsset(undefined); }} onSaved={(e) => { setCreating(null); setCreatingAsset(undefined); setReload((n) => n + 1); go({ event: e.id, date: dayKey(new Date(e.startsAt)) }); }} />}
       {eventId && <AppointmentDrawer id={eventId} onClose={() => go({ event: null })} onChanged={() => setReload((n) => n + 1)} />}
     </ViewFrame>
   );
 }
 
-function AppointmentForm({ start, event, onClose, onSaved }: { start: Date; event?: CalendarEvent; onClose: () => void; onSaved: (e: CalendarEvent) => void }) {
+function AppointmentForm({ start, event, asset, onClose, onSaved }: { start: Date; event?: CalendarEvent; asset?: BookableAsset; onClose: () => void; onSaved: (e: CalendarEvent) => void }) {
   const users = useUsers();
   const clients = activeClients(useClients());
   const s0 = event ? new Date(event.startsAt) : (() => { const d = new Date(start); if (d.getMinutes() || d.getSeconds()) { d.setHours(d.getHours() + 1, 0, 0, 0); } return d; })();
@@ -140,13 +146,13 @@ function AppointmentForm({ start, event, onClose, onSaved }: { start: Date; even
   const [startsAt, setStartsAt] = useState(toLocalInput(s0));
   const [endsAt, setEndsAt] = useState(toLocalInput(e0));
   const [allDay, setAllDay] = useState(event?.allDay ?? false);
-  const [location, setLocation] = useState(event?.location ?? '');
+  const [location, setLocation] = useState(event?.location ?? (asset?.category === 'meeting_room' ? asset.name : ''));
   const [description, setDescription] = useState(event?.description ?? '');
   const [visibility, setVisibility] = useState<'team' | 'private'>(event?.visibility ?? 'team');
   const [clientId, setClientId] = useState(event?.clientId ?? '');
   const [attendeeIds, setAttendeeIds] = useState<string[]>(event?.attendees.map((a) => a.userId) ?? []);
   const [storeId, setStoreId] = useState(event?.storeId ?? '');
-  const [booked, setBooked] = useState<string[]>([]);
+  const [booked, setBooked] = useState<string[]>(asset ? [asset.id] : []);
   const [buffer, setBuffer] = useState('0');
   const admin = isAgendaAdmin(userContext());
   const assets = useLoad(() => api.bookableAssets(), []).data ?? [];
