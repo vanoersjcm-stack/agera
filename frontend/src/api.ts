@@ -821,7 +821,7 @@ export interface LeaveRequest {
 }
 export interface LeaveGridData { employees: { id: string; name: string }[]; requests: LeaveRequest[]; canApprove: boolean }
 export interface CalendarItem { id: string; kind: CalendarKind; title: string; start: string; end: string; allDay: boolean; link: string | null; ownerName: string | null; status: string | null; detail: string | null }
-export interface CalendarAttendee { userId: string; name: string; response: 'pending' | 'accepted' | 'declined' }
+export interface CalendarAttendee { userId: string; name: string; response: 'pending' | 'accepted' | 'declined' | 'unable'; required?: boolean; reason?: string | null }
 export interface CalendarDocument {
   id: string;
   title: string;
@@ -835,9 +835,12 @@ export interface CalendarEvent {
   assets: EventAsset[];
   id: string; title: string; description: string | null; location: string | null; startsAt: string; endsAt: string; allDay: boolean;
   visibility: 'team' | 'private'; status: 'scheduled' | 'cancelled'; clientId: string | null; clientName: string | null; storeId: string | null; storeName: string | null;
-  createdBy: string; createdByName: string; attendees: CalendarAttendee[]; documents: CalendarDocument[];
+  createdBy: string; createdByName: string; attendees: CalendarAttendee[]; documents: CalendarDocument[]; planningMode?: PlanningMode;
 }
-export interface CalendarEventInput { title: string; description?: string | null; location?: string | null; startsAt: string; endsAt: string; allDay?: boolean; visibility?: 'team' | 'private'; clientId?: string | null; storeId?: string | null; attendeeIds?: string[]; assets?: { assetId: string; bufferMinutes: number }[] }
+export interface CalendarEventInput { title: string; description?: string | null; location?: string | null; startsAt: string; endsAt: string; allDay?: boolean; visibility?: 'team' | 'private'; clientId?: string | null; storeId?: string | null; attendeeIds?: string[]; assets?: { assetId: string; bufferMinutes: number }[]; planningMode?: PlanningMode; optionalIds?: string[] }
+export type PlanningMode = 'fixed' | 'find';
+export interface BusyPeriod { start: string; end: string; source?: 'event' | 'leave' | 'visit'; refId: string | null; title: string | null; mandatory?: boolean }
+export interface Availability { people: { userId: string; name: string; busy: BusyPeriod[] }[]; assets: { assetId: string; name: string; bookingMode: BookingMode; busy: BusyPeriod[] }[] }
 
 export const api = {
   // Symphony
@@ -1074,6 +1077,7 @@ export const api = {
   calendar: (from: string, to: string, scope: 'mine' | 'team') =>
     request<CalendarItem[]>('GET', `/v1/calendar?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}&scope=${scope}`),
   calendarEvent: (id: string) => request<CalendarEvent>('GET', `/v1/calendar/events/${id}`),
+  calendarAvailability: (body: { userIds: string[]; assetIds: string[]; from: string; to: string }) => request<Availability>('POST', '/v1/calendar/availability', body),
   createCalendarEvent: (body: CalendarEventInput) => request<CalendarEvent>('POST', '/v1/calendar/events', body),
   bookableAssets: (includeInactive = false) => request<BookableAsset[]>('GET', `/v1/calendar/assets${includeInactive ? '?includeInactive=true' : ''}`),
   createAsset: (body: Partial<Omit<BookableAsset, 'id'>>) => request<BookableAsset>('POST', '/v1/calendar/assets', body),

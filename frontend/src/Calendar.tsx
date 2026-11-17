@@ -1,10 +1,11 @@
 import { type FormEvent, useMemo, useState } from 'react';
 import { keycloak } from './auth';
-import { api, type BookableAsset, type CalendarDocument, type Store, type CalendarEvent, type CalendarItem, type CalendarKind } from './api';
+import { api, type BookableAsset, type PlanningMode, type CalendarDocument, type Store, type CalendarEvent, type CalendarItem, type CalendarKind } from './api';
 import { userContext } from './context';
 import { activeClients, useClients, useUsers, userName } from './directory';
 import { getLanguage, live, locale, t, tf } from './i18n';
 import { openOfficeEditor } from './office';
+import { AttendanceCheck, FindTime, PlanningChoice } from './AgendaPlanning';
 import { AppointmentAssets, BOOKING_MODE, isAgendaAdmin, LeaveGrid, RoomsPanel } from './AgendaResources';
 import { formatDateTime } from './labels';
 import { EmptyState, ViewFrame } from './Layout';
@@ -154,6 +155,8 @@ function AppointmentForm({ start, event, asset, onClose, onSaved }: { start: Dat
   const [storeId, setStoreId] = useState(event?.storeId ?? '');
   const [booked, setBooked] = useState<string[]>(asset ? [asset.id] : []);
   const [buffer, setBuffer] = useState('0');
+  const [planning, setPlanning] = useState<PlanningMode>('fixed');
+  const [optionalIds, setOptionalIds] = useState<string[]>([]);
   const admin = isAgendaAdmin(userContext());
   const assets = useLoad(() => api.bookableAssets(), []).data ?? [];
   const stores = useLoad(() => api.stores().catch(() => ({ items: [] as Store[] })), []).data?.items ?? [];
@@ -177,7 +180,7 @@ function AppointmentForm({ start, event, asset, onClose, onSaved }: { start: Dat
     const s = allDay ? new Date(`${startsAt.slice(0, 10)}T00:00:00`) : new Date(startsAt);
     const e = allDay ? new Date(`${endsAt.slice(0, 10)}T23:59:00`) : new Date(endsAt);
     if (e < s) { setError(t("The end must be after the start")); return; }
-    const body = { title, startsAt: s.toISOString(), endsAt: e.toISOString(), allDay, location: location || null, description: description || null, visibility, clientId: clientId || null, storeId: storeId || null, attendeeIds, ...(event ? {} : { assets: booked.map((assetId) => ({ assetId, bufferMinutes: Number(buffer) })) }) };
+    const body = { title, startsAt: s.toISOString(), endsAt: e.toISOString(), allDay, location: location || null, description: description || null, visibility, clientId: clientId || null, storeId: storeId || null, attendeeIds, ...(event ? {} : { planningMode: planning, optionalIds: optionalIds.filter((id) => attendeeIds.includes(id)), assets: booked.map((assetId) => ({ assetId, bufferMinutes: Number(buffer) })) }) };
     const saved = await run(() => (event ? api.updateCalendarEvent(event.id, body) : api.createCalendarEvent(body)));
     if (saved) onSaved(saved);
   };
@@ -186,6 +189,7 @@ function AppointmentForm({ start, event, asset, onClose, onSaved }: { start: Dat
     <Drawer title={event ? t("Change agenda item") : t("New agenda item")} onClose={onClose}>
       <form onSubmit={submit} className="form">
         <Field label={t("Title")}><input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("e.g. Quarterly review with Jumbo")} /></Field>
+        {!event && <PlanningChoice mode={planning} onChange={setPlanning} />}
         <label className="checkbox"><input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} /> {t("All day")}</label>
         <Field label={t("Start")}><input required type={allDay ? 'date' : 'datetime-local'} value={allDay ? startsAt.slice(0, 10) : startsAt} onChange={(e) => setStartsAt(allDay ? `${e.target.value}T00:00` : e.target.value)} /></Field>
         <Field label={t("End")}><input required type={allDay ? 'date' : 'datetime-local'} value={allDay ? endsAt.slice(0, 10) : endsAt} onChange={(e) => setEndsAt(allDay ? `${e.target.value}T23:59` : e.target.value)} /></Field>
@@ -208,6 +212,11 @@ function AppointmentForm({ start, event, asset, onClose, onSaved }: { start: Dat
             {colleagues.map((u) => (
               <label key={u.id} className="checkbox">
                 <input type="checkbox" checked={attendeeIds.includes(u.id)} onChange={(e) => setAttendeeIds(e.target.checked ? [...attendeeIds, u.id] : attendeeIds.filter((x) => x !== u.id))} /> {userName(users, u.id)}
+                {!event && attendeeIds.includes(u.id) && (
+                  <button type="button" className={`link-button plan-optional${optionalIds.includes(u.id) ? ' on' : ''}`} onClick={(e) => { e.preventDefault(); setOptionalIds(optionalIds.includes(u.id) ? optionalIds.filter((x) => x !== u.id) : [...optionalIds, u.id]); }}>
+                    {optionalIds.includes(u.id) ? t("optional") : t("required")}
+                  </button>
+                )}
               </label>
             ))}
           </div>
@@ -234,6 +243,8 @@ function AppointmentForm({ start, event, asset, onClose, onSaved }: { start: Dat
             )}
           </Field>
         )}
+        {!event && planning === 'fixed' && !allDay && <AttendanceCheck userIds={attendeeIds} optionalIds={optionalIds} assetIds={booked} start={new Date(startsAt)} end={new Date(endsAt)} buffer={Number(buffer)} />}
+        {!event && planning === 'find' && <FindTime userIds={attendeeIds} optionalIds={optionalIds} assetIds={booked} buffer={Number(buffer)} onPick={(st, en) => { setAllDay(false); setStartsAt(toLocalInput(st)); setEndsAt(toLocalInput(en)); setPlanning('fixed'); }} />}
         <Field label={t("Visibility")}>
           <select value={visibility} onChange={(e) => setVisibility(e.target.value as 'team' | 'private')}>
             <option value="team">{t("Team: colleagues see it in the team calendar")}</option>

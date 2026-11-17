@@ -92,7 +92,7 @@ export function FilterChips({ chips, value, onChange }: { chips: Chip[]; value: 
   return (
     <div className="chips" role="group" aria-label={tr("Filter")}>
       {chips.map((c) => (
-        <button key={c.value} className={`chip${c.value === value ? ' selected' : ''}`} aria-pressed={c.value === value} onClick={() => onChange(c.value)}>
+        <button key={c.value} type="button" className={`chip${c.value === value ? ' selected' : ''}`} aria-pressed={c.value === value} onClick={() => onChange(c.value)}>
           {c.label}
           {c.count !== undefined && <span className="chip-count">{c.count}</span>}
         </button>

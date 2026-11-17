@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Delete, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
@@ -6,7 +6,7 @@ import { AllowJobRoles } from '../auth/job-roles.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
 import { asObject, oneOf, optionalString, optionalUuid, parseTimestamp, requiredString } from '../core/http/validation.js';
 import { ASSET_CATEGORIES, type AssetInput, AgendaResourcesService, BOOKING_MODES, BUFFERS, LEAVE_DECISIONS, LEAVE_TYPES } from './agenda-resources.service.js';
-import { CALENDAR_SCOPES, CalendarService, type EventInput, NOTE_LANGUAGES, RESPONSES, VISIBILITIES } from './calendar.service.js';
+import { CALENDAR_SCOPES, CalendarService, type EventInput, NOTE_LANGUAGES, PLANNING_MODES, RESPONSES, VISIBILITIES } from './calendar.service.js';
 
 const OBJ = { schema: { type: 'object' } };
 
@@ -56,6 +56,11 @@ function fields(raw: Record<string, unknown>, partial: boolean): Partial<EventIn
   if (!partial || raw.storeId !== undefined) out.storeId = optionalUuid('storeId', raw.storeId);
   if (!partial || raw.attendeeIds !== undefined) out.attendeeIds = attendees(raw.attendeeIds);
   if (!partial && raw.assets !== undefined && raw.assets !== null) out.assets = bookings(raw.assets);
+  if (!partial) out.planningMode = oneOf('planningMode', raw.planningMode ?? 'fixed', PLANNING_MODES);
+  if (!partial && raw.optionalIds !== undefined && raw.optionalIds !== null) {
+    out.optionalIds = attendees(raw.optionalIds);
+    if (out.optionalIds.some((id) => !(out.attendeeIds ?? []).includes(id))) throw new BadRequestException('optionalIds must also be in attendeeIds');
+  }
   if (out.startsAt && out.endsAt && out.endsAt < out.startsAt) throw new BadRequestException('endsAt must be after startsAt');
   return out;
 }
@@ -207,6 +212,24 @@ export class CalendarController {
     const end = when('to', to);
     if (end <= start) throw new BadRequestException('to must be after from');
     return this.calendar.items(start, end, oneOf('scope', scope ?? 'mine', CALENDAR_SCOPES), identity);
+  }
+
+  @Post('availability')
+  @HttpCode(200)
+  @ApiOperation({ summary: 'Busy periods of colleagues (agenda items, approved leave, store visits; private items without details) and of rooms/equipment, for Fixed date and Find a time' })
+  @ApiBody(OBJ)
+  @ApiErrors(400)
+  availability(@Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<unknown> {
+    const raw = asObject(body);
+    const from = when('from', raw.from);
+    const to = when('to', raw.to);
+    if (to <= from || to.getTime() - from.getTime() > 92 * 86_400_000) throw new BadRequestException('to must be after from and at most 92 days later');
+    const ids = (name: string, v: unknown) => {
+      if (v === undefined || v === null) return [];
+      if (!Array.isArray(v) || v.length > 50) throw new BadRequestException(`${name} must be a list of at most 50 ids`);
+      return v.map((x, i) => { const id = optionalUuid(`${name}[${i}]`, x); if (!id) throw new BadRequestException(`${name}[${i}] must be a uuid`); return id; });
+    };
+    return this.calendar.availability([...new Set(ids('userIds', raw.userIds))], [...new Set(ids('assetIds', raw.assetIds))], from, to, identity);
   }
 
   @Post('events')

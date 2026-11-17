@@ -259,6 +259,7 @@ describe('OpenAPI document', () => {
       '/v1/calendar/assets': ['get', 'post'],
       '/v1/calendar/assets/{id}': ['patch'],
       '/v1/calendar/bookings': ['get'],
+      '/v1/calendar/availability': ['post'],
       '/v1/calendar/events': ['post'],
       '/v1/calendar/events/{id}/assets': ['post'],
       '/v1/calendar/events/{id}/assets/{assetId}': ['delete'],

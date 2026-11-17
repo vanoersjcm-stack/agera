@@ -97,3 +97,34 @@ describe('creating an agenda item with rooms and equipment', () => {
     assert.ok(!titles.includes(`Clash ${stamp}`) && !titles.includes(`Screen ${stamp}`), 'refused items are not saved');
   });
 });
+
+describe('planning a meeting', () => {
+  interface Busy { start: string; end: string; source: string; title: string | null; refId: string | null }
+  interface Avail { me: string; people: { userId: string; busy: Busy[] }[]; assets: { assetId: string; busy: Busy[] }[] }
+  it('shows colleagues busy (private items without details) and rooms booked, and stores optional invitees', async () => {
+    const hannahId = (await api<Avail>(hannah, 'POST', '/v1/calendar/availability', { from: at(0), to: at(1) })).body.me;
+    const secret = await api<Event>(hannah, 'POST', '/v1/calendar/events', { title: `Secret ${stamp}`, startsAt: at(30), endsAt: at(31), visibility: 'private' });
+    assert.equal(secret.status, 201, JSON.stringify(secret.body));
+    const booked = await api<Event>(hannah, 'POST', '/v1/calendar/events', { title: `Room taken ${stamp}`, startsAt: at(32), endsAt: at(33), assets: [{ assetId: room.id, bufferMinutes: 15 }] });
+    assert.equal(booked.status, 201, JSON.stringify(booked.body));
+
+    const r = await api<Avail>(adam, 'POST', '/v1/calendar/availability', { userIds: [hannahId], assetIds: [room.id], from: at(29), to: at(34) });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const busy = r.body.people[0].busy;
+    const hidden = busy.find((b) => b.start === at(30));
+    assert.ok(hidden, 'private item counts as busy');
+    assert.equal(hidden.title, null, 'without its title');
+    assert.equal(hidden.refId, null);
+    assert.ok(busy.some((b) => b.title === `Room taken ${stamp}`));
+    assert.equal(new Date(r.body.assets[0].busy[0].end).toISOString(), at(33, 15), 'room busy until the buffer ends');
+    assert.equal((await api(adam, 'POST', '/v1/calendar/availability', { from: at(1), to: at(0) })).status, 400);
+
+    const meet = await api<Event & { planningMode: string; attendees: { userId: string; required: boolean }[] }>(adam, 'POST', '/v1/calendar/events', {
+      title: `Planned ${stamp}`, startsAt: at(35), endsAt: at(36), planningMode: 'find', attendeeIds: [hannahId], optionalIds: [hannahId],
+    });
+    assert.equal(meet.status, 201, JSON.stringify(meet.body));
+    assert.equal(meet.body.planningMode, 'find');
+    assert.equal(meet.body.attendees.find((a) => a.userId === hannahId)?.required, false);
+    assert.equal((await api(adam, 'POST', '/v1/calendar/events', { title: 'x', startsAt: at(37), endsAt: at(38), optionalIds: [hannahId] })).status, 400);
+  });
+});

@@ -13,6 +13,7 @@ export const VISIBILITIES = ['team', 'private'] as const;
 export const RESPONSES = ['accepted', 'declined'] as const;
 export const NOTE_LANGUAGES = ['en', 'nl'] as const;
 export const CALENDAR_SCOPES = ['mine', 'team'] as const;
+export const PLANNING_MODES = ['fixed', 'find'] as const;
 
 const PERSON = (a: string) => `COALESCE(NULLIF(btrim(concat_ws(' ', ${a}.first_name, ${a}.last_name)), ''), ${a}.email)`;
 
@@ -20,6 +21,7 @@ export interface EventInput {
   title: string; description: string | null; location: string | null; startsAt: Date; endsAt: Date; allDay: boolean;
   visibility: (typeof VISIBILITIES)[number]; clientId: string | null; storeId: string | null; attendeeIds: string[];
   assets?: { assetId: string; bufferMinutes: number }[];
+  planningMode?: (typeof PLANNING_MODES)[number]; optionalIds?: string[];
 }
 
 /** One entry on the calendar: an Agera appointment or a dated record from another module. */
@@ -29,10 +31,10 @@ export interface CalendarItem {
 }
 
 const EVENT_SQL = `
-  SELECT e.id, e.title, e.description, e.location, e.starts_at AS "startsAt", e.ends_at AS "endsAt", e.all_day AS "allDay", e.visibility, e.status,
+  SELECT e.id, e.title, e.description, e.location, e.starts_at AS "startsAt", e.ends_at AS "endsAt", e.all_day AS "allDay", e.visibility, e.status, e.planning_mode AS "planningMode",
          e.client_id AS "clientId", c.name AS "clientName", e.store_id AS "storeId", s.name AS "storeName",
          e.created_by AS "createdBy", ${PERSON('u')} AS "createdByName", e.created_at AS "createdAt",
-         COALESCE((SELECT json_agg(json_build_object('userId', a.user_id, 'name', ${PERSON('au')}, 'response', a.response) ORDER BY au.first_name)
+         COALESCE((SELECT json_agg(json_build_object('userId', a.user_id, 'name', ${PERSON('au')}, 'response', a.response, 'required', a.required, 'reason', a.reason) ORDER BY au.first_name)
                      FROM calendar_event_attendees a JOIN users au ON au.id = a.user_id WHERE a.event_id = e.id), '[]') AS attendees,
          COALESCE((SELECT json_agg(json_build_object('id', d.id, 'title', d.title, 'fileFormat', d.file_format, 'kind', ed.kind, 'clientName', dc.name, 'addedBy', ed.added_by) ORDER BY ed.kind DESC, ed.created_at)
                      FROM calendar_event_documents ed JOIN room_documents d ON d.tenant_id = ed.tenant_id AND d.id = ed.document_id
@@ -128,6 +130,35 @@ export class CalendarService {
     });
   }
 
+  /** Busy periods of colleagues (agenda items, approved leave, store visits) and of rooms/equipment, for planning a meeting. */
+  async availability(userIds: string[], assetIds: string[], from: Date, to: Date, identity: AuthenticatedUser): Promise<unknown> {
+    const me = (await this.users.resolveActor(identity)).id;
+    return this.tx.run(async (m) => {
+      const people = userIds.length
+        ? await m.query(`SELECT id AS "userId", ${PERSON('u')} AS name FROM users u WHERE u.tenant_id = $1 AND u.id = ANY($2::uuid[]) AND u.is_active ORDER BY u.first_name`, [this.t, userIds])
+        : [];
+      if (people.length !== new Set(userIds).size) throw new BadRequestException('userIds must be active colleagues in this organisation');
+      const busy = userIds.length
+        ? await m.query(`SELECT user_id AS "userId", starts_at AS "start", ends_at AS "end", source, ref_id AS "refId", title, mandatory FROM calendar_busy($1::uuid[], $2, $3) ORDER BY starts_at`, [userIds, from, to])
+        : [];
+      const assets = assetIds.length
+        ? await m.query(`SELECT id AS "assetId", name, booking_mode AS "bookingMode" FROM bookable_assets WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND active ORDER BY name`, [this.t, assetIds])
+        : [];
+      const bookings = assetIds.length
+        ? await m.query(
+          `SELECT ea.asset_id AS "assetId", ea.starts_at AS "start", ea.blocked_until AS "end", ea.event_id AS "refId", e.title, ea.booked_by AS "bookedBy"
+             FROM calendar_event_assets ea LEFT JOIN calendar_events e ON e.id = ea.event_id
+            WHERE ea.tenant_id = $1 AND ea.asset_id = ANY($2::uuid[]) AND ea.starts_at < $4 AND ea.blocked_until > $3 ORDER BY ea.starts_at`,
+          [this.t, assetIds, from, to])
+        : [];
+      return {
+        people: people.map((p: { userId: string; name: string }) => ({ ...p, busy: busy.filter((b: { userId: string }) => b.userId === p.userId) })),
+        assets: assets.map((a: { assetId: string }) => ({ ...a, busy: bookings.filter((b: { assetId: string }) => b.assetId === a.assetId) })),
+        me,
+      };
+    });
+  }
+
   async event(id: string, identity: AuthenticatedUser): Promise<unknown> {
     const me = (await this.users.resolveActor(identity)).id;
     return this.tx.run((m) => this.load(m, id, me));
@@ -165,11 +196,14 @@ export class CalendarService {
     const row = await this.tx.run(async (m) => {
       await this.assertLinks(m, input);
       const [e] = await m.query(
-        `INSERT INTO calendar_events (tenant_id, title, description, location, starts_at, ends_at, all_day, visibility, client_id, store_id, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
-        [this.t, input.title, input.description, input.location, input.startsAt, input.endsAt, input.allDay, input.visibility, input.clientId, input.storeId, me],
+        `INSERT INTO calendar_events (tenant_id, title, description, location, starts_at, ends_at, all_day, visibility, client_id, store_id, created_by, planning_mode)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
+        [this.t, input.title, input.description, input.location, input.startsAt, input.endsAt, input.allDay, input.visibility, input.clientId, input.storeId, me, input.planningMode ?? 'fixed'],
       );
       await this.invite(m, e.id, input.title, input.startsAt, [...new Set(input.attendeeIds)], me);
+      if (input.optionalIds?.length) {
+        await m.query('UPDATE calendar_event_attendees SET required = FALSE WHERE tenant_id = $1 AND event_id = $2 AND user_id = ANY($3::uuid[])', [this.t, e.id, input.optionalIds]);
+      }
       for (const b of input.assets ?? []) {
         await AgendaResourcesService.insertBooking(m, this.t, { id: e.id, startsAt: input.startsAt, endsAt: input.endsAt }, b.assetId, b.bufferMinutes, me, isAgendaAdmin(identity));
       }
