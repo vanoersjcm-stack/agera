@@ -32,6 +32,8 @@ export interface InvoiceLineInput {
   description: string | null;
   quantity: string;
   unitPrice: string;
+  vatRate?: string;
+  productId?: string | null;
 }
 
 export interface GenerateInvoiceInput {
@@ -52,6 +54,8 @@ export interface InvoiceLineView {
   quantity: string;
   unitPrice: string;
   lineTotal: string;
+  vatRate: string | null;
+  productId: string | null;
 }
 
 export interface BillableSources {
@@ -232,29 +236,36 @@ export class InvoicesService {
           const [billed] = await m.query(`SELECT 1 FROM invoice_lines WHERE tenant_id = $1 AND source_type = 'store_visit' AND source_id = $2`, [t, line.sourceId]);
           if (billed) throw new ConflictException('This store visit is already on an invoice');
           description ||= `Store visit ${v.name} (${v.day})`;
-        } else if (!description) {
-          throw new BadRequestException('Free lines need a description');
+        } else {
+          if (line.productId) {
+            const [p] = await m.query('SELECT name FROM products WHERE tenant_id = $1 AND id = $2', [t, line.productId]);
+            if (!p) throw new BadRequestException('productId must be a product of the active tenant');
+            description ||= p.name;
+          }
+          if (!description) throw new BadRequestException('Free lines need a description');
         }
         lines.push({ ...line, description: description.slice(0, 255), total: Math.round(Number(line.quantity) * Number(line.unitPrice) * 100) });
       }
       const subtotal = lines.reduce((sum, l) => sum + l.total, 0);
-      const vat = Math.round((subtotal * cents(input.vatRate)) / 10000);
+      const vat = lines.reduce((sum, l) => sum + Math.round((l.total * cents(l.vatRate ?? input.vatRate)) / 10000), 0);
+      const rates = new Set(lines.map((l) => Number(l.vatRate ?? input.vatRate)));
+      const invoiceRate = rates.size === 1 ? String([...rates][0]) : null;
       const repository = this.invoices.withManager(m);
       const invoiceNumber = await this.nextNumber(m, input.issueDate);
       const saved = await this.unique(() =>
         repository.save(
           repository.create({
             clientId: input.clientId, invoiceNumber, description: input.description, issueDate: input.issueDate, dueDate: input.dueDate,
-            amountExclVat: euros(subtotal), vatAmount: euros(vat), vatRate: input.vatRate, status: 'draft',
+            amountExclVat: euros(subtotal), vatAmount: euros(vat), vatRate: invoiceRate, status: 'draft',
           }),
         ),
       );
       let position = 1;
       for (const l of lines) {
         await m.query(
-          `INSERT INTO invoice_lines (tenant_id, invoice_id, position, source_type, source_id, description, quantity, unit_price, line_total)
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`,
-          [t, saved.id, position++, l.sourceType, l.sourceId, l.description, l.quantity, l.unitPrice, euros(l.total)],
+          `INSERT INTO invoice_lines (tenant_id, invoice_id, position, source_type, source_id, description, quantity, unit_price, line_total, vat_rate, product_id)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
+          [t, saved.id, position++, l.sourceType, l.sourceId, l.description, l.quantity, l.unitPrice, euros(l.total), l.vatRate ?? input.vatRate, l.productId ?? null],
         );
       }
       return this.load(m, saved.id);
@@ -268,7 +279,9 @@ export class InvoicesService {
       await this.load(m, id);
       return m.query(
         `SELECT id, position, source_type AS "sourceType", source_id AS "sourceId", description, quantity::text AS quantity,
-                unit_price::text AS "unitPrice", line_total::text AS "lineTotal"
+                unit_price::text AS "unitPrice", line_total::text AS "lineTotal",
+                COALESCE(vat_rate, (SELECT i.vat_rate FROM invoices i WHERE i.tenant_id = invoice_lines.tenant_id AND i.id = invoice_lines.invoice_id))::text AS "vatRate",
+                product_id AS "productId"
            FROM invoice_lines WHERE tenant_id = $1 AND invoice_id = $2 ORDER BY position`,
         [this.context.tenantId, id],
       );

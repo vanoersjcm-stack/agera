@@ -1,3 +1,5 @@
+import { clientName, useClients } from './directory';
+import { keycloak } from './auth';
 import { type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from 'react';
 import { api, type DocumentTemplate, type EditorSession, type OfficeDocument, type OfficeVersion } from './api';
 import { ClientSelect, csvOf, DocIcon, type DocIconKind, initialClient, RoomSelect, scheduleGrid, tiersGrid, useClientRecord } from './DocumentCreate';
@@ -234,6 +236,8 @@ function NewOfficeDocumentForm({ format, defaults, onDone, onCancel }: FormProps
 /** + New › Agera Memo: an A5 internal memo, optionally linked to a client. */
 export function NewMemoForm({ defaults, onDone, onCancel }: FormProps) {
   const [clientId, setClientId] = useState(initialClient(defaults));
+  const clients = useClients();
+  const [from, setFrom] = useState(() => (keycloak.tokenParsed?.name as string | undefined) ?? [keycloak.tokenParsed?.given_name, keycloak.tokenParsed?.family_name].filter(Boolean).join(' '));
   const [to, setTo] = useState('');
   const [subject, setSubject] = useState('');
   const [date, setDate] = useState(new Date().toLocaleDateString('nl-NL'));
@@ -243,7 +247,7 @@ export function NewMemoForm({ defaults, onDone, onCancel }: FormProps) {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     void run(() =>
-      api.createOfficeDocument({ clientId: clientId || null, title: `Memo – ${subject.trim()}`.slice(0, 200), format: 'docx', memo: { to: to.trim(), subject: subject.trim(), date: date.trim(), body, language } }),
+      api.createOfficeDocument({ clientId: clientId || null, title: `Memo – ${subject.trim()}`.slice(0, 200), format: 'docx', memo: { from: from.trim() || null, to: to.trim(), subject: subject.trim(), date: date.trim(), body, language } }),
     ).then((doc) => {
       if (!doc) return;
       onDone(clientId ? `/nexus/clients/${clientId}?tab=documents` : '/nexus/drafts', tf("{title} created", { title: doc.title }));
@@ -252,6 +256,7 @@ export function NewMemoForm({ defaults, onDone, onCancel }: FormProps) {
   };
   return (
     <form className="doc-form" onSubmit={submit}>
+      <Field label={tr("From")} hint={tr("Your full name; change it if you write on behalf of someone else")}><input required maxLength={200} value={from} onChange={(e) => setFrom(e.target.value)} /></Field>
       <Field label={tr("To")}><input required maxLength={200} value={to} onChange={(e) => setTo(e.target.value)} placeholder={tr("e.g. All account managers")} autoFocus /></Field>
       <Field label={tr("Subject")}><input required maxLength={200} value={subject} onChange={(e) => setSubject(e.target.value)} /></Field>
       <Field label={tr("Date")}><input required maxLength={40} value={date} onChange={(e) => setDate(e.target.value)} /></Field>
@@ -262,8 +267,18 @@ export function NewMemoForm({ defaults, onDone, onCancel }: FormProps) {
           <option value="en">English</option>
         </select>
       </Field>
-      <ClientSelect value={clientId} onChange={setClientId} optional />
-      <p className="hint">{tr("The memo is an A5 document with the Agera logo; you are the sender. Without a client only you can see it, under Draft documents.")}</p>
+      {clientId ? (
+        <Field label={tr("Client")}>
+          <span className="client-chip">
+            {clientName(clients, clientId)}
+            <button type="button" className="link-button" onClick={() => setClientId('')}>{tr("Change")}</button>
+            <button type="button" className="client-chip-remove" onClick={() => setClientId('')} aria-label={tr("Remove client")} title={tr("Remove client")}>×</button>
+          </span>
+        </Field>
+      ) : (
+        <ClientSelect value={clientId} onChange={setClientId} optional />
+      )}
+      <p className="hint">{tr("The memo is an A5 document with the Agera logo. Without a client only you can see it, under Draft documents.")}</p>
       <ErrorText error={error} />
       <div className="form-actions">
         <button type="button" className="secondary" onClick={onCancel}>{tr("Cancel")}</button>

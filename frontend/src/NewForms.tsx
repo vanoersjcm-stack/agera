@@ -4,11 +4,11 @@ import { NewPriceListForm, NewTemplateForm } from './nexus/Commercial';
 import { NewSurveyForm } from './nexus/Surveys';
 import { type DocIconKind, NewMailForm, NewSpreadsheetForm, NewTextDocumentForm } from './DocumentCreate';
 import { NewMemoForm, OfficeOrSimple } from './office';
-import { COMPANY_SIZES, ENTITY_CATEGORY, ORGANIZATION_TYPE } from './nexus/ThirdParties';
+import { COMPANY_SIZES, ENTITY_CATEGORY, isClientCategory, ORGANIZATION_TYPE } from './nexus/ThirdParties';
 import { NewExceptionForm } from './symphony/Workflow';
 import { NewAuditRoundForm, NewCampaignRoundForm, NewFieldOrderForm, NewPlanogramForm, NewProductForm } from './retailpower/Field';
 import { type FormEvent, useEffect, useState } from 'react';
-import { api, type Agreement, type BillableSources, type CompanySize, type GenerateInvoiceInput, type CreatedApiKey, type EntityCategory, type OrganizationType, type Store, type WorkOrder } from './api';
+import { api, type Agreement, type BillableSources, type CompanySize, type GenerateInvoiceInput, type CreatedApiKey, type EntityCategory, type OrganizationType, type Product, type Store, type WorkOrder } from './api';
 import { activeClients, clientName, invalidateDirectory, useClients, useUsers } from './directory';
 import { navigate } from './router';
 import type { NewDefaults, NewKind } from './shell';
@@ -411,6 +411,7 @@ function ClientForm({ defaults, onDone, onCancel }: FormProps) {
   const [organizationType, setOrganizationType] = useState<OrganizationType | ''>('');
   const [companySize, setCompanySize] = useState<CompanySize | ''>('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [legalName, setLegalName] = useState('');
   const [vatNumber, setVatNumber] = useState('');
   const [city, setCity] = useState('');
@@ -422,7 +423,7 @@ function ClientForm({ defaults, onDone, onCancel }: FormProps) {
       onSubmit={(e) =>
         submit(e, async () => {
           const c = await api.createClient({
-            name: name.trim(), legalName: opt(legalName), vatNumber: opt(vatNumber), city: opt(city), country: opt(country), phone: opt(phone),
+            name: name.trim(), legalName: opt(legalName), vatNumber: opt(vatNumber), city: opt(city), country: opt(country), phone: opt(phone), email: opt(email),
             entityCategory, organizationType: organizationType || null, companySize: organizationType === 'commercial_enterprise' ? companySize || null : null,
           });
           return { route: `/nexus/clients/${c.id}`, message: tf("“{name}” created", { name: c.name }) };
@@ -453,6 +454,9 @@ function ClientForm({ defaults, onDone, onCancel }: FormProps) {
       )}
       <Field label={tr("Phone")} hint={tr("Optional")}>
         <input type="tel" maxLength={50} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+31 20 123 4567" />
+      </Field>
+      <Field label={tr("Email")} hint={tr("Optional")}>
+        <input type="email" maxLength={255} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="info@example.nl" />
       </Field>
       <Field label={tr("Legal name")} hint={tr("Optional, as registered with the Chamber of Commerce")}>
         <input maxLength={200} value={legalName} onChange={(e) => setLegalName(e.target.value)} placeholder={tr("e.g. TechNova Electronics B.V.")} />
@@ -600,29 +604,66 @@ function IntegrationKeyForm({ onDone, onCancel }: FormProps) {
   );
 }
 
+interface InvoiceItem { key: number; productId: string | null; description: string; quantity: string; unitPrice: string; vatRate: string }
+const VAT_RATES = ['21', '9', '0'];
+let invoiceLineKey = 0;
+
+/** Product prices from the client's own active price lists first, then general ones. */
+async function clientPrices(clientId: string): Promise<Record<string, string>> {
+  try {
+    const lists = (await api.priceLists(clientId))
+      .filter((l) => l.active && (l.clientId === clientId || l.clientId === null))
+      .sort((a, b) => Number(b.clientId === clientId) - Number(a.clientId === clientId));
+    const prices: Record<string, string> = {};
+    for (const l of lists) for (const item of (await api.priceList(l.id)).items ?? []) prices[item.productId] ??= item.unitPrice;
+    return prices;
+  } catch {
+    return {};
+  }
+}
+
 function InvoiceForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onSwitch: (kind: NewKind) => void }) {
   const clients = useClients();
   const today = new Date().toISOString().slice(0, 10);
-  const [form, setForm] = useState({ clientId: defaults?.clientId ?? '', description: '', issueDate: today, dueDate: '', vatRate: '21', visitPrice: '', freeText: '', freeAmount: '' });
+  const [form, setForm] = useState({ clientId: defaults?.clientId ?? '', description: '', issueDate: today, dueDate: '', vatRate: '21', visitPrice: '' });
   const [agreements, setAgreements] = useState<Record<string, string>>({});
   const [visits, setVisits] = useState<string[]>([]);
   const [sources, setSources] = useState<BillableSources | null>(null);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [prices, setPrices] = useState<Record<string, string>>({});
+  const [items, setItems] = useState<InvoiceItem[]>([]);
   const set = (key: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [key]: e.target.value });
   const { busy, error, submit } = useSubmit(onDone);
+  useEffect(() => {
+    void api.products().then((list) => setProducts(list.filter((p) => p.active))).catch(() => setProducts([]));
+  }, []);
   useEffect(() => {
     setSources(null);
     setAgreements({});
     setVisits([]);
-    if (form.clientId) void api.billable(form.clientId).then(setSources).catch(() => setSources({ agreements: [], visits: [] }));
+    setPrices({});
+    if (form.clientId) {
+      void api.billable(form.clientId).then(setSources).catch(() => setSources({ agreements: [], visits: [] }));
+      void clientPrices(form.clientId).then(setPrices);
+    }
   }, [form.clientId]);
   if (activeClients(clients).length === 0) return <NoClients onCancel={onCancel} onNewClient={() => onSwitch('client')} />;
+  const setItem = (key: number, patch: Partial<InvoiceItem>) => setItems((cur) => cur.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  const describe = (key: number, text: string) => {
+    const product = products.find((p) => p.name === text);
+    setItem(key, product ? { description: product.name, productId: product.id, unitPrice: prices[product.id] ?? product.unitPrice } : { description: text, productId: null });
+  };
+  const addItem = () => setItems((cur) => [...cur, { key: ++invoiceLineKey, productId: null, description: '', quantity: '1', unitPrice: '', vatRate: form.vatRate }]);
   const lines: GenerateInvoiceInput['lines'] = [
-    ...Object.entries(agreements).map(([id, price]) => ({ sourceType: 'agreement' as const, sourceId: id, unitPrice: price || '0' })),
-    ...visits.map((id) => ({ sourceType: 'store_visit' as const, sourceId: id, unitPrice: form.visitPrice || '0' })),
-    ...(form.freeText.trim() && form.freeAmount ? [{ sourceType: 'manual' as const, sourceId: null, description: form.freeText.trim(), unitPrice: form.freeAmount }] : []),
+    ...Object.entries(agreements).map(([id, price]) => ({ sourceType: 'agreement' as const, sourceId: id, unitPrice: price || '0', vatRate: form.vatRate })),
+    ...visits.map((id) => ({ sourceType: 'store_visit' as const, sourceId: id, unitPrice: form.visitPrice || '0', vatRate: form.vatRate })),
+    ...items.filter((l) => l.description.trim()).map((l) => ({
+      sourceType: 'manual' as const, sourceId: null, description: l.description.trim(), productId: l.productId, quantity: l.quantity || '1', unitPrice: l.unitPrice || '0', vatRate: l.vatRate,
+    })),
   ];
-  const subtotal = lines.reduce((sum, l) => sum + Math.round(Number(l.unitPrice) * 100), 0) / 100;
-  const vat = Math.round(subtotal * Number(form.vatRate)) / 100;
+  const lineCents = (l: { quantity?: string; unitPrice: string }) => Math.round(Number(l.quantity ?? '1') * Number(l.unitPrice) * 100);
+  const subtotal = lines.reduce((sum, l) => sum + lineCents(l), 0) / 100;
+  const vat = lines.reduce((sum, l) => sum + Math.round((lineCents(l) * Number(l.vatRate ?? form.vatRate)) / 100), 0) / 100;
   const toggle = (id: string, price: string) => setAgreements((cur) => {
     const next = { ...cur };
     if (id in next) delete next[id];
@@ -633,7 +674,8 @@ function InvoiceForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onS
     <form
       onSubmit={(e) =>
         submit(e, async () => {
-          if (lines.length === 0) throw new Error(tr("Choose at least one agreement or store visit, or add a free line"));
+          if (items.some((l) => !l.description.trim())) throw new Error(tr("Every invoice line needs a product or description"));
+          if (lines.length === 0) throw new Error(tr("Choose at least one agreement or store visit, or add a line"));
           const i = await api.generateInvoice({
             clientId: form.clientId,
             description: form.description.trim() || null,
@@ -650,7 +692,7 @@ function InvoiceForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onS
       <Field label={tr("Client")}>
         <select required value={form.clientId} onChange={set('clientId')} autoFocus>
           <option value="">{tr("Choose a client…")}</option>
-          {activeClients(clients).map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
+          {activeClients(clients).filter((c) => isClientCategory(c.entityCategory)).map((c) => <option key={c.clientId} value={c.clientId}>{c.name}</option>)}
         </select>
       </Field>
       {form.clientId && !sources && <p className="muted">{tr("Loading…")}</p>}
@@ -679,18 +721,32 @@ function InvoiceForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onS
             )}
           </Field>
           {visits.length > 0 && <Field label={tr("Price per store visit (EUR)")}><input required type="number" min={0} step="0.01" value={form.visitPrice} onChange={set('visitPrice')} /></Field>}
-          <div className="field-row">
-            <Field label={tr("Free line (optional)")}><input maxLength={255} value={form.freeText} onChange={set('freeText')} placeholder={tr("e.g. Extra shelf service")} /></Field>
-            <Field label={tr("Amount excl. VAT (EUR)")}><input type="number" min={0} step="0.01" value={form.freeAmount} onChange={set('freeAmount')} /></Field>
-          </div>
+          <Field label={tr("Invoice lines")} hint={tr("Pick a product from the catalogue or type your own description. Prices come from the client's price list when it has one.")}>
+            {items.map((l, index) => (
+              <div key={l.key} className="invoice-line" role="group" aria-label={tf("Line {n}", { n: index + 1 })}>
+                <input className="invoice-line-desc" list="invoice-products" maxLength={255} value={l.description} onChange={(e) => describe(l.key, e.target.value)} aria-label={tr("Description")} placeholder={tr("Product or description")} />
+                <label>{tr("Qty")}<input required type="number" min="0.01" step="0.01" value={l.quantity} onChange={(e) => setItem(l.key, { quantity: e.target.value })} /></label>
+                <label>{tr("Unit price (EUR)")}<input required type="number" min={0} step="0.01" value={l.unitPrice} onChange={(e) => setItem(l.key, { unitPrice: e.target.value })} /></label>
+                <label>{tr("VAT %")}
+                  <select value={l.vatRate} onChange={(e) => setItem(l.key, { vatRate: e.target.value })}>
+                    {VAT_RATES.map((r) => <option key={r} value={r}>{r}%</option>)}
+                  </select>
+                </label>
+                <span className="invoice-line-total">€ {formatNumber(lineCents({ quantity: l.quantity || '0', unitPrice: l.unitPrice || '0' }) / 100)}</span>
+                <button type="button" className="client-chip-remove" onClick={() => setItems((cur) => cur.filter((x) => x.key !== l.key))} aria-label={tr("Remove line")} title={tr("Remove line")}>×</button>
+              </div>
+            ))}
+            <datalist id="invoice-products">{products.map((p) => <option key={p.id} value={p.name}>{p.sku}</option>)}</datalist>
+            <button type="button" className="secondary" onClick={addItem}>{tr("+ Add line")}</button>
+          </Field>
         </>
       )}
-      <Field label={tr("Description")}><input maxLength={255} value={form.description} onChange={set('description')} /></Field>
+      <Field label={tr("Invoice description")} hint={tr("Optional, shown above the lines")}><input maxLength={255} value={form.description} onChange={set('description')} /></Field>
       <div className="field-row">
         <Field label={tr("Invoice date")}><input required type="date" value={form.issueDate} onChange={set('issueDate')} /></Field>
         <Field label={tr("Due date")}><input type="date" min={form.issueDate} value={form.dueDate} onChange={set('dueDate')} /></Field>
       </div>
-      <Field label={tr("VAT rate")}>
+      <Field label={tr("Default VAT rate")} hint={tr("Used for agreement and store visit lines and for new lines")}>
         <select value={form.vatRate} onChange={set('vatRate')}>
           <option value="21">21%</option>
           <option value="9">9%</option>
@@ -789,7 +845,7 @@ const TITLES: Record<NewKind, string> = {
   doc_sheet: 'New Agera.calc document',
   doc_slides: 'New Agera.slides document',
   doc_mail: 'New Agera.email',
-  memo: 'New Agera Memo',
+  memo: 'Agera Memo',
   automation: 'New automation',
   user_invite: 'Invite a person',
   organisation: 'New organisation',

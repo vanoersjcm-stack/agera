@@ -38,7 +38,7 @@ function InvoiceDrawer({ invoice, onClose, onChanged }: { invoice: Invoice; onCl
       {data && data.length === 0 && <p className="muted">{t("This invoice was recorded with one amount, without lines.")}</p>}
       {data && data.length > 0 && (
         <table className="grid">
-          <thead><tr><th>{t("Line")}</th><th className="num">{t("Qty")}</th><th className="num">{t("Amount")}</th></tr></thead>
+          <thead><tr><th>{t("Line")}</th><th className="num">{t("Qty")}</th><th className="num">{t("VAT %")}</th><th className="num">{t("Amount")}</th></tr></thead>
           <tbody>
             {data.map((l) => {
               const href = link(l.sourceType, l.sourceId);
@@ -46,6 +46,7 @@ function InvoiceDrawer({ invoice, onClose, onChanged }: { invoice: Invoice; onCl
                 <tr key={l.id}>
                   <td>{l.description}<br /><small className="muted">{href ? <a href={href}>{SOURCE[l.sourceType]}</a> : SOURCE[l.sourceType]}</small></td>
                   <td className="num">{formatNumber(Number(l.quantity))} × {money(l.unitPrice)}</td>
+                  <td className="num">{l.vatRate !== null ? `${formatNumber(Number(l.vatRate), 0)}%` : '—'}</td>
                   <td className="num">{money(l.lineTotal)}</td>
                 </tr>
               );

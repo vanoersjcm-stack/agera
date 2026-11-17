@@ -9,8 +9,17 @@ export const ENTITY_CATEGORIES = [
   'client', 'vendor_client', 'vendor_non_client', 'vendor_prospect', 'accountant', 'notary', 'lawyer', 'consultant',
   'shareholder', 'bank', 'insurer', 'agent', 'distributor', 'landlord', 'tenant', 'office_outfitter', 'sister_company',
   'subsidiary', 'office_supplier', 'apparel_supplier', 'apparel_printer', 'taxi_company', 'telecom_domain_provider', 'private',
+  'doctor', 'hospital', 'fire_department', 'emergency_112_191', 'police', 'cleaning_supplier', 'packaging_supplier',
+  'car_rental', 'apparel_merchandiser', 'catering',
 ] as const;
 export type EntityCategory = (typeof ENTITY_CATEGORIES)[number];
+/** Clients and their contacts: visible to every internal role. */
+export const CLIENT_CATEGORIES: readonly EntityCategory[] = ['client', 'vendor_client'];
+/** Emergency and day-to-day suppliers: visible to all internal staff. Other relations are for HQ and platform admins only. */
+export const OPERATIONAL_CATEGORIES: readonly EntityCategory[] = [
+  'doctor', 'hospital', 'fire_department', 'emergency_112_191', 'police', 'cleaning_supplier', 'office_supplier',
+  'packaging_supplier', 'car_rental', 'apparel_merchandiser', 'catering', 'landlord',
+];
 export const ORGANIZATION_TYPES = ['commercial_enterprise', 'sole_proprietor', 'foundation_nonprofit', 'government', 'semi_government'] as const;
 export type OrganizationType = (typeof ORGANIZATION_TYPES)[number];
 export const COMPANY_SIZES = ['SME', 'Mid-Market', 'Large', 'Enterprise'] as const;
@@ -78,6 +87,9 @@ export class Client {
 
   @Column({ type: 'varchar', length: 50, nullable: true })
   phone!: string | null;
+
+  @Column({ type: 'varchar', length: 255, nullable: true })
+  email!: string | null;
 
   /** Private entities are visible only to this user (RLS). */
   @Column({ name: 'created_by', type: 'uuid', nullable: true })

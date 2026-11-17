@@ -105,6 +105,8 @@ export interface CreateOfficeDocument {
 }
 
 export interface MemoInput {
+  /** Sender as printed on the memo; defaults to the signed-in user's full name. */
+  from?: string | null;
   to: string;
   subject: string;
   date: string;
@@ -393,7 +395,7 @@ export class OfficeService {
   /** Blank file, a document template filled with the client's data, or a spreadsheet starter (CSV). */
   private async initialContent(input: CreateOfficeDocument, identity: AuthenticatedUser): Promise<Buffer> {
     if (input.memo && input.format === 'docx') {
-      const from = [identity.firstName, identity.lastName].filter(Boolean).join(' ') || identity.email;
+      const from = input.memo.from?.trim() || [identity.firstName, identity.lastName].filter(Boolean).join(' ') || identity.email;
       return this.convert(Buffer.from(memoHtml(input.memo, from), 'utf8'), 'memo.html', 'docx');
     }
     if (input.html && input.format === 'docx') {

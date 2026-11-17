@@ -30,6 +30,16 @@ export const ENTITY_CATEGORY: Record<EntityCategory, string> = live(() => ({
   taxi_company: tr("Taxi company"),
   telecom_domain_provider: tr("Telecom / domain provider"),
   private: tr("Private (only visible to me)"),
+  doctor: tr("Doctor / GP"),
+  hospital: tr("Hospital"),
+  fire_department: tr("Fire department"),
+  emergency_112_191: tr("Emergency number (112 / 191)"),
+  police: tr("Police"),
+  cleaning_supplier: tr("Cleaning company"),
+  packaging_supplier: tr("Packaging supplier"),
+  car_rental: tr("Car rental"),
+  apparel_merchandiser: tr("Apparel merchandiser"),
+  catering: tr("Catering"),
 }));
 
 export const ORGANIZATION_TYPE: Record<OrganizationType, string> = live(() => ({
@@ -77,7 +87,7 @@ export function ThirdPartiesView({ route }: { route: Route }) {
     category === 'all' ? true : category === 'third' ? !isClientCategory(c.entityCategory) : c.entityCategory === category;
   const filtered = items
     .filter((c) => inCategory(c) && (!type || c.organizationType === type) && (!letter || initial(c.name) === letter)
-      && includesText([c.name, c.legalName, c.city, c.phone, ENTITY_CATEGORY[c.entityCategory]], q))
+      && includesText([c.name, c.legalName, c.city, c.phone, c.email, ENTITY_CATEGORY[c.entityCategory]], q))
     .sort((a, b) => a.name.localeCompare(b.name));
   const present = new Set(items.filter(inCategory).map((c) => initial(c.name)));
   const set = (patch: Record<string, string | null>) => navigate(withParams(route, patch));
@@ -98,7 +108,7 @@ export function ThirdPartiesView({ route }: { route: Route }) {
           <option value="">{tr("All organisation types")}</option>
           {(Object.keys(ORGANIZATION_TYPE) as OrganizationType[]).map((k) => <option key={k} value={k}>{ORGANIZATION_TYPE[k]}</option>)}
         </select>
-        <SearchInput value={q} onChange={(v) => set({ q: v || null })} placeholder={tr("Filter by name, city or phone")} />
+        <SearchInput value={q} onChange={(v) => set({ q: v || null })} placeholder={tr("Filter by name, city, phone or e-mail")} />
       </div>
       <div className="az-filter" role="group" aria-label={tr("First letter")}>
         <button type="button" className={letter === '' ? 'active' : ''} onClick={() => set({ letter: null })}>{tr("All")}</button>
@@ -117,6 +127,7 @@ export function ThirdPartiesView({ route }: { route: Route }) {
               <th>{tr("Organisation type")}</th>
               <th>{tr("City")}</th>
               <th>{tr("Phone")}</th>
+              <th>{tr("Email")}</th>
             </tr>
           </thead>
           <tbody>
@@ -127,6 +138,7 @@ export function ThirdPartiesView({ route }: { route: Route }) {
                 <td>{organizationLabel(c)}</td>
                 <td>{c.city ?? '—'}</td>
                 <td><PhoneLink phone={c.phone} /></td>
+                <td>{c.email ? <a href={`mailto:${c.email}`} onClick={(e) => e.stopPropagation()}>{c.email}</a> : <span className="muted">—</span>}</td>
               </tr>
             ))}
           </tbody>

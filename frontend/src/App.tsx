@@ -45,7 +45,7 @@ import { GoldenThreadTour, startTour } from './tour';
 import { getTheme, setTheme } from './theme';
 import { t, useLanguage, t as tr, tf, live } from './i18n';
 import { DraftDocumentsView, OfficeEditorHost } from './office';
-import { Navigator } from './Navigator';
+import { Navigator, TopbarTools } from './Navigator';
 import { startOfflineSync, useOfflineQueue } from './offlineQueue';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
@@ -633,6 +633,7 @@ export function App() {
             </>
           )}
           <span className="topbar-spacer" />
+          {!external && <TopbarTools user={user} />}
           {!external && <SearchPalette user={user} tier={tier} />}
           {!external && <OfflinePill />}
           {!external && <CreditPill user={user} />}
@@ -645,9 +646,7 @@ export function App() {
             <button type="button" className="back-button" onClick={() => window.history.back()} title={tr("Go back to the previous page")}>
               <span className="back-arrow" aria-hidden>‹</span> {tr("Back")}
             </button>
-            <strong>{tr("Agera Suite")}</strong>
-            <span className="sep" aria-hidden>›</span>
-            <span id="actionbar-crumbs" className="crumbs-slot" data-fallback={external ? 'Client portal' : brand} />
+            <span id="actionbar-crumbs" className="crumbs-slot" />
           </div>
           <div className="actionbar-actions">
             {!external && <ClientPill />}
@@ -661,7 +660,7 @@ export function App() {
             <SideNav items={PORTAL_NAV} path={route.path} heading={tr("Client portal")} />
           ) : (
             <SideNav topics={topicsFor(suite.id, user)} path={route.path} heading={`${brand} · ${suite.tagline}`}>
-              <Navigator user={user} readOnlyTenant={!!tenant?.readOnly} />
+              <Navigator user={user} />
             </SideNav>
           )}
           <main>

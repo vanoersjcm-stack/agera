@@ -490,7 +490,9 @@ export type CreditStatus = 'approved' | 'review_required' | 'locked';
 export type EntityCategory =
   | 'client' | 'vendor_client' | 'vendor_non_client' | 'vendor_prospect' | 'accountant' | 'notary' | 'lawyer' | 'consultant'
   | 'shareholder' | 'bank' | 'insurer' | 'agent' | 'distributor' | 'landlord' | 'tenant' | 'office_outfitter' | 'sister_company'
-  | 'subsidiary' | 'office_supplier' | 'apparel_supplier' | 'apparel_printer' | 'taxi_company' | 'telecom_domain_provider' | 'private';
+  | 'subsidiary' | 'office_supplier' | 'apparel_supplier' | 'apparel_printer' | 'taxi_company' | 'telecom_domain_provider' | 'private'
+  | 'doctor' | 'hospital' | 'fire_department' | 'emergency_112_191' | 'police' | 'cleaning_supplier' | 'packaging_supplier'
+  | 'car_rental' | 'apparel_merchandiser' | 'catering';
 export type OrganizationType = 'commercial_enterprise' | 'sole_proprietor' | 'foundation_nonprofit' | 'government' | 'semi_government';
 export type CompanySize = 'SME' | 'Mid-Market' | 'Large' | 'Enterprise';
 
@@ -515,6 +517,7 @@ export interface Client {
   organizationType: OrganizationType | null;
   companySize: CompanySize | null;
   phone: string | null;
+  email: string | null;
   createdBy: string | null;
   activeAgreements: number;
   activeRooms: number;
@@ -535,7 +538,7 @@ export interface Contact {
 }
 
 export type ClientInput = Pick<Client, 'name' | 'legalName' | 'vatNumber' | 'city' | 'country'> &
-  Partial<Pick<Client, 'kvkNumber' | 'sector' | 'address' | 'paymentTerms' | 'creditLimit' | 'creditStatus' | 'erpId' | 'accountManagerId' | 'entityCategory' | 'organizationType' | 'companySize' | 'phone'>>;
+  Partial<Pick<Client, 'kvkNumber' | 'sector' | 'address' | 'paymentTerms' | 'creditLimit' | 'creditStatus' | 'erpId' | 'accountManagerId' | 'entityCategory' | 'organizationType' | 'companySize' | 'phone' | 'email'>>;
 export type ContactInput = Omit<Contact, 'id' | 'clientId'>;
 
 export interface ClientRecord {
@@ -647,6 +650,8 @@ export interface InvoiceLine {
   quantity: string;
   unitPrice: string;
   lineTotal: string;
+  vatRate: string | null;
+  productId: string | null;
 }
 
 export interface BillableSources {
@@ -660,7 +665,7 @@ export interface GenerateInvoiceInput {
   issueDate: string;
   dueDate: string | null;
   vatRate: string;
-  lines: { sourceType: InvoiceLine['sourceType']; sourceId: string | null; description?: string | null; quantity?: string; unitPrice: string }[];
+  lines: { sourceType: InvoiceLine['sourceType']; sourceId: string | null; description?: string | null; quantity?: string; unitPrice: string; vatRate?: string; productId?: string | null }[];
 }
 
 export interface InvoiceInput {
@@ -1188,7 +1193,7 @@ export interface NewOfficeDocument {
   format: 'docx' | 'xlsx' | 'pptx';
   templateId?: string | null;
   starterCsv?: string | null;
-  memo?: { to: string; subject: string; date: string; body: string; language: 'nl' | 'en' } | null;
+  memo?: { from?: string | null; to: string; subject: string; date: string; body: string; language: 'nl' | 'en' } | null;
 }
 
 export interface EditorSession {

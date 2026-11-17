@@ -109,6 +109,7 @@ export function PreferencesDrawer({ onClose }: { onClose: () => void }) {
         {error && <p className="error" role="alert">{error}</p>}
         {saved && <p className="muted" role="status">{t("Preferences saved.")}</p>}
         <div className="form-actions">
+          <button type="button" className="secondary" onClick={onClose}>{t("Exit")}</button>
           <button className="primary" disabled={!secure}>{t("Save")}</button>
         </div>
       </form>

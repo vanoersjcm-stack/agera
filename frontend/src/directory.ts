@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
-import { api, type ClientStatus, type UserSummary } from './api';
+import { api, type ClientStatus, type EntityCategory, type UserSummary } from './api';
 
 export interface ClientRef {
   clientId: string;
   name: string;
   status: ClientStatus;
+  entityCategory: EntityCategory;
 }
 
 let usersCache: Promise<UserSummary[]> | null = null;
@@ -31,7 +32,7 @@ export function useClients(enabled = true): ClientRef[] {
   useEffect(() => {
     if (!enabled) return;
     clientsCache ??= api.clients().then(
-      (list) => list.map((c) => ({ clientId: c.id, name: c.name, status: c.status })),
+      (list) => list.map((c) => ({ clientId: c.id, name: c.name, status: c.status, entityCategory: c.entityCategory })),
       () => [],
     );
     void clientsCache.then(setClients);

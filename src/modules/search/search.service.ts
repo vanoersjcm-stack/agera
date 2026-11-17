@@ -4,6 +4,8 @@ import { ILike, type Repository } from 'typeorm';
 import { TenantContext } from '../core/tenancy/tenant-context.service.js';
 import { TenantRepository } from '../core/tenancy/tenant-repository.js';
 import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js';
+import type { AuthenticatedUser } from '../auth/authenticated-user.js';
+import { relationVisible } from '../clients/clients.service.js';
 import { Client } from '../clients/entities/client.entity.js';
 import { Store } from '../retailcare/entities/store.entity.js';
 import { Agreement } from '../sales-rooms/entities/agreement.entity.js';
@@ -62,7 +64,7 @@ export class SearchService {
     this.clients = new TenantRepository(clients, context);
   }
 
-  async search(query: string, limitPerType: number): Promise<SearchHit[]> {
+  async search(query: string, limitPerType: number, identity: AuthenticatedUser): Promise<SearchHit[]> {
     const pattern = ILike(containsPattern(query));
     const take = limitPerType;
 
@@ -86,7 +88,7 @@ export class SearchService {
     }));
 
     return [
-      ...clients.map<SearchHit>((c) => ({
+      ...clients.filter((c) => relationVisible(identity, c.entityCategory)).map<SearchHit>((c) => ({
         entityType: 'client',
         id: c.id,
         title: c.name,

@@ -1,4 +1,4 @@
-import { BadRequestException, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type EntityManager, QueryFailedError, type Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
@@ -9,7 +9,8 @@ import { TenantTransaction } from '../core/tenancy/tenant-transaction.service.js
 import { Agreement } from '../sales-rooms/entities/agreement.entity.js';
 import { DigitalSalesRoom } from '../sales-rooms/entities/digital-sales-room.entity.js';
 import { UserService } from '../user/user.service.js';
-import { Client, type ClientStatus, type CompanySize, type CreditStatus, type EntityCategory, type OrganizationType } from './entities/client.entity.js';
+import { jobRoleOf } from '../auth/job-roles.js';
+import { CLIENT_CATEGORIES, Client, type ClientStatus, type CompanySize, type CreditStatus, type EntityCategory, OPERATIONAL_CATEGORIES, type OrganizationType } from './entities/client.entity.js';
 import { Contact } from './entities/contact.entity.js';
 import { type ImportRow, parseImportFile } from './client-import.js';
 
@@ -31,6 +32,17 @@ export interface ClientInput {
   organizationType: OrganizationType | null;
   companySize: CompanySize | null;
   phone: string | null;
+  email: string | null;
+}
+
+/** HQ and platform admins (and accounts without a job role) see every relation; other roles clients and operational ones. */
+export function seesAllRelations(identity: AuthenticatedUser): boolean {
+  const role = jobRoleOf(identity.roles);
+  return role === null || role === 'PLATFORM_ADMIN' || role === 'HQ_ADMIN';
+}
+
+export function relationVisible(identity: AuthenticatedUser, category: EntityCategory): boolean {
+  return seesAllRelations(identity) || category === 'private' || CLIENT_CATEGORIES.includes(category) || OPERATIONAL_CATEGORIES.includes(category);
 }
 
 export type ClientUpdate = Partial<ClientInput> & { status?: ClientStatus };
@@ -153,17 +165,17 @@ export class ClientsService {
     }));
   }
 
-  list(): Promise<ClientSummary[]> {
+  list(identity: AuthenticatedUser): Promise<ClientSummary[]> {
     return this.tx.run(async (manager) => {
-      const clients = await this.clients.withManager(manager).find({ order: { name: 'ASC' } });
+      const clients = (await this.clients.withManager(manager).find({ order: { name: 'ASC' } })).filter((c) => relationVisible(identity, c.entityCategory));
       return this.withStats(manager, clients);
     });
   }
 
-  get(id: string): Promise<ClientRecord> {
+  get(id: string, identity: AuthenticatedUser): Promise<ClientRecord> {
     return this.tx.run(async (manager) => {
       const client = await this.clients.withManager(manager).findOneBy({ id });
-      if (!client) throw new NotFoundException('Client not found');
+      if (!client || !relationVisible(identity, client.entityCategory)) throw new NotFoundException('Client not found');
       const [summary] = await this.withStats(manager, [client]);
       const contacts = await this.contacts.withManager(manager).find({
         where: { clientId: id },
@@ -187,6 +199,7 @@ export class ClientsService {
   async create(input: ClientInput, identity: AuthenticatedUser): Promise<ClientSummary> {
     const actor = await this.userService.resolveActor(identity);
     await this.assertAccountManager(input.accountManagerId);
+    if (!relationVisible(identity, input.entityCategory)) throw new ForbiddenException('Only HQ and platform admins manage this kind of relation');
     const client = await this.tx.run(async (manager) => {
       const repository = this.clients.withManager(manager);
       const saved = await this.saveUnique(() => repository.save(repository.create({ ...input, createdBy: actor.id })));
@@ -203,7 +216,8 @@ export class ClientsService {
     const client = await this.tx.run(async (manager) => {
       const repository = this.clients.withManager(manager);
       const current = await repository.findOneBy({ id });
-      if (!current) throw new NotFoundException('Client not found');
+      if (!current || !relationVisible(identity, current.entityCategory)) throw new NotFoundException('Client not found');
+      if (changes.entityCategory && !relationVisible(identity, changes.entityCategory)) throw new ForbiddenException('Only HQ and platform admins manage this kind of relation');
       Object.assign(current, changes);
       await this.saveUnique(() => repository.save(current));
       const reloaded = await repository.findOneBy({ id });

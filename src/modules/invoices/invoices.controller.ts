@@ -47,6 +47,8 @@ export class InvoiceLineInputDto {
   @ApiProperty({ required: false, nullable: true, type: String, description: 'Defaults to the agreement title or the store and visit date' }) description?: string | null;
   @ApiProperty({ required: false, example: '1' }) quantity?: string;
   @ApiProperty({ example: '450.00' }) unitPrice!: string;
+  @ApiProperty({ required: false, example: '21', description: "Defaults to the invoice's vatRate" }) vatRate?: string;
+  @ApiProperty({ required: false, nullable: true, format: 'uuid', description: 'Product from the catalogue (free lines); the description defaults to its name' }) productId?: string | null;
 }
 
 export class GenerateInvoiceDto {
@@ -74,7 +76,14 @@ function generateFields(raw: Record<string, unknown>): GenerateInvoiceInput {
     if (sourceType !== 'manual' && !isUuid(sourceId)) throw new BadRequestException('sourceId must be the agreement or store visit id (UUID)');
     const quantity = amount('quantity', l.quantity ?? '1');
     if (Number(quantity) <= 0) throw new BadRequestException('quantity must be more than 0');
-    return { sourceType, sourceId: (sourceId as string | null) ?? null, description: optionalString('description', l.description, 255)?.trim() || null, quantity, unitPrice: amount('unitPrice', l.unitPrice) };
+    const lineVat = l.vatRate === undefined || l.vatRate === null || l.vatRate === '' ? vatRate : amount('vatRate', l.vatRate);
+    if (Number(lineVat) > 100) throw new BadRequestException('vatRate must be between 0 and 100');
+    const productId = l.productId === undefined || l.productId === null || l.productId === '' ? null : l.productId;
+    if (productId !== null && (sourceType !== 'manual' || !isUuid(productId))) throw new BadRequestException('productId must be a product id (UUID) on a free line');
+    return {
+      sourceType, sourceId: (sourceId as string | null) ?? null, description: optionalString('description', l.description, 255)?.trim() || null,
+      quantity, unitPrice: amount('unitPrice', l.unitPrice), vatRate: lineVat, productId: productId as string | null,
+    };
   });
   return { clientId: raw.clientId, description: optionalString('description', raw.description, 255)?.trim() || null, issueDate, dueDate, vatRate, lines };
 }

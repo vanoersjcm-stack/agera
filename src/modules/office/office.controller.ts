@@ -212,6 +212,7 @@ function memoInput(value: unknown): MemoInput | null {
   if (value === undefined || value === null) return null;
   const raw = asObject(value);
   return {
+    from: optionalString('memo.from', raw.from, 200)?.trim() || null,
     to: requiredString('memo.to', raw.to, 200),
     subject: requiredString('memo.subject', raw.subject, 200),
     date: requiredString('memo.date', raw.date, 40),

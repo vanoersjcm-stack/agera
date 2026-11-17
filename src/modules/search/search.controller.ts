@@ -1,5 +1,7 @@
 import { BadRequestException, Controller, DefaultValuePipe, Get, ParseIntPipe, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiProperty, ApiQuery, ApiTags } from '@nestjs/swagger';
+import type { AuthenticatedUser } from '../auth/authenticated-user.js';
+import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
 import { SEARCH_ENTITY_TYPES, type SearchEntityType, type SearchHit, SearchService } from './search.service.js';
 
@@ -43,6 +45,7 @@ export class SearchController {
   async search(
     @Query('q') q: string | undefined,
     @Query('limit', new DefaultValuePipe(5), ParseIntPipe) limit: number,
+    @CurrentUser() identity: AuthenticatedUser,
   ): Promise<SearchHit[]> {
     const query = (q ?? '').trim();
     if (query.length < MIN_QUERY_LENGTH || query.length > MAX_QUERY_LENGTH) {
@@ -51,6 +54,6 @@ export class SearchController {
     if (limit < 1 || limit > MAX_LIMIT) {
       throw new BadRequestException(`limit must be between 1 and ${MAX_LIMIT}`);
     }
-    return this.searchService.search(query, limit);
+    return this.searchService.search(query, limit, identity);
   }
 }

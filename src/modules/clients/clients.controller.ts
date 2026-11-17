@@ -30,6 +30,7 @@ export class ClientInputDto {
   @ApiProperty({ required: false, nullable: true, enum: ORGANIZATION_TYPES }) organizationType?: OrganizationType | null;
   @ApiProperty({ required: false, nullable: true, enum: COMPANY_SIZES, description: 'Only for commercial_enterprise' }) companySize?: CompanySize | null;
   @ApiProperty({ required: false, nullable: true, type: String }) phone?: string | null;
+  @ApiProperty({ required: false, nullable: true, type: String }) email?: string | null;
 }
 
 export class ClientUpdateDto extends ClientInputDto {
@@ -58,6 +59,7 @@ export class ClientDto {
   @ApiProperty({ type: String, nullable: true, enum: ORGANIZATION_TYPES }) organizationType!: OrganizationType | null;
   @ApiProperty({ type: String, nullable: true, enum: COMPANY_SIZES }) companySize!: CompanySize | null;
   @ApiProperty({ type: String, nullable: true }) phone!: string | null;
+  @ApiProperty({ type: String, nullable: true }) email!: string | null;
   @ApiProperty({ type: String, nullable: true, format: 'uuid' }) createdBy!: string | null;
   @ApiProperty() activeAgreements!: number;
   @ApiProperty() activeRooms!: number;
@@ -132,6 +134,11 @@ function clientFields(raw: Record<string, unknown>, partial: boolean): ClientUpd
   if (!partial || raw.companySize !== undefined) out.companySize = raw.companySize == null || raw.companySize === '' ? null : oneOf('companySize', raw.companySize, COMPANY_SIZES);
   if (out.companySize && out.organizationType !== undefined && out.organizationType !== 'commercial_enterprise') throw new BadRequestException('companySize only applies to commercial_enterprise');
   if (!partial || raw.phone !== undefined) out.phone = optionalString('phone', raw.phone, 50)?.trim() || null;
+  if (!partial || raw.email !== undefined) {
+    const email = optionalString('email', raw.email, 255)?.trim().toLowerCase() || null;
+    if (email !== null && !EMAIL.test(email)) throw new BadRequestException('email must be a valid e-mail address');
+    out.email = email;
+  }
   if (raw.status !== undefined) {
     if (!partial || !CLIENT_STATUSES.includes(raw.status as ClientStatus)) {
       throw new BadRequestException(`status must be one of ${CLIENT_STATUSES.join(', ')}`);
@@ -171,14 +178,15 @@ export class ClientsController {
   constructor(private readonly clients: ClientsService) {}
 
   @Get()
-  @ApiOperation({ summary: 'Clients of the active tenant with active agreements, active rooms and contract value' })
+  @ApiOperation({ summary: 'Clients and third parties of the active tenant with active agreements, active rooms and contract value', description: 'Account managers and field representatives see clients and operational relations (emergency services, day-to-day suppliers) only.' })
   @ApiOkResponse({ type: [ClientDto] })
-  list(): Promise<ClientSummary[]> {
-    return this.clients.list();
+  list(@CurrentUser() identity: AuthenticatedUser): Promise<ClientSummary[]> {
+    return this.clients.list(identity);
   }
 
   @Post()
-  @ApiOperation({ summary: 'Create a client company (audit: client.created)' })
+  @AllowJobRoles('HQ_ADMIN', 'ACCOUNT_MANAGER')
+  @ApiOperation({ summary: 'Create a client company or third party (audit: client.created)', description: 'Account managers may create clients and operational relations only.' })
   @ApiBody({ type: ClientInputDto })
   @ApiCreatedResponse({ type: ClientDto })
   @ApiErrors(400)
@@ -210,11 +218,12 @@ export class ClientsController {
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiOkResponse({ type: ClientRecordDto })
   @ApiErrors(400, 404)
-  get(@Param('id', ParseUUIDPipe) id: string): Promise<ClientRecord> {
-    return this.clients.get(id);
+  get(@Param('id', ParseUUIDPipe) id: string, @CurrentUser() identity: AuthenticatedUser): Promise<ClientRecord> {
+    return this.clients.get(id, identity);
   }
 
   @Patch(':id')
+  @AllowJobRoles('HQ_ADMIN', 'ACCOUNT_MANAGER')
   @ApiOperation({ summary: 'Update client details or archive/reactivate it (audit: client.updated)' })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiBody({ type: ClientUpdateDto })

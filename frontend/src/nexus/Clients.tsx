@@ -9,7 +9,6 @@ import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, Tabs, useAction, useLoad } from '../ui';
-import { recordClientView } from '../Navigator';
 import { ClientImportDrawer } from './ClientImport';
 import { COMPANY_SIZES, ENTITY_CATEGORY, isClientCategory, ORGANIZATION_TYPE, organizationLabel, PhoneLink } from './ThirdParties';
 import { userContext } from '../context';
@@ -118,6 +117,7 @@ function EditClientDrawer({ client, onClose, onSaved }: { client: Client; onClos
     organizationType: client.organizationType ?? '',
     companySize: client.companySize ?? '',
     phone: client.phone ?? '',
+    email: client.email ?? '',
   });
   const users = useUsers();
   const { busy, error, run } = useAction();
@@ -144,6 +144,7 @@ function EditClientDrawer({ client, onClose, onSaved }: { client: Client; onClos
         organizationType: (form.organizationType || null) as OrganizationType | null,
         companySize: form.organizationType === 'commercial_enterprise' ? ((form.companySize || null) as CompanySize | null) : null,
         phone: opt(form.phone),
+        email: opt(form.email),
       }),
     ).then((r) => r && onSaved());
   };
@@ -171,6 +172,7 @@ function EditClientDrawer({ client, onClose, onSaved }: { client: Client; onClos
           </Field>
         )}
         <Field label={tr("Phone")}><input type="tel" maxLength={50} value={form.phone} onChange={set('phone')} /></Field>
+        <Field label={tr("Email")}><input type="email" maxLength={255} value={form.email} onChange={set('email')} /></Field>
         <Field label={tr("Legal name")}><input maxLength={200} value={form.legalName} onChange={set('legalName')} /></Field>
         <Field label={tr("VAT number")}><input maxLength={50} value={form.vatNumber} onChange={set('vatNumber')} /></Field>
         <Field label={tr("City")}><input maxLength={100} value={form.city} onChange={set('city')} /></Field>
@@ -310,10 +312,6 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
   const action = useAction();
   const invoices = useLoad(() => api.clientInvoices(id), [id]);
   const tab = route.params.get('tab') ?? 'overview';
-  const clientName = data?.client.name;
-  useEffect(() => {
-    if (clientName) recordClientView(id, clientName);
-  }, [id, clientName]);
   if (!data) {
     return (
       <ViewFrame title={tr("Client")} crumbs={[SUITE, LIST, { label: tr("Loading…") }]}>
@@ -390,6 +388,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
               ['Category', ENTITY_CATEGORY[client.entityCategory] ?? client.entityCategory],
               ['Organisation type', organizationLabel(client)],
               ['Phone', <PhoneLink phone={client.phone} />],
+              ['Email', client.email ? <a href={`mailto:${client.email}`}>{client.email}</a> : '—'],
               ['Sector', client.sector ?? '—'],
               ['Address', [client.address, client.city, client.country].filter(Boolean).join(', ') || '—'],
               ['Client since', formatDate(client.createdAt)],

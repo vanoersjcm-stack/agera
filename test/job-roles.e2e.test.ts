@@ -43,11 +43,12 @@ describe('job roles (sec-2)', () => {
     assert.equal((await api(manager, 'POST', '/v1/operations/rma', {})).status, 403);
   });
 
-  it('HQ_ADMIN runs Symphony, reads Nexus and signs off RetailPower operations', async () => {
+  it('HQ_ADMIN runs Symphony, manages relations, reads the rest of Nexus and signs off RetailPower operations', async () => {
     for (const path of ['/audit-logs', '/v1/governance/credit-holds', '/users/accounts', '/v1/deals', '/stores']) {
       assert.equal((await api(hq, 'GET', path)).status, 200, path);
     }
-    assert.equal((await api(hq, 'POST', '/v1/clients', { name: 'Not allowed' })).status, 403);
+    assert.equal((await api(hq, 'POST', '/v1/clients', { name: `HQ relation ${Date.now()}`, entityCategory: 'bank' })).status, 201, 'HQ admins manage third parties');
+    assert.equal((await api(hq, 'POST', '/v1/deals', { title: 'Not allowed' })).status, 403);
     assert.notEqual((await api(hq, 'PATCH', `/v1/operations/shifts/${UNKNOWN}/validation`, { status: 'approved' })).status, 403);
     assert.equal((await api(hq, 'GET', '/tenants')).status, 403);
     assert.equal((await api(hq, 'GET', '/api-keys')).status, 200, 'integrations are readable');

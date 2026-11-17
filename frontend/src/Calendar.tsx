@@ -68,9 +68,9 @@ export function CalendarView({ route }: { route: Route }) {
 
   return (
     <ViewFrame
-      title={t("Calendar")}
+      title={t("Agenda")}
       subtitle={title}
-      crumbs={[{ label: t("Calendar") }]}
+      crumbs={[{ label: t("Agenda") }]}
       actions={
         <>
           <button className="secondary" onClick={() => go({ date: dayKey(shift(mode, anchor, -1)) })} aria-label={t("Previous")}>‹</button>
