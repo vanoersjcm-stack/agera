@@ -227,7 +227,16 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
     <ViewFrame
       title={r.roomName}
       subtitle={<>
-        <StatusBadge status={r.status} label={ROOM_STATUS[r.status]} /> {!external && <span className="external-pill">{tr("External client facing")}</span>}
+        {external ? <StatusBadge status={r.status} label={ROOM_STATUS[r.status]} /> : (
+          <button type="button" className="pill-button" title={r.status === 'active' ? tr("Archive room") : tr("Reactivate room")} disabled={action.busy} onClick={toggle}>
+            <StatusBadge status={r.status} label={ROOM_STATUS[r.status]} />
+          </button>
+        )}{' '}
+        {!external && (
+          <button type="button" className="pill-button external-pill" title={tr("Show all client rooms with this status")} onClick={() => navigate(`/nexus/client-rooms${r.status === 'active' ? '' : `?status=${r.status}`}`)}>
+            {tr("External client facing")}
+          </button>
+        )}
       </>}
       crumbs={[c.suite, c.list, { label: r.roomName }]}
       actions={

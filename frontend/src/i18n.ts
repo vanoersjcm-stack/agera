@@ -1441,6 +1441,7 @@ const NL: Record<string, string> = {
   "OK": "OK",
   "And {count} more rows": "En nog {count} regels",
   "Import {count} prices": "{count} prijzen importeren",
+  "Show all client rooms with this status": "Alle klantruimtes met deze status tonen",
 };
 const DICTIONARIES: Partial<Record<Language, Record<string, string>>> = { nl: NL };
 

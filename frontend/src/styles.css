@@ -607,6 +607,9 @@ body { -webkit-font-smoothing: antialiased; color: var(--text); }
 .questionnaire-q { display: grid; gap: 0.4rem; }
 .questionnaire-q > label { font-weight: 600; color: var(--text); }
 .questionnaire .required { color: var(--tone-red); }
+.pill-button { background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
+button.pill-button.external-pill { padding: 0.1rem 0.55rem; }
+.pill-button:hover { filter: brightness(0.92); }
 .deal-form { display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: center; margin: 0.5rem 0; }
 .deal-form label { display: inline-flex; align-items: center; gap: 0.4rem; }
 .deal-form input:not([type=checkbox]) { flex: 1 1 14rem; }
