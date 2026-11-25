@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { attentionLine, formalName, salutation } from '../clients/salutation.js';
 import type { EntityManager } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { AuditService } from '../core/audit/audit.service.js';
@@ -182,7 +183,9 @@ export class CommercialService {
       if (!room && target.clientId && !client) throw new NotFoundException('Client not found');
       const [contact] = client
         ? await m.query(
-            `SELECT COALESCE(NULLIF(btrim(concat_ws(' ', first_name, last_name)), ''), email) AS name, first_name, email FROM contacts WHERE tenant_id = $1 AND client_id = $2 ORDER BY is_primary DESC, created_at LIMIT 1`,
+            `SELECT COALESCE(NULLIF(btrim(concat_ws(' ', first_name, surname_prefix, last_name)), ''), email) AS name, first_name AS "firstName", email,
+                    last_name AS "lastName", academic_title_prefix AS "academicTitlePrefix", initials, surname_prefix AS "surnamePrefix",
+                    academic_title_suffix AS "academicTitleSuffix", gender, salutation_mode AS "salutationMode", letter_language AS "letterLanguage" FROM contacts WHERE tenant_id = $1 AND client_id = $2 ORDER BY is_primary DESC, created_at LIMIT 1`,
             [this.t, client.id],
           )
         : [];
@@ -201,7 +204,9 @@ export class CommercialService {
       const values: Record<string, string | null | undefined> = {
         'client.name': client?.name, 'client.legalName': client?.legal_name, 'client.kvk': client?.kvk_number, 'client.vat': client?.vat_number,
         'client.address': client?.address, 'client.city': client?.city, 'client.paymentTerms': client?.payment_terms,
-        'contact.name': contact?.name, 'contact.firstName': contact?.first_name, 'contact.email': contact?.email, primary_contact_name: contact?.name, 'room.name': room?.room_name, 'agreement.title': room?.agreement_title,
+        'contact.name': contact?.name, 'contact.firstName': contact?.firstName,
+        salutation: contact ? salutation(contact, contact.letterLanguage) : null, 'contact.salutation': contact ? salutation(contact, contact.letterLanguage) : null,
+        'contact.attention': contact ? attentionLine(contact, contact.letterLanguage) : null, 'contact.formalName': contact ? formalName(contact) : null, 'contact.email': contact?.email, primary_contact_name: contact?.name, 'room.name': room?.room_name, 'agreement.title': room?.agreement_title,
         'user.name': me?.name, today: new Date().toISOString().slice(0, 10), priceList: priceList || null,
       };
       const missing = new Set<string>();

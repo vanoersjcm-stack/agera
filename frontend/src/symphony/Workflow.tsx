@@ -8,7 +8,7 @@ import { formatDate, formatDateTime } from '../labels';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { type NewDefaults, useShell } from '../shell';
-import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, Loading, StatusBadge, useAction, useLoad } from '../ui';
+import { DetailList, Drawer, ErrorText, Field, FilterChips, FormActions, includesText, Loading, SearchInput, StatusBadge, useAction, useLoad } from '../ui';
 import { t as tr, tf, live } from '../i18n';
 
 const APPROVAL_STATUS: Record<string, string> = live(() => ({ pending: tr("Pending"), approved: tr("Approved"), rejected: tr("Rejected"), cancelled: tr("Withdrawn") }));
@@ -63,10 +63,10 @@ function RequestApprovalDrawer({ entityType, entityId, onClose, onDone }: { enti
 }
 
 /** Approval status on a plan or agreement page, with "Send for approval". */
-export function ApprovalPanel({ entityType, entityId, canRequest, onChanged }: { entityType: ApprovalEntity; entityId: string; canRequest: boolean; onChanged?: () => void }) {
+export function ApprovalPanel({ entityType, entityId, canRequest, onChanged, startOpen = false }: { entityType: ApprovalEntity; entityId: string; canRequest: boolean; onChanged?: () => void; startOpen?: boolean }) {
   const { notify } = useShell();
   const list = useLoad(() => api.approvals({ entityId }), [entityId]);
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(startOpen && canRequest);
   const latest = list.data?.[0];
   const pending = latest?.status === 'pending';
   if (!latest && !canRequest) return null;
@@ -87,7 +87,7 @@ export function ApprovalPanel({ entityType, entityId, canRequest, onChanged }: {
           <ol className="chain">{latest.steps.map((s) => <li key={s.id} className={`step-${s.decision}`}>{s.approverName}: {s.decision === 'pending' ? (latest.currentApproverId === s.approverId ? tr("to decide") : 'waiting') : s.decision}{s.comment ? ` – “${s.comment}”` : ''}</li>)}</ol>
         </>
       )}
-      {open && <RequestApprovalDrawer entityType={entityType} entityId={entityId} onClose={() => setOpen(false)} onDone={() => (setOpen(false), notify(tr("Sent for approval")), list.reload(), onChanged?.())} />}
+      {open && <RequestApprovalDrawer entityType={entityType} entityId={entityId} onClose={() => setOpen(false)} onDone={() => (setOpen(false), notify(tr("Sent for approval")), list.reload(), onChanged?.(), startOpen && navigate('/symphony/approvals?show=pending'))} />}
     </div>
   );
 }
@@ -95,20 +95,26 @@ export function ApprovalPanel({ entityType, entityId, canRequest, onChanged }: {
 export function ApprovalsView({ route }: { route: Route }) {
   const show = route.params.get('show') ?? 'mine';
   const list = useLoad(() => api.approvals(show === 'mine' ? { mine: true } : show === 'pending' ? { status: 'pending' } : {}), [show]);
+  const q = route.params.get('q') ?? '';
+  const clientFilter = useClientFilter();
+  const rows = (list.data ?? []).filter((a) => matchesClient(clientFilter, a.clientId) && includesText([a.entityLabel, a.clientName, ENTITY[a.entityType], a.requestedByName], q));
   return (
     <ViewFrame title={tr("Approvals")} subtitle={tr("Plans, agreements and invoices going through an approval chain")} crumbs={[{ label: tr("Symphony"), href: '#/symphony' }, { label: tr("Approvals") }]}>
       <div className="list-toolbar">
         <FilterChips value={show} onChange={(v) => navigate(withParams(route, { show: v === 'mine' ? null : v }))} chips={[{ value: 'mine', label: tr("Waiting for me") }, { value: 'pending', label: tr("All pending") }, { value: 'all', label: tr("All") }]} />
+        <SearchInput value={q} onChange={(v) => navigate(withParams(route, { q: v || null }))} placeholder={tr("Filter by record, client or requester")} />
       </div>
       {!list.data && <Loading error={list.error} />}
       {list.data?.length === 0 && <EmptyState title={show === 'mine' ? tr("Nothing waiting for you") : tr("No approval requests")}>{tr("Use “Send for approval” on a draft financial plan, an agreement awaiting approval or a draft invoice.")}</EmptyState>}
-      {list.data && list.data.length > 0 && (
+      {list.data && list.data.length > 0 && rows.length === 0 && <EmptyState title={tr("No approval requests match this filter")} />}
+      {rows.length > 0 && (
         <table className="grid clickable">
-          <thead><tr><th>{tr("Record")}</th><th>{tr("Type")}</th><th>{tr("Requested")}</th><th>{tr("Next approver")}</th><th>{tr("Status")}</th></tr></thead>
+          <thead><tr><th>{tr("Record")}</th><th>{tr("Client / relation")}</th><th>{tr("Type")}</th><th>{tr("Requested")}</th><th>{tr("Next approver")}</th><th>{tr("Status")}</th></tr></thead>
           <tbody>
-            {list.data.map((a) => (
+            {rows.map((a) => (
               <tr key={a.id} onClick={() => navigate(`/symphony/approvals/${a.id}`)}>
                 <td><a href={`#/symphony/approvals/${a.id}`}>{a.entityLabel}</a></td>
+                <td>{a.clientId ? <a href={`#/symphony/clients/${a.clientId}`} onClick={(e) => e.stopPropagation()}>{a.clientName}</a> : '—'}</td>
                 <td>{ENTITY[a.entityType]}</td>
                 <td>{formatDate(a.createdAt)}<div className="muted small">{a.requestedByName ?? '—'}</div></td>
                 <td>{a.steps.find((s) => s.approverId === a.currentApproverId)?.approverName ?? '—'}</td>

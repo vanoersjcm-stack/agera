@@ -77,8 +77,13 @@ export class WorkflowService {
   private async loadApproval(m: EntityManager, id: string): Promise<Record<string, unknown>> {
     const [r] = await m.query(
       `SELECT r.id, r.entity_type AS "entityType", r.entity_id AS "entityId", r.entity_label AS "entityLabel", r.note, r.status,
-              r.requested_by AS "requestedById", ${PERSON('u')} AS "requestedByName", r.created_at AS "createdAt", r.decided_at AS "decidedAt"
-         FROM approval_requests r LEFT JOIN users u ON u.id = r.requested_by WHERE r.tenant_id = $1 AND r.id = $2`,
+              r.requested_by AS "requestedById", ${PERSON('u')} AS "requestedByName", r.created_at AS "createdAt", r.decided_at AS "decidedAt",
+              c.id AS "clientId", c.name AS "clientName"
+         FROM approval_requests r LEFT JOIN users u ON u.id = r.requested_by
+         LEFT JOIN invoices i ON r.entity_type = 'invoice' AND i.tenant_id = r.tenant_id AND i.id = r.entity_id
+         LEFT JOIN agreements a ON r.entity_type = 'agreement' AND a.tenant_id = r.tenant_id AND a.id = r.entity_id
+         LEFT JOIN clients c ON c.tenant_id = r.tenant_id AND c.id = COALESCE(i.client_id, a.client_id)
+        WHERE r.tenant_id = $1 AND r.id = $2`,
       [this.t, id],
     );
     if (!r) throw new NotFoundException('Approval request not found');

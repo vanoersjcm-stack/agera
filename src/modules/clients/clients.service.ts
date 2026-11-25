@@ -1,4 +1,5 @@
 import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import type { Gender, LetterLanguage, SalutationMode } from './salutation.js';
 import { InjectRepository } from '@nestjs/typeorm';
 import { type EntityManager, QueryFailedError, type Repository } from 'typeorm';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
@@ -55,6 +56,13 @@ export interface ContactInput {
   phone: string | null;
   roleTitle: string | null;
   isPrimary: boolean;
+  academicTitlePrefix?: string | null;
+  initials?: string | null;
+  surnamePrefix?: string | null;
+  academicTitleSuffix?: string | null;
+  gender?: Gender;
+  salutationMode?: SalutationMode;
+  letterLanguage?: LetterLanguage;
 }
 
 export interface ClientSummary extends Client {

@@ -27,6 +27,27 @@ export class Contact {
   @Column({ name: 'role_title', type: 'varchar', length: 150, nullable: true })
   roleTitle!: string | null;
 
+  @Column({ name: 'academic_title_prefix', type: 'varchar', length: 40, nullable: true })
+  academicTitlePrefix!: string | null;
+
+  @Column({ type: 'varchar', length: 20, nullable: true })
+  initials!: string | null;
+
+  @Column({ name: 'surname_prefix', type: 'varchar', length: 30, nullable: true })
+  surnamePrefix!: string | null;
+
+  @Column({ name: 'academic_title_suffix', type: 'varchar', length: 40, nullable: true })
+  academicTitleSuffix!: string | null;
+
+  @Column({ type: 'varchar', length: 10, default: 'unknown' })
+  gender!: 'male' | 'female' | 'unknown';
+
+  @Column({ name: 'salutation_mode', type: 'varchar', length: 10, default: 'formal' })
+  salutationMode!: 'formal' | 'informal';
+
+  @Column({ name: 'letter_language', type: 'varchar', length: 2, default: 'nl' })
+  letterLanguage!: 'nl' | 'en' | 'de' | 'fr';
+
   @Column({ name: 'is_primary', type: 'boolean', default: false })
   isPrimary!: boolean;
 

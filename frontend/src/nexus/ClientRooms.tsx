@@ -190,7 +190,7 @@ function ActionPlanPanel({ roomId, external, active }: { roomId: string; externa
             <option value="internal">{tr("Agera team")}</option>
             <option value="client">{tr("Client")}</option>
           </select>
-          <input type="date" aria-label={tr("Due date")} value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
+          <input type="date" min={new Date().toLocaleDateString('sv-SE')} aria-label={tr("Due date")} value={form.dueDate} onChange={(e) => setForm({ ...form, dueDate: e.target.value })} />
           <button className="primary" disabled={action.busy}>{tr("Add step")}</button>
         </form>
       )}

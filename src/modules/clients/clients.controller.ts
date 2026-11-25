@@ -1,4 +1,5 @@
 import { BadRequestException, Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, UploadedFile, UseFilters, UseInterceptors } from '@nestjs/common';
+import { GENDERS, LETTER_LANGUAGES, SALUTATION_MODES } from './salutation.js';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { AllowJobRoles } from '../auth/job-roles.js';
 import { UploadExceptionFilter } from '../retailcare/media/upload-exception.filter.js';
@@ -75,6 +76,13 @@ export class ContactInputDto {
   @ApiProperty({ required: false, nullable: true, type: String }) phone?: string | null;
   @ApiProperty({ required: false, nullable: true, type: String }) roleTitle?: string | null;
   @ApiProperty({ required: false, description: 'Only one primary contact per client' }) isPrimary?: boolean;
+  @ApiProperty({ required: false, nullable: true, type: String, example: 'Dr.' }) academicTitlePrefix?: string | null;
+  @ApiProperty({ required: false, nullable: true, type: String, example: 'P.' }) initials?: string | null;
+  @ApiProperty({ required: false, nullable: true, type: String, example: 'van' }) surnamePrefix?: string | null;
+  @ApiProperty({ required: false, nullable: true, type: String, example: 'PhD' }) academicTitleSuffix?: string | null;
+  @ApiProperty({ required: false, enum: GENDERS }) gender?: string;
+  @ApiProperty({ required: false, enum: SALUTATION_MODES, description: 'formal (default) or informal ("Beste Peter,")' }) salutationMode?: string;
+  @ApiProperty({ required: false, enum: LETTER_LANGUAGES, description: 'Language of letters to this contact' }) letterLanguage?: string;
 }
 
 export class ContactDto {
@@ -159,6 +167,14 @@ function contactFields(raw: Record<string, unknown>, partial: boolean): Partial<
     const email = optionalString('email', raw.email, 255)?.trim().toLowerCase() || null;
     if (email !== null && !EMAIL.test(email)) throw new BadRequestException('email must be a valid e-mail address');
     out.email = email;
+  }
+  for (const [key, max] of [['academicTitlePrefix', 40], ['initials', 20], ['surnamePrefix', 30], ['academicTitleSuffix', 40]] as const) {
+    if (raw[key] !== undefined) out[key] = optionalString(key, raw[key], max)?.trim() || null;
+  }
+  for (const [key, values] of [['gender', GENDERS], ['salutationMode', SALUTATION_MODES], ['letterLanguage', LETTER_LANGUAGES]] as const) {
+    if (raw[key] === undefined) continue;
+    if (!(values as readonly unknown[]).includes(raw[key])) throw new BadRequestException(`${key} must be one of ${values.join(', ')}`);
+    (out as Record<string, unknown>)[key] = raw[key];
   }
   if (raw.isPrimary !== undefined) {
     if (typeof raw.isPrimary !== 'boolean') throw new BadRequestException('isPrimary must be a boolean');

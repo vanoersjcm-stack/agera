@@ -4,7 +4,7 @@ import { AllowExternal } from '../auth/allow-external.decorator.js';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
-import { amount, asObject, isUuid, oneOf, optionalDate, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
+import { amount, amsterdamDate, asObject, isUuid, oneOf, optionalDate, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
 import { type DealInput, type DealRecord, DealsService, type DealUpdate, type DealView, type MilestoneInput, MilestonesService, type MilestoneUpdate, type MilestoneView } from './deals.service.js';
 import { DEAL_PRIORITIES, DEAL_STAGES, type DealPriority, type DealStage } from './entities/deal.entity.js';
 import { MILESTONE_OWNER_SIDES, type MilestoneOwnerSide } from './entities/room-milestone.entity.js';
@@ -165,6 +165,7 @@ function milestoneFields(raw: Record<string, unknown>, partial: boolean): Milest
   if (raw.ownerSide !== undefined) out.ownerSide = oneOf('ownerSide', raw.ownerSide, MILESTONE_OWNER_SIDES);
   else if (!partial) out.ownerSide = 'internal';
   if (!partial || raw.dueDate !== undefined) out.dueDate = optionalDate('dueDate', raw.dueDate);
+  if (out.dueDate && out.dueDate < amsterdamDate(new Date())) throw new BadRequestException('dueDate cannot be in the past');
   if (partial && raw.completed !== undefined) {
     if (typeof raw.completed !== 'boolean') throw new BadRequestException('completed must be true or false');
     out.completed = raw.completed;

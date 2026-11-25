@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 import { api, getToken } from './helpers.ts';
 
+const NEXT_YEAR = new Date().getFullYear() + 1;
+
 const C1 = 'c1e00000-0000-4000-8000-000000000001';
 
 interface Deal { id: string; clientId: string; clientName: string; stage: string; value: string; ownerName: string | null; clientRoomId: string | null; history: { fromStage: string | null; toStage: string }[] }
@@ -25,7 +27,7 @@ before(async () => {
 
 describe('/v1/deals', () => {
   it('creates a deal in the first stage with a history entry', async () => {
-    const created = await api<Deal>(alice, 'POST', '/v1/deals', { clientId, title: `Deal ${stamp}`, value: 42000, priority: 'high', dueDate: '2026-12-31' });
+    const created = await api<Deal>(alice, 'POST', '/v1/deals', { clientId, title: `Deal ${stamp}`, value: 42000, priority: 'high', dueDate: `${NEXT_YEAR}-12-31` });
     assert.equal(created.status, 201, JSON.stringify(created.body));
     assert.equal(created.body.stage, 'lead_ingest');
     assert.equal(created.body.value, '42000.00');
@@ -80,7 +82,7 @@ describe('client room action plan', () => {
   });
 
   it('lets internal users add steps for both sides', async () => {
-    const a = await api<Milestone>(alice, 'POST', `/v1/nexus/client-rooms/${roomId}/milestones`, { title: 'Sign NDA', ownerSide: 'client', dueDate: '2026-11-30' });
+    const a = await api<Milestone>(alice, 'POST', `/v1/nexus/client-rooms/${roomId}/milestones`, { title: 'Sign NDA', ownerSide: 'client', dueDate: `${NEXT_YEAR}-11-30` });
     assert.equal(a.status, 201, JSON.stringify(a.body));
     clientStep = a.body.id;
     const b = await api<Milestone>(alice, 'POST', `/v1/nexus/client-rooms/${roomId}/milestones`, { title: 'Send proposal' });

@@ -1,3 +1,4 @@
+import { ContactNameFields, contactNameBody, contactNameForm } from './ContactName';
 import { ClientOfficeDocuments } from '../office';
 import { type FormEvent, type ReactNode, useEffect, useState } from 'react';
 import { api, type Client, type CompanySize, type EntityCategory, type OrganizationType, type ClientRecord, type Invoice, type Contact, type CreditStatus, type RoomActivity } from '../api';
@@ -212,6 +213,7 @@ function EditContactDrawer({ contact, onClose, onSaved }: { contact: Contact; on
     phone: contact.phone ?? '',
   });
   const [isPrimary, setIsPrimary] = useState(contact.isPrimary);
+  const [names, setNames] = useState(contactNameForm(contact));
   const { busy, error, run } = useAction();
   const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
   const submit = (e: FormEvent) => {
@@ -225,6 +227,7 @@ function EditContactDrawer({ contact, onClose, onSaved }: { contact: Contact; on
         email: opt(form.email),
         phone: opt(form.phone),
         isPrimary,
+        ...contactNameBody(names),
       }),
     ).then((r) => r && onSaved());
   };
@@ -233,6 +236,7 @@ function EditContactDrawer({ contact, onClose, onSaved }: { contact: Contact; on
       <form onSubmit={submit}>
         <Field label={tr("First name")}><input required maxLength={100} value={form.firstName} onChange={set('firstName')} autoFocus /></Field>
         <Field label={tr("Last name")}><input maxLength={100} value={form.lastName} onChange={set('lastName')} /></Field>
+        <ContactNameFields value={names} onChange={setNames} />
         <Field label={tr("Job title")}><input maxLength={150} value={form.roleTitle} onChange={set('roleTitle')} /></Field>
         <Field label={tr("E-mail")}><input type="email" maxLength={255} value={form.email} onChange={set('email')} /></Field>
         <Field label={tr("Phone")}><input type="tel" maxLength={50} value={form.phone} onChange={set('phone')} /></Field>

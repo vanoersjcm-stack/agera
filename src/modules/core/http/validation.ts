@@ -83,3 +83,8 @@ export function oneOf<T extends string>(name: string, value: unknown, allowed: r
   if (!allowed.includes(value as T)) throw new BadRequestException(`${name} must be one of ${allowed.join(', ')}`);
   return value as T;
 }
+
+/** Calendar date (YYYY-MM-DD) in the Netherlands, used to refuse dates before today. */
+export function amsterdamDate(d: Date): string {
+  return d.toLocaleDateString('sv-SE', { timeZone: 'Europe/Amsterdam' });
+}

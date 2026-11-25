@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import { before, describe, it } from 'node:test';
 import { api, getToken } from './helpers.ts';
 
+const NEXT_YEAR = new Date().getFullYear() + 1;
+
 let hannah: string, adam: string, fiona: string, victor: string, alice: string;
 let adamId: string, fionaId: string, hannahId: string;
-const from = '2026-12-01T00:00:00.000Z';
-const to = '2026-12-31T00:00:00.000Z';
+const from = `${NEXT_YEAR}-12-01T00:00:00.000Z`;
+const to = `${NEXT_YEAR}-12-31T00:00:00.000Z`;
 
 interface Ev { id: string; title: string; status: string; createdBy: string; attendees: { userId: string; response: string }[]; documents: { id: string; kind: string; title: string }[] }
 interface Item { id: string; kind: string; title: string }
@@ -20,7 +22,7 @@ before(async () => {
 describe('Agera Calendar', () => {
   it('creates an appointment with invitees who see it, respond and get notified', async () => {
     const title = `Quarterly review ${Date.now()}`;
-    const created = await api<Ev>(hannah, 'POST', '/v1/calendar/events', { title, startsAt: '2026-12-10T09:00:00.000Z', endsAt: '2026-12-10T10:00:00.000Z', attendeeIds: [adamId], location: 'HQ' });
+    const created = await api<Ev>(hannah, 'POST', '/v1/calendar/events', { title, startsAt: `${NEXT_YEAR}-12-10T09:00:00.000Z`, endsAt: `${NEXT_YEAR}-12-10T10:00:00.000Z`, attendeeIds: [adamId], location: 'HQ' });
     assert.equal(created.status, 201, JSON.stringify(created.body));
     assert.deepEqual(created.body.attendees.map((a) => a.response), ['pending']);
     const mine = await api<Item[]>(adam, 'GET', `/v1/calendar?from=${from}&to=${to}&scope=mine`);
@@ -31,7 +33,7 @@ describe('Agera Calendar', () => {
     const accepted = await api<Ev>(adam, 'POST', `/v1/calendar/events/${created.body.id}/respond`, { response: 'accepted' });
     assert.equal(accepted.body.attendees[0].response, 'accepted');
     assert.equal((await api(adam, 'PATCH', `/v1/calendar/events/${created.body.id}`, { title: 'Hijack' })).status, 403);
-    const moved = await api<Ev & { startsAt: string }>(hannah, 'PATCH', `/v1/calendar/events/${created.body.id}`, { startsAt: '2026-12-11T09:00:00.000Z', endsAt: '2026-12-11T10:00:00.000Z' });
+    const moved = await api<Ev & { startsAt: string }>(hannah, 'PATCH', `/v1/calendar/events/${created.body.id}`, { startsAt: `${NEXT_YEAR}-12-11T09:00:00.000Z`, endsAt: `${NEXT_YEAR}-12-11T10:00:00.000Z` });
     assert.equal(moved.status, 200, JSON.stringify(moved.body));
     const cancelled = await api<Ev>(hannah, 'POST', `/v1/calendar/events/${created.body.id}/cancel`);
     assert.equal(cancelled.body.status, 'cancelled');
@@ -40,7 +42,7 @@ describe('Agera Calendar', () => {
   });
 
   it('keeps private appointments to the organiser and attendees', async () => {
-    const p = await api<Ev>(hannah, 'POST', '/v1/calendar/events', { title: 'Private 1:1', startsAt: '2026-12-12T09:00:00.000Z', endsAt: '2026-12-12T09:30:00.000Z', visibility: 'private' });
+    const p = await api<Ev>(hannah, 'POST', '/v1/calendar/events', { title: 'Private 1:1', startsAt: `${NEXT_YEAR}-12-12T09:00:00.000Z`, endsAt: `${NEXT_YEAR}-12-12T09:30:00.000Z`, visibility: 'private' });
     assert.equal(p.status, 201);
     const team = await api<Item[]>(adam, 'GET', `/v1/calendar?from=${from}&to=${to}&scope=team`);
     assert.ok(!team.body.some((i) => i.id === p.body.id));
@@ -53,14 +55,14 @@ describe('Agera Calendar', () => {
     assert.ok(visits.body.every((i) => i.kind !== 'milestone'), 'field reps do not see client-room milestones');
     assert.equal((await api(victor, 'GET', `/v1/calendar?from=${from}&to=${to}`)).status, 403);
     assert.equal((await api(hannah, 'GET', `/v1/calendar?from=2026-01-01T00:00:00Z&to=2026-12-31T00:00:00Z`)).status, 400);
-    assert.equal((await api(hannah, 'POST', '/v1/calendar/events', { title: 'x', startsAt: '2026-12-10T10:00:00Z', endsAt: '2026-12-10T09:00:00Z' })).status, 400);
-    assert.equal((await api(hannah, 'POST', '/v1/calendar/events', { title: 'x', startsAt: '2026-12-10T10:00:00Z', endsAt: '2026-12-10T11:00:00Z', attendeeIds: ['00000000-0000-4000-8000-000000000000'] })).status, 400);
+    assert.equal((await api(hannah, 'POST', '/v1/calendar/events', { title: 'x', startsAt: `${NEXT_YEAR}-12-10T10:00:00Z`, endsAt: `${NEXT_YEAR}-12-10T09:00:00Z` })).status, 400);
+    assert.equal((await api(hannah, 'POST', '/v1/calendar/events', { title: 'x', startsAt: `${NEXT_YEAR}-12-10T10:00:00Z`, endsAt: `${NEXT_YEAR}-12-10T11:00:00Z`, attendeeIds: ['00000000-0000-4000-8000-000000000000'] })).status, 400);
     assert.ok(fionaId);
   });
 
   it('links documents and one-click meeting notes that follow the appointment visibility', async (t) => {
     const stamp = Date.now();
-    const team = await api<Ev>(adam, 'POST', '/v1/calendar/events', { title: `Docs ${stamp}`, startsAt: '2026-12-14T09:00:00.000Z', endsAt: '2026-12-14T10:00:00.000Z', attendeeIds: [hannahId] });
+    const team = await api<Ev>(adam, 'POST', '/v1/calendar/events', { title: `Docs ${stamp}`, startsAt: `${NEXT_YEAR}-12-14T09:00:00.000Z`, endsAt: `${NEXT_YEAR}-12-14T10:00:00.000Z`, attendeeIds: [hannahId] });
     assert.equal(team.status, 201);
     assert.deepEqual(team.body.documents, []);
     const doc = await api<{ id: string }>(adam, 'POST', '/v1/documents', { title: `Agenda ${stamp}`, format: 'docx' });
@@ -75,7 +77,7 @@ describe('Agera Calendar', () => {
     assert.equal((await api(hannah, 'DELETE', `/v1/calendar/events/${team.body.id}/documents/${doc.body.id}`)).status, 403, 'only the organiser or whoever linked it removes it');
     assert.equal((await api(adam, 'POST', `/v1/calendar/events/${team.body.id}/documents`, { documentId: 'nope' })).status, 400);
 
-    const priv = await api<Ev>(adam, 'POST', '/v1/calendar/events', { title: `Private docs ${stamp}`, startsAt: '2026-12-15T09:00:00.000Z', endsAt: '2026-12-15T10:00:00.000Z', visibility: 'private', attendeeIds: [hannahId] });
+    const priv = await api<Ev>(adam, 'POST', '/v1/calendar/events', { title: `Private docs ${stamp}`, startsAt: `${NEXT_YEAR}-12-15T09:00:00.000Z`, endsAt: `${NEXT_YEAR}-12-15T10:00:00.000Z`, visibility: 'private', attendeeIds: [hannahId] });
     const doc2 = await api<{ id: string }>(adam, 'POST', '/v1/documents', { title: `Private agenda ${stamp}`, format: 'docx' });
     assert.equal((await api(adam, 'POST', `/v1/calendar/events/${priv.body.id}/documents`, { documentId: doc2.body.id })).status, 201);
     assert.equal((await api(hannah, 'GET', `/v1/documents/${doc2.body.id}`)).status, 200, 'invitees of a private appointment can open its documents');

@@ -138,6 +138,9 @@ export function CalendarView({ route }: { route: Route }) {
   );
 }
 
+/** Today as YYYY-MM-DD in local time; agenda items can't start before it. */
+const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+
 function AppointmentForm({ start, event, asset, onClose, onSaved }: { start: Date; event?: CalendarEvent; asset?: BookableAsset; onClose: () => void; onSaved: (e: CalendarEvent) => void }) {
   const users = useUsers();
   const clients = activeClients(useClients());
@@ -193,7 +196,7 @@ function AppointmentForm({ start, event, asset, onClose, onSaved }: { start: Dat
         <Field label={t("Title")}><input required maxLength={200} value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("e.g. Quarterly review with Jumbo")} /></Field>
         {!event && <PlanningChoice mode={planning} onChange={setPlanning} />}
         <label className="checkbox"><input type="checkbox" checked={allDay} onChange={(e) => setAllDay(e.target.checked)} /> {t("All day")}</label>
-        <Field label={t("Start")}><input required type={allDay ? 'date' : 'datetime-local'} value={allDay ? startsAt.slice(0, 10) : startsAt} onChange={(e) => setStartsAt(allDay ? `${e.target.value}T00:00` : e.target.value)} /></Field>
+        <Field label={t("Start")}><input required min={event ? undefined : allDay ? todayKey() : `${todayKey()}T00:00`} type={allDay ? 'date' : 'datetime-local'} value={allDay ? startsAt.slice(0, 10) : startsAt} onChange={(e) => setStartsAt(allDay ? `${e.target.value}T00:00` : e.target.value)} /></Field>
         <Field label={t("End")}><input required type={allDay ? 'date' : 'datetime-local'} value={allDay ? endsAt.slice(0, 10) : endsAt} onChange={(e) => setEndsAt(allDay ? `${e.target.value}T23:59` : e.target.value)} /></Field>
         <Field label={t("Location")} hint={t("Or type any location")}>
           <select value="" onChange={(e) => pickLocation(e.target.value)} aria-label={t("Choose a location…")}>

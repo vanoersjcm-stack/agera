@@ -4,7 +4,7 @@ import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { AllowJobRoles } from '../auth/job-roles.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
-import { asObject, oneOf, optionalString, optionalUuid, parseTimestamp, requiredString } from '../core/http/validation.js';
+import { amsterdamDate, asObject, oneOf, optionalString, optionalUuid, parseTimestamp, requiredString } from '../core/http/validation.js';
 import { ASSET_CATEGORIES, type AssetInput, AgendaResourcesService, BOOKING_MODES, BUFFERS, LEAVE_DECISIONS, LEAVE_TYPES } from './agenda-resources.service.js';
 import { CALENDAR_SCOPES, CalendarService, type EventInput, NOTE_LANGUAGES, PLANNING_MODES, RESPONSES, ROOM_CONFLICTS, VISIBILITIES, VISIT_CONFLICTS } from './calendar.service.js';
 
@@ -66,6 +66,7 @@ function fields(raw: Record<string, unknown>, partial: boolean): Partial<EventIn
     if (out.optionalIds.some((id) => !(out.attendeeIds ?? []).includes(id))) throw new BadRequestException('optionalIds must also be in attendeeIds');
   }
   if (out.startsAt && out.endsAt && out.endsAt < out.startsAt) throw new BadRequestException('endsAt must be after startsAt');
+  if (out.startsAt && amsterdamDate(out.startsAt) < amsterdamDate(new Date())) throw new BadRequestException('startsAt cannot be in the past');
   return out;
 }
 

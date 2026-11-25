@@ -28,7 +28,7 @@ function badge(i: Invoice) {
 const SOURCE: Record<string, string> = live(() => ({ agreement: t("Agreement"), store_visit: t("Store visit"), manual: t("Free line") }));
 
 /** Lines with their source agreement or store visit, totals and the approval chain. */
-function InvoiceDrawer({ invoice, onClose, onChanged }: { invoice: Invoice; onClose: () => void; onChanged: () => void }) {
+function InvoiceDrawer({ invoice, onClose, onChanged, approve = false }: { invoice: Invoice; onClose: () => void; onChanged: () => void; approve?: boolean }) {
   const { data, error } = useLoad(() => api.invoiceLines(invoice.id), [invoice.id]);
   const link = (sourceType: string, id: string | null) => (sourceType === 'agreement' ? `#/nexus/agreements/${id}` : sourceType === 'store_visit' ? `#/retailpower/store-visits/${id}` : null);
   return (
@@ -61,16 +61,16 @@ function InvoiceDrawer({ invoice, onClose, onChanged }: { invoice: Invoice; onCl
           <tr><th>{t("Total")}</th><th className="num">{money(invoice.totalAmount)}</th></tr>
         </tbody>
       </table>
-      <ApprovalPanel entityType="invoice" entityId={invoice.id} canRequest={invoice.status === 'draft' && invoice.idmsStatus === 'DRAFT'} onChanged={onChanged} />
+      <ApprovalPanel entityType="invoice" entityId={invoice.id} canRequest={invoice.status === 'draft' && invoice.idmsStatus === 'DRAFT'} onChanged={onChanged} startOpen={approve} />
     </Drawer>
   );
 }
 
 /** Invoice table with status actions; shared by Symphony › Invoices and the client dossier. */
-export function InvoiceTable({ invoices, showClient, onChanged }: { invoices: Invoice[]; showClient: boolean; onChanged: () => void }) {
+export function InvoiceTable({ invoices, showClient, onChanged, approveId }: { invoices: Invoice[]; showClient: boolean; onChanged: () => void; approveId?: string | null }) {
   const { notify } = useShell();
   const action = useAction();
-  const [open, setOpen] = useState<Invoice | null>(null);
+  const [open, setOpen] = useState<Invoice | null>(() => invoices.find((i) => i.id === approveId) ?? null);
   const change = (i: Invoice, status: InvoiceStatus) => {
     if (status === 'cancelled' && !window.confirm(tf("Cancel invoice {n}?", { n: i.invoiceNumber }))) return;
     void action.run(() => api.setInvoiceStatus(i.id, status)).then((r) => r && (notify(tf("Invoice {n}: {status}", { n: i.invoiceNumber, status: INVOICE_STATUS[status].toLowerCase() })), onChanged()));
@@ -115,7 +115,7 @@ export function InvoiceTable({ invoices, showClient, onChanged }: { invoices: In
           ))}
         </tbody>
       </table>
-      {open && <InvoiceDrawer invoice={open} onClose={() => setOpen(null)} onChanged={() => (setOpen(null), onChanged())} />}
+      {open && <InvoiceDrawer invoice={open} approve={open.id === approveId} onClose={() => setOpen(null)} onChanged={() => (setOpen(null), onChanged())} />}
     </>
   );
 }
@@ -133,7 +133,10 @@ export function InvoicesView({ route }: { route: Route }) {
   const paidThisYear = items.filter((i) => i.status === 'paid' && i.paidAt?.startsWith(String(year))).reduce((s, i) => s + Number(i.amountExclVat), 0);
   const open = items.filter((i) => i.status === 'issued').reduce((s, i) => s + Number(i.totalAmount), 0);
   return (
-    <ViewFrame title={t("Invoices")} crumbs={[{ label: t("Symphony"), href: '#/symphony' }, { label: t("Invoices") }]} actions={<button className="primary" onClick={() => openNew('invoice')}>{t("+ New invoice")}</button>}>
+    <ViewFrame title={t("Invoices")} crumbs={[{ label: t("Symphony"), href: '#/symphony' }, { label: t("Invoices") }]} actions={<>
+      <button className="primary" onClick={() => openNew('invoice', { generate: '1' })}>{t("+ Generate from agreement / visit")}</button>
+      <button className="secondary" onClick={() => openNew('invoice')}>{t("+ New invoice")}</button>
+    </>}>
       <div className="tiles">
         <div className="tile"><strong>{money(paidThisYear)}</strong><span>{t("Invoiced and paid in")} {year}  {t("(excl. VAT)")}</span></div>
         <div className="tile"><strong>{money(open)}</strong><span>{t("Sent, not yet paid")}</span></div>
@@ -158,7 +161,7 @@ export function InvoicesView({ route }: { route: Route }) {
         <EmptyState title={items.length === 0 ? t("No invoices yet") : t("No invoices match this filter")} action={<button className="primary" onClick={() => openNew('invoice')}>{t("+ New invoice")}</button>}>
           {t("Record invoices here until the ERP connection exists; paid invoices feed the prognosis.")}</EmptyState>
       )}
-      {filtered.length > 0 && <InvoiceTable invoices={filtered} showClient onChanged={reload} />}
+      {filtered.length > 0 && <InvoiceTable key={route.params.get('approve') ?? ''} invoices={filtered} showClient onChanged={reload} approveId={route.params.get('approve')} />}
     </ViewFrame>
   );
 }

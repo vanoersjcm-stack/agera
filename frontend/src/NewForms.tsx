@@ -4,6 +4,7 @@ import { NewPriceListForm, NewTemplateForm } from './nexus/Commercial';
 import { NewSurveyForm } from './nexus/Surveys';
 import { type DocIconKind, NewMailForm, NewSpreadsheetForm, NewTextDocumentForm } from './DocumentCreate';
 import { NewMemoForm, OfficeOrSimple } from './office';
+import { ContactNameFields, contactNameBody, contactNameForm } from './nexus/ContactName';
 import { COMPANY_SIZES, ENTITY_CATEGORY, isClientCategory, ORGANIZATION_TYPE, sortedCategories } from './nexus/ThirdParties';
 import { NewExceptionForm } from './symphony/Workflow';
 import { NewAuditRoundForm, NewCampaignRoundForm, NewFieldOrderForm, NewPlanogramForm, NewProductForm } from './retailpower/Field';
@@ -488,6 +489,7 @@ function ContactForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onS
   const [phone, setPhone] = useState('');
   const [roleTitle, setRoleTitle] = useState('');
   const [isPrimary, setIsPrimary] = useState(false);
+  const [names, setNames] = useState(contactNameForm());
   const { busy, error, submit } = useSubmit(onDone);
   if (activeClients(clients).length === 0 && !defaults.clientId) return <NoClients onCancel={onCancel} onNewClient={() => onSwitch('client')} />;
   const opt = (v: string) => v.trim() || null;
@@ -502,6 +504,7 @@ function ContactForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onS
             phone: opt(phone),
             roleTitle: opt(roleTitle),
             isPrimary,
+            ...contactNameBody(names),
           });
           return { route: `/nexus/clients/${clientId}?tab=contacts`, message: `Contact “${k.firstName}${k.lastName ? ` ${k.lastName}` : ''}” added` };
         })
@@ -521,6 +524,7 @@ function ContactForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onS
       <Field label={tr("Last name")}>
         <input maxLength={100} value={lastName} onChange={(e) => setLastName(e.target.value)} />
       </Field>
+      <ContactNameFields value={names} onChange={setNames} />
       <Field label={tr("Job title")} hint={tr("Optional, e.g. Category manager")}>
         <input maxLength={150} value={roleTitle} onChange={(e) => setRoleTitle(e.target.value)} />
       </Field>
@@ -686,6 +690,7 @@ function InvoiceForm({ defaults, onDone, onCancel, onSwitch }: FormProps & { onS
             vatRate: form.vatRate,
             lines,
           });
+          if (defaults?.generate === '1') return { route: `/symphony/invoices?q=${encodeURIComponent(i.invoiceNumber)}&approve=${i.id}`, message: tf("Draft invoice {n} created. Choose the approvers to submit it.", { n: i.invoiceNumber }) };
           return { route: `/symphony/invoices?q=${encodeURIComponent(i.invoiceNumber)}`, message: tf("Draft invoice {n} created. Open it to send it for approval.", { n: i.invoiceNumber }) };
         })
       }
@@ -874,7 +879,7 @@ export function NewDrawer({
   };
   const props = { defaults, onDone, onCancel: onClose };
   return (
-    <Drawer title={kind === 'client' && defaults.thirdParty === '1' ? tr("New third party") : TITLES[kind]} onClose={onClose}>
+    <Drawer title={kind === 'client' && defaults.thirdParty === '1' ? tr("New third party") : kind === 'invoice' && defaults.generate === '1' ? tr("Generate invoice from agreement / visit") : TITLES[kind]} onClose={onClose}>
       {kind === 'deal' && <DealForm {...props} onSwitch={onSwitch} />}
       {kind === 'invoice' && <InvoiceForm {...props} onSwitch={onSwitch} />}
       {kind === 'work_order' && <WorkOrderForm {...props} />}

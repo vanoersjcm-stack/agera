@@ -220,6 +220,7 @@ export interface ApprovalStep { id: string; stepOrder: number; approverId: strin
 export interface Approval {
   id: string; entityType: ApprovalEntity; entityId: string; entityLabel: string; note: string | null; status: 'pending' | 'approved' | 'rejected' | 'cancelled';
   requestedById: string | null; requestedByName: string | null; createdAt: string; decidedAt: string | null; steps: ApprovalStep[]; currentApproverId: string | null;
+  clientId: string | null; clientName: string | null;
 }
 export type ExceptionSeverity = 'low' | 'medium' | 'high';
 export type ExceptionStatus = 'open' | 'in_progress' | 'resolved';
@@ -535,6 +536,13 @@ export interface Contact {
   phone: string | null;
   roleTitle: string | null;
   isPrimary: boolean;
+  academicTitlePrefix?: string | null;
+  initials?: string | null;
+  surnamePrefix?: string | null;
+  academicTitleSuffix?: string | null;
+  gender?: 'male' | 'female' | 'unknown';
+  salutationMode?: 'formal' | 'informal';
+  letterLanguage?: 'nl' | 'en' | 'de' | 'fr';
 }
 
 export type ClientInput = Pick<Client, 'name' | 'legalName' | 'vatNumber' | 'city' | 'country'> &

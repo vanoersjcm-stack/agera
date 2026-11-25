@@ -982,3 +982,11 @@ tr.row-error td { background: color-mix(in srgb, var(--danger, #c0392b) 12%, tra
 .phone-copy { display: inline-flex; align-items: center; gap: 0.3rem; }
 .phone-copy .selectable { user-select: all; }
 .phone-copy .icon-button { padding: 0 0.3rem; font-size: 0.85rem; }
+/* Nov 25: pinned day headers in the agenda and the leave grid */
+.agenda-grid { overflow: clip; }
+.agenda-head { position: sticky; top: var(--bars-height, 105px); z-index: 20; background: var(--surface-2, var(--surface)); }
+.leave-grid-wrap { max-height: calc(100vh - 220px); overflow: auto; }
+.leave-grid thead th { position: sticky; top: 0; z-index: 20; background: var(--surface); }
+.leave-grid thead th.leave-name { z-index: 21; }
+.contact-name { border: 1px solid var(--border); border-radius: 8px; padding: 0.5rem 0.75rem; margin: 0.5rem 0; }
+.contact-name legend { font-size: 0.8rem; color: var(--muted); padding: 0 0.3rem; }
