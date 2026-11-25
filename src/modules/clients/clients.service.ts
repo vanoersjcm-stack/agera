@@ -42,6 +42,7 @@ export function seesAllRelations(identity: AuthenticatedUser): boolean {
 }
 
 export function relationVisible(identity: AuthenticatedUser, category: EntityCategory): boolean {
+  if (jobRoleOf(identity.roles) === 'FIELD_REPRESENTATIVE') return CLIENT_CATEGORIES.includes(category);
   return seesAllRelations(identity) || category === 'private' || CLIENT_CATEGORIES.includes(category) || OPERATIONAL_CATEGORIES.includes(category);
 }
 

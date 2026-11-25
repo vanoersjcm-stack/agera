@@ -680,7 +680,7 @@ export function FieldCalendarView({ route }: { route: Route }) {
   const reps = [...new Set(week.map((v) => v.fieldRepId))];
   const storeName = (id: string) => stores.data?.items.find((s) => s.id === id)?.name ?? '…';
   return (
-    <ViewFrame title={t("Field calendar")} subtitle={tf("Week of {date} · capacity {n} visits per rep per day", { date: formatDate(monday.toISOString()), n: MAX_VISITS_PER_DAY })} crumbs={[SUITE, { label: t("Field calendar") }]}
+    <ViewFrame title={t("Field agenda")} subtitle={tf("Week of {date} · capacity {n} visits per rep per day", { date: formatDate(monday.toISOString()), n: MAX_VISITS_PER_DAY })} crumbs={[SUITE, { label: t("Field agenda") }]}
       actions={
         <>
           <button className="secondary" onClick={() => navigate(withParams(route, { week: String(offset - 1) }))}>{t("‹ Previous week")}</button>

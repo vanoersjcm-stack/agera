@@ -57,7 +57,7 @@ function navItems(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/symphony/approvals', label: t("Approvals"), description: t("Approval chains waiting for you and all requests") },
         { path: '/symphony/agenda', label: t("Agenda"), description: t("Agenda items, store visits, rounds and milestones in one agenda") },
         { path: '/symphony/health', label: t("Account health"), description: t("Health score and engagement per client") },
-        { path: '/symphony/feedback', label: t("Customer feedback"), description: t("Client NPS and survey results across all accounts") },
+        { path: '/symphony/feedback', label: t("Client feedback"), description: t("Client NPS and survey results across all accounts") },
         { path: '/symphony/automations', label: t("Automations"), description: t("When something happens, notify someone or open an exception") },
         { path: '/symphony/reports', label: t("Reports"), description: t("KPI dashboard, CSV exports and the report builder") },
         { path: '/symphony/clients', label: t("Client dossiers"), description: t("Open360: master data, contacts, contracts and stores per client") },
@@ -110,7 +110,7 @@ function navItems(suite: SuiteId, user: UserContext): NavItem[] {
         { path: '/retailpower/work-orders', label: t("Work orders"), description: t("Client-commissioned execution jobs: assignment and status") },
         { path: '/retailpower/store-visits', label: t("Store visits"), description: t("Plan visits, write reports, add photos") },
         { path: '/retailpower/stores', label: t("Stores"), description: t("Store list and compliance") },
-        { path: '/retailpower/calendar', label: t("Field calendar"), description: t("Visits per rep per day, with capacity warnings") },
+        { path: '/retailpower/calendar', label: t("Field agenda"), description: t("Visits per rep per day, with capacity warnings") },
         { path: '/retailpower/agenda', label: t("Agenda"), description: t("Your agenda items, visits and rounds by day, week or month") },
         { path: '/retailpower/audit-rounds', label: t("Audit rounds"), description: t("Plan visits to many stores with one checklist") },
         { path: '/retailpower/orders', label: t("Field orders"), description: t("Rep logistics and dispatch: store orders and campaign rounds") },
@@ -237,6 +237,15 @@ export function topicsFor(suite: SuiteId, user: UserContext): NavTopic[] {
     label: t(label),
     items: paths.map((p) => byPath.get(p)).filter((i): i is NavItem => !!i),
   }));
+  if (suite === 'symphony') {
+    const add = (topic: TopicId, item: NavItem) => topics.find((tp) => tp.id === topic)?.items.push(item);
+    if (suitesFor(user).some((s) => s.id === 'nexus') && navFor('nexus', user).some((i) => i.path === '/nexus/exceptions')) {
+      add('workflow', { path: '/nexus/exceptions', label: t("Open workflow items"), description: t("Exceptions that still need someone") });
+    }
+    if (byPath.has('/symphony/approvals')) {
+      add('governance', { path: '/symphony/approvals?show=pending', label: t("Status on approvals"), description: t("Approvals waiting for a decision") });
+    }
+  }
   const listed = new Set(TOPICS[suite].flatMap(([, , paths]) => paths));
   const rest = items.filter((i) => !listed.has(i.path));
   if (rest.length) topics[topics.length - 1].items.push(...rest);

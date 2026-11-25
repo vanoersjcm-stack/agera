@@ -527,7 +527,7 @@ export function FeedbackView() {
   const data = useLoad(() => api.feedbackSummary(), []);
   const f = data.data;
   return (
-    <ViewFrame title={tr("Customer feedback")} subtitle={tr("Recommendation score (NPS) from client surveys over the last 90 days")} crumbs={[{ label: tr("Symphony"), href: '#/symphony' }, { label: tr("Customer feedback") }]}
+    <ViewFrame title={tr("Client feedback")} subtitle={tr("Recommendation score (NPS) from client surveys over the last 90 days")} crumbs={[{ label: tr("Symphony"), href: '#/symphony' }, { label: tr("Client feedback") }]}
       actions={<a className="button secondary" href="#/nexus/surveys">{tr("Manage surveys")}</a>}>
       {!f && <Loading error={data.error} />}
       {f && (

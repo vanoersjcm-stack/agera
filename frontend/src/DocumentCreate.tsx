@@ -286,7 +286,7 @@ export function NewMailForm({ defaults, onDone, onCancel }: FormProps) {
   const [clientId, setClientId] = useState(initialClient(defaults));
   const record = useClientRecord(clientId);
   const [contactId, setContactId] = useState('');
-  const [to, setTo] = useState('');
+  const [to, setTo] = useState(defaults.to ?? '');
   const [templates, setTemplates] = useState<DocumentTemplate[]>([]);
   const [template, setTemplate] = useState('');
   const [subject, setSubject] = useState('');
@@ -301,6 +301,7 @@ export function NewMailForm({ defaults, onDone, onCancel }: FormProps) {
   }, []);
   useEffect(() => {
     const first = (record?.contacts ?? []).filter((c) => c.email).sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary))[0];
+    if (defaults.to) return;
     setContactId(first?.id ?? '');
     setTo(first?.email ?? '');
   }, [record]);
@@ -358,7 +359,7 @@ export function NewMailForm({ defaults, onDone, onCancel }: FormProps) {
           </select>
         </Field>
       )}
-      <Field label={tr("To")}><input type="email" value={to} onChange={(e) => setTo(e.target.value)} placeholder="name@example.com" /></Field>
+      <Field label={tr("To")} hint={defaults.toName && to === defaults.to ? tf("To: {name}", { name: defaults.toName }) : undefined}><input type="email" value={to} onChange={(e) => setTo(e.target.value)} placeholder="name@example.com" /></Field>
       <Field label={tr("Template")}>
         <select value={template} onChange={(e) => fill(e.target.value)}>
           <option value="">{tr("No template")}</option>

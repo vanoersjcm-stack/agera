@@ -45,7 +45,7 @@ import { GoldenThreadTour, startTour } from './tour';
 import { getTheme, setTheme } from './theme';
 import { t, useLanguage, t as tr, tf, live } from './i18n';
 import { DraftDocumentsView, OfficeEditorHost } from './office';
-import { Navigator, TopbarTools } from './Navigator';
+import { allowed, TopbarTools } from './Navigator';
 import { startOfflineSync, useOfflineQueue } from './offlineQueue';
 import { ErrorBoundary } from './ErrorBoundary';
 import { ApprovalDossier, ApprovalsView, ExceptionDossier, ExceptionsView, HealthView, NotificationBell } from './symphony/Workflow';
@@ -101,7 +101,7 @@ function InternalView({ route, user }: { route: Route; user: UserContext }) {
       return <InvoicesView route={route} />;
     case 'symphony/third-parties':
     case 'nexus/third-parties':
-      return <ThirdPartiesView route={route} />;
+      return allowed(user, `/${suite}/third-parties`) ? <ThirdPartiesView route={route} /> : <NotAvailable path={route.path} />;
     case 'symphony/clients':
       return id ? <ClientDossier id={id} route={route} /> : <ClientsView route={route} />;
     case 'symphony/retention':
@@ -531,15 +531,15 @@ function CreditPill({ user }: { user: UserContext }) {
   if (count === null) return null;
   if (count > 0) {
     return (
-      <a className="credit-pill locked" href="#/symphony/credit-control" title={tr("Agreements cannot be activated for locked clients")}>
+      <button type="button" className="credit-pill locked has-tip" data-tip={tr("Agreements cannot be activated for locked clients")} onClick={() => navigate('/symphony/credit-control')}>
         <span className="pulse" aria-hidden />  {tr("Credit lock active")}{count > 1 ? ` (${count})` : ''}
-      </a>
+      </button>
     );
   }
   if (!(user.role === 'admin' || user.isPlatformAdmin)) return null;
   return (
-    <a className="credit-pill" href="#/symphony/credit-control?lock=" title={tr("Emergency credit lock")}>
-      {tr("Credit lock")}</a>
+    <button type="button" className="credit-pill has-tip" data-tip={tr("Emergency credit lock")} onClick={() => navigate('/symphony/credit-control?lock=')}>
+      {tr("Credit lock")}</button>
   );
 }
 
@@ -633,7 +633,7 @@ export function App() {
             </>
           )}
           <span className="topbar-spacer" />
-          {!external && <TopbarTools user={user} />}
+          <TopbarTools user={user} />
           {!external && <SearchPalette user={user} tier={tier} />}
           {!external && <OfflinePill />}
           {!external && <CreditPill user={user} />}
@@ -643,14 +643,11 @@ export function App() {
         </header>
         <div className="actionbar">
           <div className="actionbar-crumbs">
-            <button type="button" className="back-button" onClick={() => window.history.back()} title={tr("Go back to the previous page")}>
-              <span className="back-arrow" aria-hidden>‹</span> {tr("Back")}
-            </button>
             <span id="actionbar-crumbs" className="crumbs-slot" />
           </div>
           <div className="actionbar-actions">
             {!external && <ClientPill />}
-            <StatusPill />
+            {(user.isPlatformAdmin || user.jobRole === 'HQ_ADMIN') && <StatusPill />}
             <OrgBadge user={user} tenant={tenant} />
             {!external && !tenant?.readOnly && <NewMenu suite={suite.id} user={user} tier={tier} onPick={(kind) => openNew(kind)} />}
           </div>
@@ -659,9 +656,7 @@ export function App() {
           {external ? (
             <SideNav items={PORTAL_NAV} path={route.path} heading={tr("Client portal")} />
           ) : (
-            <SideNav topics={topicsFor(suite.id, user)} path={route.path} heading={`${brand} · ${suite.tagline}`}>
-              <Navigator user={user} />
-            </SideNav>
+            <SideNav topics={topicsFor(suite.id, user)} path={route.path} heading={`${brand} · ${suite.tagline}`} />
           )}
           <main>
             {preview && preview !== tenant?.licenseTier && (

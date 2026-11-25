@@ -227,7 +227,7 @@ export function ClientRoomDossier({ id, route, external }: { id: string; route: 
     <ViewFrame
       title={r.roomName}
       subtitle={<>
-        <StatusBadge status={r.status} label={ROOM_STATUS[r.status]} /> {!external && <span className="external-pill">{tr("External buyer facing")}</span>}
+        <StatusBadge status={r.status} label={ROOM_STATUS[r.status]} /> {!external && <span className="external-pill">{tr("External client facing")}</span>}
       </>}
       crumbs={[c.suite, c.list, { label: r.roomName }]}
       actions={

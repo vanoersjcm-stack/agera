@@ -1,9 +1,10 @@
+import { type MouseEvent, useState } from 'react';
 import { api, type Client, type CompanySize, type EntityCategory, type OrganizationType } from '../api';
 import { EmptyState, ViewFrame } from '../Layout';
 import { navigate, type Route, withParams } from '../router';
 import { useShell } from '../shell';
 import { includesText, Loading, SearchInput, useLoad } from '../ui';
-import { t as tr, live } from '../i18n';
+import { getLanguage, t as tr, tf, live } from '../i18n';
 
 export const ENTITY_CATEGORY: Record<EntityCategory, string> = live(() => ({
   client: tr("Client"),
@@ -57,6 +58,13 @@ export function isClientCategory(category: EntityCategory | undefined): boolean 
   return !category || category === 'client' || category === 'vendor_client';
 }
 
+/** Category keys sorted by their label in the current language; `thirdOnly` leaves out the client categories. */
+export function sortedCategories(thirdOnly = false): EntityCategory[] {
+  return (Object.keys(ENTITY_CATEGORY) as EntityCategory[])
+    .filter((k) => !thirdOnly || !isClientCategory(k))
+    .sort((a, b) => ENTITY_CATEGORY[a].localeCompare(ENTITY_CATEGORY[b], getLanguage()));
+}
+
 const LETTERS = ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'];
 
 function initial(name: string): string {
@@ -69,9 +77,36 @@ export function organizationLabel(c: Pick<Client, 'organizationType' | 'companyS
   return ORGANIZATION_TYPE[c.organizationType] + (c.companySize ? ` (${c.companySize})` : '');
 }
 
+const canDial = () => window.matchMedia('(pointer: coarse), (max-width: 767px)').matches;
+
+/** Phones and small screens get a tel: link; desktops get selectable text with a copy button, so no external dialer opens. */
 export function PhoneLink({ phone }: { phone: string | null | undefined }) {
+  const [copied, setCopied] = useState(false);
   if (!phone) return <span className="muted">—</span>;
-  return <a href={`tel:${phone.replace(/[^\d+]/g, '')}`} onClick={(e) => e.stopPropagation()}>{phone}</a>;
+  if (canDial()) return <a href={`tel:${phone.replace(/[^\d+]/g, '')}`} onClick={(e) => e.stopPropagation()}>{phone}</a>;
+  const copy = (e: MouseEvent) => {
+    e.stopPropagation();
+    void navigator.clipboard?.writeText(phone).then(() => {
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <span className="phone-copy" onClick={(e) => e.stopPropagation()}>
+      <span className="selectable">{phone}</span>
+      <button type="button" className="icon-button has-tip" data-tip={copied ? tr("Copied") : tr("Copy phone number")} aria-label={tr("Copy phone number")} onClick={copy}>{copied ? '✓' : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden><rect x="9" y="9" width="13" height="13" rx="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>}</button>
+    </span>
+  );
+}
+
+/** E-mail addresses open Agera's own composer with the recipient filled in. */
+export function EmailLink({ email, name }: { email: string | null | undefined; name?: string }) {
+  const { openNew } = useShell();
+  if (!email) return <span className="muted">—</span>;
+  return (
+    <button type="button" className="link-button has-tip" data-tip={tf("Write an Agera.email to {name}", { name: name ?? email })}
+      onClick={(e) => { e.stopPropagation(); openNew('doc_mail', { to: email, toName: name ?? '' }); }}>{email}</button>
+  );
 }
 
 export function ThirdPartiesView({ route }: { route: Route }) {
@@ -96,13 +131,12 @@ export function ThirdPartiesView({ route }: { route: Route }) {
       title={tr("Third parties")}
       subtitle={tr("Relations other than clients: vendors, advisers, banks, landlords and more. Private entries are visible only to you.")}
       crumbs={[{ label: tr("Third parties") }]}
-      actions={<button className="primary" onClick={() => openNew('client', { entityCategory: 'vendor_non_client' })}>{tr("+ New third party")}</button>}
+      actions={<button className="primary" onClick={() => openNew('client', { thirdParty: '1' })}>{tr("+ New third party")}</button>}
     >
       <div className="list-toolbar">
         <select aria-label={tr("Category")} value={category} onChange={(e) => set({ category: e.target.value === 'third' ? null : e.target.value })}>
-          <option value="third">{tr("All third parties")}</option>
-          <option value="all">{tr("All entities, including clients")}</option>
-          {(Object.keys(ENTITY_CATEGORY) as EntityCategory[]).map((k) => <option key={k} value={k}>{ENTITY_CATEGORY[k]}</option>)}
+          <option value="third">{tr("All categories")}</option>
+          {sortedCategories(true).map((k) => <option key={k} value={k}>{ENTITY_CATEGORY[k]}</option>)}
         </select>
         <select aria-label={tr("Organisation type")} value={type} onChange={(e) => set({ type: e.target.value || null })}>
           <option value="">{tr("All organisation types")}</option>
@@ -117,7 +151,7 @@ export function ThirdPartiesView({ route }: { route: Route }) {
         ))}
       </div>
       {!data && <Loading error={error} />}
-      {data && filtered.length === 0 && <EmptyState title={tr("No third parties match this filter")} action={<button className="primary" onClick={() => openNew('client', { entityCategory: 'vendor_non_client' })}>{tr("+ New third party")}</button>} />}
+      {data && filtered.length === 0 && <EmptyState title={tr("No third parties match this filter")} action={<button className="primary" onClick={() => openNew('client', { thirdParty: '1' })}>{tr("+ New third party")}</button>} />}
       {filtered.length > 0 && (
         <table className="grid clickable">
           <thead>
@@ -138,7 +172,7 @@ export function ThirdPartiesView({ route }: { route: Route }) {
                 <td>{organizationLabel(c)}</td>
                 <td>{c.city ?? '—'}</td>
                 <td><PhoneLink phone={c.phone} /></td>
-                <td>{c.email ? <a href={`mailto:${c.email}`} onClick={(e) => e.stopPropagation()}>{c.email}</a> : <span className="muted">—</span>}</td>
+                <td><EmailLink email={c.email} name={c.name} /></td>
               </tr>
             ))}
           </tbody>

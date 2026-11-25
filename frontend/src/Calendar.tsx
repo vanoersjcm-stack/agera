@@ -95,7 +95,7 @@ export function CalendarView({ route }: { route: Route }) {
       </>) : (<>
       <div className="cal-toolbar">
         <FilterChips chips={[{ value: 'day', label: t("Day") }, { value: 'week', label: t("Week") }, { value: 'month', label: t("Month") }]} value={mode} onChange={(v) => go({ view: v === 'week' ? null : v })} />
-        {!field && <FilterChips chips={[{ value: 'mine', label: t("My calendar") }, { value: 'team', label: t("Team calendar") }]} value={scope} onChange={(v) => go({ scope: v === 'mine' ? null : v })} />}
+        {!field && <FilterChips chips={[{ value: 'mine', label: t("My agenda") }, { value: 'team', label: t("Team agenda") }]} value={scope} onChange={(v) => go({ scope: v === 'mine' ? null : v })} />}
         <span className="cal-legend">
           {(Object.keys(KIND) as CalendarKind[]).filter((k) => !(field && k === 'milestone')).map((k) => <span key={k} className={`cal-item cal-${k}`}>{KIND[k]}</span>)}
         </span>
@@ -250,7 +250,7 @@ function AppointmentForm({ start, event, asset, onClose, onSaved }: { start: Dat
         {!event && planning === 'find' && <FindTime userIds={attendeeIds} optionalIds={optionalIds} assetIds={booked} buffer={Number(buffer)} onPick={(st, en) => { setAllDay(false); setStartsAt(toLocalInput(st)); setEndsAt(toLocalInput(en)); setPlanning('fixed'); }} />}
         <Field label={t("Visibility")}>
           <select value={visibility} onChange={(e) => setVisibility(e.target.value as 'team' | 'private')}>
-            <option value="team">{t("Team: colleagues see it in the team calendar")}</option>
+            <option value="team">{t("Team: colleagues see it in the team agenda")}</option>
             <option value="private">{t("Private: only you and the invitees")}</option>
           </select>
         </Field>

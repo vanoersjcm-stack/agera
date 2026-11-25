@@ -180,7 +180,7 @@ function EditClientDrawer({ client, onClose, onSaved }: { client: Client; onClos
         <Field label={tr("Street and number")}><input maxLength={255} value={form.address} onChange={set('address')} /></Field>
         <Field label={tr("Chamber of Commerce (KvK) number")}><input maxLength={20} value={form.kvkNumber} onChange={set('kvkNumber')} /></Field>
         <Field label={tr("Sector")}><input maxLength={100} value={form.sector} onChange={set('sector')} placeholder={tr("e.g. Consumer electronics")} /></Field>
-        <Field label={tr("ERP customer number")} hint={tr("Customer number in your ERP system; must be unique")}><input maxLength={50} value={form.erpId} onChange={set('erpId')} /></Field>
+        <Field label={tr("ERP client number")} hint={tr("Client number in your ERP system; must be unique")}><input maxLength={50} value={form.erpId} onChange={set('erpId')} /></Field>
         <Field label={tr("Account manager")}>
           <select value={form.accountManagerId} onChange={set('accountManagerId')}>
             <option value="">{tr("Not assigned")}</option>
@@ -400,7 +400,7 @@ export function ClientDossier({ id, route }: { id: string; route: Route }) {
               ['Payment terms', client.paymentTerms],
               ['Credit limit', <span className="mono">{money(client.creditLimit)}</span>],
               ['Credit status', CREDIT_STATUS[client.creditStatus]],
-              ['ERP customer number', <span className="mono">{client.erpId ?? '—'}</span>],
+              ['ERP client number', <span className="mono">{client.erpId ?? '—'}</span>],
               ['Account manager', client.accountManagerName ?? 'Not assigned'],
             ]}
           />

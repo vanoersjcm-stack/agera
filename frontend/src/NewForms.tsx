@@ -4,7 +4,7 @@ import { NewPriceListForm, NewTemplateForm } from './nexus/Commercial';
 import { NewSurveyForm } from './nexus/Surveys';
 import { type DocIconKind, NewMailForm, NewSpreadsheetForm, NewTextDocumentForm } from './DocumentCreate';
 import { NewMemoForm, OfficeOrSimple } from './office';
-import { COMPANY_SIZES, ENTITY_CATEGORY, isClientCategory, ORGANIZATION_TYPE } from './nexus/ThirdParties';
+import { COMPANY_SIZES, ENTITY_CATEGORY, isClientCategory, ORGANIZATION_TYPE, sortedCategories } from './nexus/ThirdParties';
 import { NewExceptionForm } from './symphony/Workflow';
 import { NewAuditRoundForm, NewCampaignRoundForm, NewFieldOrderForm, NewPlanogramForm, NewProductForm } from './retailpower/Field';
 import { type FormEvent, useEffect, useState } from 'react';
@@ -407,7 +407,8 @@ function FinancialPlanForm({ defaults, onDone, onCancel }: FormProps) {
 
 function ClientForm({ defaults, onDone, onCancel }: FormProps) {
   const [name, setName] = useState('');
-  const [entityCategory, setEntityCategory] = useState<EntityCategory>((defaults.entityCategory as EntityCategory) || 'client');
+  const thirdParty = defaults.thirdParty === '1';
+  const [entityCategory, setEntityCategory] = useState<EntityCategory | ''>((defaults.entityCategory as EntityCategory) || (thirdParty ? '' : 'client'));
   const [organizationType, setOrganizationType] = useState<OrganizationType | ''>('');
   const [companySize, setCompanySize] = useState<CompanySize | ''>('');
   const [phone, setPhone] = useState('');
@@ -424,7 +425,7 @@ function ClientForm({ defaults, onDone, onCancel }: FormProps) {
         submit(e, async () => {
           const c = await api.createClient({
             name: name.trim(), legalName: opt(legalName), vatNumber: opt(vatNumber), city: opt(city), country: opt(country), phone: opt(phone), email: opt(email),
-            entityCategory, organizationType: organizationType || null, companySize: organizationType === 'commercial_enterprise' ? companySize || null : null,
+            entityCategory: entityCategory || undefined, organizationType: organizationType || null, companySize: organizationType === 'commercial_enterprise' ? companySize || null : null,
           });
           return { route: `/nexus/clients/${c.id}`, message: tf("“{name}” created", { name: c.name }) };
         })
@@ -434,8 +435,9 @@ function ClientForm({ defaults, onDone, onCancel }: FormProps) {
         <input required maxLength={200} value={name} onChange={(e) => setName(e.target.value)} placeholder={tr("e.g. TechNova Electronics")} autoFocus />
       </Field>
       <Field label={tr("Category")} hint={entityCategory === 'private' ? tr("Only you can see this entry, administrators included.") : undefined}>
-        <select value={entityCategory} onChange={(e) => setEntityCategory(e.target.value as EntityCategory)}>
-          {(Object.keys(ENTITY_CATEGORY) as EntityCategory[]).map((k) => <option key={k} value={k}>{ENTITY_CATEGORY[k]}</option>)}
+        <select required value={entityCategory} onChange={(e) => setEntityCategory(e.target.value as EntityCategory)}>
+          {thirdParty && <option value="" disabled>{tr("Choose a category…")}</option>}
+          {sortedCategories(thirdParty).map((k) => <option key={k} value={k}>{ENTITY_CATEGORY[k]}</option>)}
         </select>
       </Field>
       <Field label={tr("Organisation type")} hint={tr("Optional")}>
@@ -872,7 +874,7 @@ export function NewDrawer({
   };
   const props = { defaults, onDone, onCancel: onClose };
   return (
-    <Drawer title={TITLES[kind]} onClose={onClose}>
+    <Drawer title={kind === 'client' && defaults.thirdParty === '1' ? tr("New third party") : TITLES[kind]} onClose={onClose}>
       {kind === 'deal' && <DealForm {...props} onSwitch={onSwitch} />}
       {kind === 'invoice' && <InvoiceForm {...props} onSwitch={onSwitch} />}
       {kind === 'work_order' && <WorkOrderForm {...props} />}

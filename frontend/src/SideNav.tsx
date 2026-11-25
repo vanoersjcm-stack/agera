@@ -22,7 +22,7 @@ const barsBottom = () => Math.max(8, ...Array.from(document.querySelectorAll('.t
 const hoverCapable = () => window.matchMedia('(hover: hover) and (pointer: fine)').matches;
 
 /** One menu topic: hover (mouse) or tap/click (touch) opens a single flyout panel beside the menu. */
-export function NavTopic({ label, active = false, className, children }: { label: string; active?: boolean; className?: string; children: ReactNode }) {
+export function NavTopic({ label, active = false, className, href, children }: { label: string; active?: boolean; className?: string; href?: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState<CSSProperties>({});
   const wrap = useRef<HTMLDivElement>(null);
@@ -130,7 +130,13 @@ export function NavTopic({ label, active = false, className, children }: { label
         aria-haspopup="true"
         aria-expanded={open}
         aria-controls={open ? panelId : undefined}
-        onClick={() => (open && !hoverCapable() ? hide() : show())}
+        onClick={() => {
+          if (href && hoverCapable()) {
+            hide();
+            window.location.hash = href;
+          } else if (open && !hoverCapable()) hide();
+          else show();
+        }}
         onKeyDown={onTriggerKey}
       >
         <span>{label}</span>
@@ -159,20 +165,25 @@ function FlyoutLink({ item, active }: { item: NavItem; active: boolean }) {
 export function SideNav({ items, topics, path, heading, children }: { items?: NavItem[]; topics?: Topic[]; path: string; heading: string; children?: ReactNode }) {
   useLanguage();
   const active = activeItem(topics ? topics.flatMap((tp) => tp.items) : items ?? [], path);
+  const nav = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const focused = document.activeElement;
+    if (focused instanceof HTMLElement && nav.current?.contains(focused)) focused.blur();
+  }, [path]);
   const link = (i: NavItem, label = t(i.label)) => (
     <a key={i.path} href={`#${i.path}`} className={i === active ? 'active' : undefined} title={i.description} aria-current={i === active ? 'page' : undefined}>
       {label}
     </a>
   );
   return (
-    <nav className="sidenav" aria-label={`${heading} navigation`}>
+    <nav ref={nav} className="sidenav" aria-label={`${heading} navigation`}>
       <span className="sidenav-heading">{heading}</span>
       {topics
         ? topics.map((tp) =>
             tp.items.length === 1 && (tp.id === 'overview' || tp.id === 'thirdparties' || tp.id === 'rackjobbing') ? (
               link(tp.items[0], tp.label)
             ) : (
-              <NavTopic key={tp.id} label={tp.label} active={!!active && tp.items.includes(active)}>
+              <NavTopic key={tp.id} label={tp.label} href={tp.items[0]?.path} active={!!active && tp.items.includes(active)}>
                 {tp.items.map((i) => <FlyoutLink key={i.path} item={i} active={i === active} />)}
               </NavTopic>
             ),

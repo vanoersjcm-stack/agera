@@ -11,12 +11,13 @@ const stamp = Date.now();
 let hannah: string;
 let alice: string;
 let adam: string;
+let fiona: string;
 let lawyer: Relation;
 let doctor: Relation;
 let client: Relation;
 
 before(async () => {
-  [hannah, adam, alice] = await Promise.all([getToken('hannah', 'hannah'), getToken('adam', 'adam'), getToken('alice', 'alice')]);
+  [hannah, adam, alice, fiona] = await Promise.all([getToken('hannah', 'hannah'), getToken('adam', 'adam'), getToken('alice', 'alice'), getToken('fiona', 'fiona')]);
   const create = async (name: string, entityCategory: string, email?: string) => {
     const r = await api<Relation>(hannah, 'POST', '/v1/clients', { name: `${name} ${stamp}`, entityCategory, email });
     assert.equal(r.status, 201, JSON.stringify(r.body));
@@ -45,6 +46,13 @@ describe('third parties', () => {
     assert.equal((await api(adam, 'PATCH', `/v1/clients/${doctor.id}`, { entityCategory: 'bank' })).status, 403);
     const hits = (await api<{ id: string }[]>(adam, 'GET', `/search?q=${encodeURIComponent(String(stamp))}`)).body;
     assert.ok(Array.isArray(hits) && !hits.some((h) => h.id === lawyer.id), 'search hides the relation too');
+  });
+
+  it('shows field representatives clients only, no third parties', async () => {
+    const field = (await api<Relation[]>(fiona, 'GET', '/v1/clients')).body.map((c) => c.id);
+    assert.ok(field.includes(client.id));
+    assert.ok(!field.includes(doctor.id) && !field.includes(lawyer.id));
+    assert.equal((await api(fiona, 'GET', `/v1/clients/${doctor.id}`)).status, 404);
   });
 });
 
