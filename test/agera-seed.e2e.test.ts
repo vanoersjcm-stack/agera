@@ -67,7 +67,7 @@ async function counts(): Promise<Record<string, number>> {
              (SELECT count(*)::int FROM financial_line_items li JOIN financial_models m ON m.id = li.model_id
                WHERE m.metadata->>'source' = 'agera-seed') AS lines,
              (SELECT count(*)::int FROM digital_sales_rooms
-               WHERE room_name IN ('Premium Audio Launch Q3/Q4', 'Planogram Compliance & Actieweken')) AS rooms`, [AGERA_DEV]);
+               WHERE room_name IN ('Premium Audio Launch Q3/Q4', 'Planogram, Sales Development & Promotion')) AS rooms`, [AGERA_DEV]);
     await db.query('COMMIT');
     return rows[0];
   } finally {
@@ -105,7 +105,7 @@ describe('Agera seed import and store compliance anomalies', () => {
     const rooms = await api<Room[]>(tenantA.token, 'GET', '/v1/dsrs');
     const names = rooms.body.map((r) => r.roomName);
     assert.ok(names.includes('Premium Audio Launch Q3/Q4'));
-    assert.ok(names.includes('Planogram Compliance & Actieweken'));
+    assert.ok(names.includes('Planogram, Sales Development & Promotion'));
 
     const anouk = await getToken('a.visser', 'a.visser');
     const own = await api<Room[]>(anouk, 'GET', '/v1/dsrs');
@@ -116,7 +116,7 @@ describe('Agera seed import and store compliance anomalies', () => {
 
     const robertJan = await getToken('rj.meijer', 'rj.meijer');
     const other = await api<Room[]>(robertJan, 'GET', '/v1/dsrs');
-    assert.deepEqual(other.body.map((r) => r.roomName), ['Planogram Compliance & Actieweken']);
+    assert.deepEqual(other.body.map((r) => r.roomName), ['Planogram, Sales Development & Promotion']);
   });
 
   it('reports non-compliant store statuses as store_compliance anomalies, only in their tenant', async () => {

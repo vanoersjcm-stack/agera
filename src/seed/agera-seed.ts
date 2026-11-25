@@ -189,13 +189,15 @@ async function main(): Promise<void> {
       await client.query(
         `INSERT INTO financial_models (id, tenant_id, model_name, fiscal_year, status, metadata)
          VALUES ($1, $2, $3, $4, 'approved', $5)
-         ON CONFLICT (id) DO UPDATE SET model_name = EXCLUDED.model_name, metadata = EXCLUDED.metadata`,
+         ON CONFLICT (id) DO UPDATE SET model_name = EXCLUDED.model_name, metadata = EXCLUDED.metadata
+         WHERE financial_models.idms_status IS DISTINCT FROM 'FINAL_LOCKED'`,
         [modelId, tenantId, `${c.company_name} – contract`.slice(0, 100), fiscalYear, metadata],
       );
       await client.query(
         `INSERT INTO financial_line_items (id, tenant_id, model_id, category, subcategory, period_code, projected_amount, currency)
          VALUES ($1, $2, $3, 'revenue', $4, $5, $6, 'EUR')
-         ON CONFLICT (id) DO UPDATE SET subcategory = EXCLUDED.subcategory, projected_amount = EXCLUDED.projected_amount`,
+         ON CONFLICT (id) DO UPDATE SET subcategory = EXCLUDED.subcategory, projected_amount = EXCLUDED.projected_amount
+         WHERE NOT EXISTS (SELECT 1 FROM financial_models m WHERE m.id = financial_line_items.model_id AND m.idms_status = 'FINAL_LOCKED')`,
         [seedUuid(`${tenantId}:line:${c.account_id}`), tenantId, modelId, c.active_project.slice(0, 100), `${fiscalYear}-Q3`, c.contract_value_eur],
       );
       await client.query(

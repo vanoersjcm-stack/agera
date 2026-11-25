@@ -192,7 +192,7 @@ export function currentTier(): LicenseTier {
   return activeTier;
 }
 
-export type TopicId = 'overview' | 'finance' | 'clients' | 'thirdparties' | 'workflow' | 'governance' | 'sales' | 'documents' | 'issues' | 'field' | 'stores' | 'people' | 'fleet' | 'rackjobbing';
+export type TopicId = 'overview' | 'finance' | 'clients' | 'workflow' | 'governance' | 'sales' | 'documents' | 'issues' | 'field' | 'stores' | 'people' | 'fleet' | 'rackjobbing';
 
 export interface NavTopic {
   id: TopicId;
@@ -200,19 +200,20 @@ export interface NavTopic {
   items: NavItem[];
 }
 
+/** Reached from the top bar only, not from the side menu. */
+const TOP_BAR_ONLY = new Set(['/symphony/third-parties', '/nexus/third-parties']);
+
 const TOPICS: Record<SuiteId, [TopicId, string, string[]][]> = {
   symphony: [
     ['overview', 'Overview', ['/symphony']],
     ['finance', 'Finance', ['/symphony/prognosis', '/symphony/invoices', '/symphony/profit-loss', '/symphony/credit-control', '/symphony/reports']],
     ['clients', 'Clients', ['/symphony/clients', '/symphony/health', '/symphony/feedback']],
-    ['thirdparties', 'Third parties', ['/symphony/third-parties']],
     ['workflow', 'Workflow', ['/symphony/approvals', '/symphony/automations', '/symphony/agenda']],
     ['governance', 'Governance & admin', ['/symphony/activity', '/symphony/retention', '/symphony/people', '/symphony/organisations', '/symphony/integrations', '/symphony/connections']],
   ],
   nexus: [
     ['overview', 'Overview', ['/nexus']],
     ['clients', 'Clients', ['/nexus/clients', '/nexus/client-rooms', '/nexus/surveys']],
-    ['thirdparties', 'Third parties', ['/nexus/third-parties']],
     ['sales', 'Sales', ['/nexus/pipeline', '/nexus/deals', '/nexus/agreements', '/nexus/price-lists', '/nexus/agenda']],
     ['finance', 'Finance', ['/nexus/financial-plans']],
     ['documents', 'Documents & mail', ['/nexus/templates', '/nexus/mail-merge', '/nexus/print']],
@@ -247,7 +248,7 @@ export function topicsFor(suite: SuiteId, user: UserContext): NavTopic[] {
     }
   }
   const listed = new Set(TOPICS[suite].flatMap(([, , paths]) => paths));
-  const rest = items.filter((i) => !listed.has(i.path));
+  const rest = items.filter((i) => !listed.has(i.path) && !TOP_BAR_ONLY.has(i.path));
   if (rest.length) topics[topics.length - 1].items.push(...rest);
   return topics.filter((tp) => tp.items.length > 0);
 }
