@@ -246,6 +246,9 @@ export function DealDossier({ id }: { id: string }) {
           ['Created', formatDate(d.createdAt)],
         ]}
       />
+      <DealProposal deal={d} onSaved={reload} />
+      <DealNegotiation deal={d} onSaved={reload} />
+      <DealHandover deal={d} onSaved={reload} />
       <div className="card-panel">
         <h2>{t("Stage history")}</h2>
         <ul className="timeline">
@@ -259,5 +262,147 @@ export function DealDossier({ id }: { id: string }) {
       </div>
       {editing && <EditDealDrawer deal={d} onClose={() => setEditing(false)} onSaved={() => (setEditing(false), notify(t("Deal updated")), reload())} />}
     </ViewFrame>
+  );
+}
+
+function DealProposal({ deal, onSaved }: { deal: DealRecord; onSaved: () => void }) {
+  const { notify } = useShell();
+  const action = useAction();
+  const rooms = useLoad(() => api.rooms(), []);
+  const [roomId, setRoomId] = useState(deal.clientRoomId ?? '');
+  const docs = useLoad(() => (roomId ? api.roomDocuments(roomId) : Promise.resolve([])), [roomId]);
+  const [docId, setDocId] = useState(deal.proposalDocumentId ?? '');
+  const clientRooms = (rooms.data ?? []).filter((r) => r.clientId === deal.clientId);
+  const send = () => void action.run(() => api.dealProposalSent(deal.id, docId || null)).then((r) => r && (notify(t("Proposal marked as sent")), onSaved()));
+  return (
+    <div className="card-panel">
+      <h2>{t("Proposal")}</h2>
+      {deal.proposalSentAt && (
+        <p>{tf("Sent on {date}", { date: formatDateTime(deal.proposalSentAt) })}{deal.proposalDocumentTitle ? ` · ${deal.proposalDocumentTitle}` : ''}</p>
+      )}
+      <p className="muted">{t("Link the Agera.text or Agera.email proposal from the client room. The deal then moves to Proposal sent.")}</p>
+      <div className="deal-form">
+        <label>{t("Client room")}{' '}
+          <select value={roomId} onChange={(e) => (setRoomId(e.target.value), setDocId(''))}>
+            <option value="">{t("Choose a client room…")}</option>
+            {clientRooms.map((r) => <option key={r.id} value={r.id}>{r.roomName}</option>)}
+          </select>
+        </label>
+        <label>{t("Proposal document")}{' '}
+          <select value={docId} onChange={(e) => setDocId(e.target.value)} disabled={!roomId}>
+            <option value="">{t("No document")}</option>
+            {(docs.data ?? []).map((doc) => <option key={doc.id} value={doc.id}>{doc.title}</option>)}
+          </select>
+        </label>
+        <button type="button" className="primary" disabled={action.busy} onClick={send}>{t("Mark proposal sent")}</button>
+      </div>
+      <ErrorText error={action.error} />
+    </div>
+  );
+}
+
+const NOTE_KIND: Record<DealRecord['negotiation'][number]['kind'], string> = live(() => ({ note: t("Note"), counter_offer: t("Counter-offer from client"), our_offer: t("Our offer") }));
+
+function DealNegotiation({ deal, onSaved }: { deal: DealRecord; onSaved: () => void }) {
+  const action = useAction();
+  const [kind, setKind] = useState<DealRecord['negotiation'][number]['kind']>('note');
+  const [body, setBody] = useState('');
+  const [amountText, setAmount] = useState('');
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    void action.run(() => api.addDealNote(deal.id, { kind, body, amount: kind === 'note' ? null : amountText || null })).then((r) => r && (setBody(''), setAmount(''), onSaved()));
+  };
+  return (
+    <div className="card-panel">
+      <h2>{t("Negotiation")}</h2>
+      <p>{t("Contract value (annual)")}: <strong>{money(deal.value)}</strong></p>
+      <form className="deal-form" onSubmit={submit}>
+        <select aria-label={t("Type")} value={kind} onChange={(e) => setKind(e.target.value as typeof kind)}>
+          {(Object.keys(NOTE_KIND) as (typeof kind)[]).map((k) => <option key={k} value={k}>{NOTE_KIND[k]}</option>)}
+        </select>
+        {kind !== 'note' && <input aria-label={t("Amount (excl. VAT)")} placeholder={t("Amount (excl. VAT)")} inputMode="decimal" value={amountText} onChange={(e) => setAmount(e.target.value)} />}
+        <input aria-label={t("Note")} placeholder={t("What was discussed or offered?")} required value={body} onChange={(e) => setBody(e.target.value)} />
+        <button type="submit" className="primary" disabled={action.busy}>{t("Add to log")}</button>
+      </form>
+      <ErrorText error={action.error} />
+      {deal.negotiation.length === 0 ? <p className="muted">{t("No negotiation notes yet.")}</p> : (
+        <ul className="timeline">
+          {deal.negotiation.map((n) => (
+            <li key={n.id}>
+              <strong>{NOTE_KIND[n.kind]}{n.amount ? ` · ${money(n.amount)}` : ''}</strong> {n.body}
+              <span className="muted"> · {n.createdByName ?? t("Unknown")} · {formatDateTime(n.createdAt)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+const DEFAULT_STEPS = live(() => [t("Confirm scope and store list with the client"), t("Plan the first store visits"), t("Brief the field team"), t("Set up price list and invoicing"), t("Kick-off meeting with the client")]);
+
+function DealHandover({ deal, onSaved }: { deal: DealRecord; onSaved: () => void }) {
+  const { notify } = useShell();
+  const action = useAction();
+  const [open, setOpen] = useState(false);
+  const users = useUsers();
+  const client = useLoad(() => (open ? api.client(deal.clientId) : Promise.resolve(null)), [open, deal.clientId]);
+  const [coordinatorId, setCoordinatorId] = useState('');
+  const [steps, setSteps] = useState('');
+  const coordinators = users.filter((u) => u.jobRole === 'HQ_ADMIN');
+  const start = () => (setSteps(DEFAULT_STEPS.join('\n')), setOpen(true));
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    const items = steps.split('\n').map((s) => s.trim()).filter(Boolean);
+    void action.run(() => api.dealHandover(deal.id, { coordinatorId, items })).then((r) => r && (setOpen(false), notify(t("Handed over to operations")), onSaved()));
+  };
+  const c = client.data;
+  return (
+    <div className="card-panel">
+      <h2>{t("Handover to operations")}</h2>
+      {deal.handedOverAt ? (
+        <p>{tf("Handed over on {date} to {name}", { date: formatDateTime(deal.handedOverAt), name: deal.opsCoordinatorName ?? '—' })}</p>
+      ) : <p className="muted">{t("When the deal is won, hand it to an operations coordinator with the signed agreement, the approved financial plan and the stores.")}</p>}
+      {deal.onboarding.length > 0 && (
+        <ul className="checklist">
+          {deal.onboarding.map((i) => (
+            <li key={i.id}>
+              <label className="inline-label">
+                <input type="checkbox" checked={!!i.doneAt} disabled={action.busy} onChange={(e) => void action.run(() => api.dealOnboarding(deal.id, i.id, e.target.checked)).then((r) => r && onSaved())} /> {i.title}
+              </label>
+              {i.doneAt && <span className="muted"> · {i.doneByName ?? ''} · {formatDateTime(i.doneAt)}</span>}
+            </li>
+          ))}
+        </ul>
+      )}
+      <button type="button" className="secondary" onClick={start}>{deal.handedOverAt ? t("Hand over again") : t("Hand over to operations")}</button>
+      {open && (
+        <Drawer title={t("Handover to operations")} onClose={() => setOpen(false)}>
+          <form onSubmit={submit}>
+            {!c ? <Loading error={client.error} /> : (
+              <>
+                <h3>{t("Signed agreements")}</h3>
+                {c.agreements.length === 0 ? <p className="muted">{t("None")}</p> : <ul>{c.agreements.map((a) => <li key={a.id}><a href={`#/nexus/agreements/${a.id}`}>{a.title}</a> <span className="muted">· {a.status}</span></li>)}</ul>}
+                <h3>{t("Financial plans")}</h3>
+                {c.plans.length === 0 ? <p className="muted">{t("None")}</p> : <ul>{c.plans.map((p) => <li key={p.id}>{p.modelName} {p.fiscalYear} <span className="muted">· {p.status}</span></li>)}</ul>}
+                <h3>{tf("Stores ({count})", { count: c.stores.length })}</h3>
+                {c.stores.length === 0 ? <p className="muted">{t("None")}</p> : <ul>{c.stores.slice(0, 20).map((s) => <li key={s.id}>{s.storeCode} · {s.name}{s.city ? `, ${s.city}` : ''}</li>)}</ul>}
+              </>
+            )}
+            <Field label={t("Operations coordinator")}>
+              <select required value={coordinatorId} onChange={(e) => setCoordinatorId(e.target.value)}>
+                <option value="">{t("Choose a coordinator…")}</option>
+                {coordinators.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </Field>
+            <Field label={t("Onboarding checklist (one step per line)")}>
+              <textarea rows={6} value={steps} onChange={(e) => setSteps(e.target.value)} />
+            </Field>
+            <ErrorText error={action.error} />
+            <FormActions busy={action.busy} submitLabel={t("Hand over")} onCancel={() => setOpen(false)} />
+          </form>
+        </Drawer>
+      )}
+    </div>
   );
 }

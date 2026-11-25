@@ -1,5 +1,8 @@
-import { BadRequestException, Body, Controller, Get, Param, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
-import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { BadRequestException, Body, Controller, Get, HttpCode, Param, ParseUUIDPipe, Patch, Post, Query, UploadedFile, UseFilters, UseInterceptors } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UploadExceptionFilter } from '../retailcare/media/upload-exception.filter.js';
+import { MAX_IMPORT_BYTES, readCsv, readXlsx } from '../clients/client-import.js';
+import { ApiBearerAuth, ApiBody, ApiConsumes, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiQuery, ApiTags } from '@nestjs/swagger';
 import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
@@ -58,6 +61,39 @@ export class PriceListsController {
   @ApiOkResponse(OBJ)
   list(@Query('clientId') clientId?: string): Promise<unknown[]> {
     return this.commercial.priceLists(optionalUuid('clientId', clientId));
+  }
+
+  @Post('import/parse')
+  @HttpCode(200)
+  @UseFilters(UploadExceptionFilter)
+  @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_IMPORT_BYTES, files: 1, fields: 2 } }))
+  @ApiOperation({ summary: 'Reads a price file (CSV, Excel .xlsx or an Agera.calc JSON export) into columns and rows for the mapping preview; stores nothing' })
+  @ApiConsumes('multipart/form-data')
+  @ApiOkResponse(OBJ)
+  @ApiErrors(400)
+  parse(@UploadedFile() file: { buffer: Buffer; originalname: string; size: number } | undefined): { headers: string[]; rows: string[][] } {
+    if (!file || file.size === 0) throw new BadRequestException('file is required (CSV, XLSX or Agera.calc JSON)');
+    const name = file.originalname.toLowerCase();
+    let table: string[][];
+    if (name.endsWith('.json')) {
+      let data: unknown;
+      try { data = JSON.parse(file.buffer.toString('utf8')); } catch { throw new BadRequestException('The JSON file could not be read'); }
+      const rows = Array.isArray(data) ? data : Array.isArray((data as { rows?: unknown }).rows) ? (data as { rows: unknown[] }).rows : null;
+      if (!rows) throw new BadRequestException('An Agera.calc export must be a list of rows, or an object with "rows"');
+      if (rows.every((r) => Array.isArray(r))) table = (rows as unknown[][]).map((r) => r.map((c) => (c === null || c === undefined ? '' : String(c))));
+      else {
+        const keys = [...new Set(rows.flatMap((r) => Object.keys(asObject(r))))];
+        table = [keys, ...rows.map((r) => keys.map((k) => { const v = asObject(r)[k]; return v === null || v === undefined ? '' : String(v); }))];
+      }
+    } else if (name.endsWith('.xls')) {
+      throw new BadRequestException('Old .xls files are not supported; save the sheet as .xlsx or CSV');
+    } else {
+      table = name.endsWith('.xlsx') ? readXlsx(file.buffer) : readCsv(file.buffer.toString('utf8').replace(/^\uFEFF/, ''));
+    }
+    const nonEmpty = table.filter((r) => r.some((c) => c.trim() !== ''));
+    if (nonEmpty.length < 2) throw new BadRequestException('The file needs a header row and at least one price');
+    if (nonEmpty.length > 2001) throw new BadRequestException('At most 2000 prices per import');
+    return { headers: nonEmpty[0].map((h) => h.trim()), rows: nonEmpty.slice(1) };
   }
 
   @Get(':id')

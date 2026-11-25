@@ -147,12 +147,14 @@ export class RoomDocumentsController {
   @ApiParam({ name: 'roomId', format: 'uuid' })
   @ApiParam({ name: 'id', format: 'uuid' })
   @ApiQuery({ name: 'version', required: false, type: Number })
+  @ApiQuery({ name: 'view', required: false, description: '1 = open in the browser; a client opening it is recorded as "viewed" instead of "downloaded"' })
   @ApiOkResponse({ description: 'The file', schema: { type: 'string', format: 'binary' } })
   @ApiErrors(400, 404)
   async download(
     @Param('roomId', ParseUUIDPipe) roomId: string,
     @Param('id', ParseUUIDPipe) id: string,
     @Query('version') version: string | undefined,
+    @Query('view') view: string | undefined,
     @CurrentUser() identity: AuthenticatedUser,
   ): Promise<StreamableFile> {
     let v: number | null = null;
@@ -160,11 +162,12 @@ export class RoomDocumentsController {
       v = Number(version);
       if (!Number.isInteger(v) || v < 1) throw new BadRequestException('version must be a positive integer');
     }
-    const file = await this.documents.open(roomId, id, v, identity);
+    const inline = view === '1';
+    const file = await this.documents.open(roomId, id, v, identity, inline ? 'view' : 'download');
     return new StreamableFile(file.stream, {
       type: file.mimeType,
       length: file.sizeBytes,
-      disposition: `attachment; filename="${file.fileName.replace(/"/g, '')}"`,
+      disposition: `${inline ? 'inline' : 'attachment'}; filename="${file.fileName.replace(/"/g, '')}"`,
     });
   }
 

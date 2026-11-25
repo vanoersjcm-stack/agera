@@ -48,9 +48,22 @@ export interface StageChangeView {
   changedByName: string | null;
   changedAt: Date;
 }
+export interface DealNoteView { id: string; kind: 'note' | 'counter_offer' | 'our_offer'; body: string; amount: string | null; createdByName: string | null; createdAt: Date }
+export interface OnboardingItemView { id: string; title: string; doneAt: Date | null; doneByName: string | null }
 export interface DealRecord extends DealView {
   history: StageChangeView[];
+  proposalDocumentId: string | null;
+  proposalDocumentTitle: string | null;
+  proposalSentAt: Date | null;
+  opsCoordinatorId: string | null;
+  opsCoordinatorName: string | null;
+  handedOverAt: Date | null;
+  negotiation: DealNoteView[];
+  onboarding: OnboardingItemView[];
 }
+export const DEFAULT_ONBOARDING = [
+  'Confirm scope and store list with the client', 'Plan the first store visits', 'Brief the field team', 'Set up price list and invoicing', 'Kick-off meeting with the client',
+];
 
 const PERSON = (alias: string) => `COALESCE(NULLIF(btrim(concat_ws(' ', ${alias}.first_name, ${alias}.last_name)), ''), ${alias}.email)`;
 
@@ -167,7 +180,99 @@ export class DealsService {
         WHERE s.tenant_id = $1 AND s.deal_id = $2 ORDER BY s.changed_at DESC`,
       [this.context.tenantId, id],
     );
-    return { ...deal, history };
+    const [extra] = await manager.query(
+      `SELECT d.proposal_document_id AS "proposalDocumentId", rd.title AS "proposalDocumentTitle", d.proposal_sent_at AS "proposalSentAt",
+              d.ops_coordinator_id AS "opsCoordinatorId", ${PERSON('o')} AS "opsCoordinatorName", d.handed_over_at AS "handedOverAt"
+         FROM deals d LEFT JOIN room_documents rd ON rd.id = d.proposal_document_id LEFT JOIN users o ON o.id = d.ops_coordinator_id
+        WHERE d.tenant_id = $1 AND d.id = $2`,
+      [this.context.tenantId, id],
+    );
+    const negotiation: DealNoteView[] = await manager.query(
+      `SELECT n.id, n.kind, n.body, n.amount::text AS amount, ${PERSON('u')} AS "createdByName", n.created_at AS "createdAt"
+         FROM deal_notes n LEFT JOIN users u ON u.id = n.created_by WHERE n.tenant_id = $1 AND n.deal_id = $2 ORDER BY n.created_at DESC`,
+      [this.context.tenantId, id],
+    );
+    const onboarding: OnboardingItemView[] = await manager.query(
+      `SELECT i.id, i.title, i.done_at AS "doneAt", ${PERSON('u')} AS "doneByName"
+         FROM deal_onboarding_items i LEFT JOIN users u ON u.id = i.done_by WHERE i.tenant_id = $1 AND i.deal_id = $2 ORDER BY i.position, i.created_at`,
+      [this.context.tenantId, id],
+    );
+    return { ...deal, history, ...extra, negotiation, onboarding };
+  }
+
+  private async moveStage(manager: EntityManager, id: string, stage: DealStage, actorId: string): Promise<void> {
+    const [d] = await manager.query('SELECT stage FROM deals WHERE tenant_id = $1 AND id = $2', [this.context.tenantId, id]);
+    if (!d) throw new NotFoundException('Deal not found');
+    if (d.stage === stage) return;
+    await manager.query('UPDATE deals SET stage = $3, updated_at = NOW() WHERE tenant_id = $1 AND id = $2', [this.context.tenantId, id, stage]);
+    await manager.query('INSERT INTO deal_stage_changes (tenant_id, deal_id, from_stage, to_stage, changed_by) VALUES ($1,$2,$3,$4,$5)', [this.context.tenantId, id, d.stage, stage, actorId]);
+  }
+
+  /** Proposal sent: records the document that went to the client and moves the deal to Proposal sent. */
+  async markProposalSent(id: string, documentId: string | null, identity: AuthenticatedUser): Promise<DealRecord> {
+    const actor = await this.userService.resolveActor(identity);
+    const record = await this.tx.run(async (m) => {
+      const [d] = await m.query('SELECT client_id FROM deals WHERE tenant_id = $1 AND id = $2', [this.context.tenantId, id]);
+      if (!d) throw new NotFoundException('Deal not found');
+      if (documentId) {
+        const [doc] = await m.query(
+          'SELECT rd.id FROM room_documents rd JOIN digital_sales_rooms r ON r.id = rd.client_room_id WHERE rd.tenant_id = $1 AND rd.id = $2 AND r.client_id = $3',
+          [this.context.tenantId, documentId, d.client_id],
+        );
+        if (!doc) throw new BadRequestException('documentId must be a document in a client room of this client');
+      }
+      await m.query('UPDATE deals SET proposal_document_id = $3, proposal_sent_at = NOW() WHERE tenant_id = $1 AND id = $2', [this.context.tenantId, id, documentId]);
+      await this.moveStage(m, id, 'proposal_sent', actor.id);
+      return this.load(m, id);
+    });
+    this.audit.logAction(this.context.tenantId, actor.id, 'deal.proposal_sent', { dealId: id, documentId });
+    return record;
+  }
+
+  /** Negotiation log: notes, the client's counter-offers and our offers (with an amount excl. VAT). */
+  async addNote(id: string, input: { kind: DealNoteView['kind']; body: string; amount: string | null }, identity: AuthenticatedUser): Promise<DealRecord> {
+    const actor = await this.userService.resolveActor(identity);
+    const record = await this.tx.run(async (m) => {
+      await this.load(m, id);
+      await m.query('INSERT INTO deal_notes (tenant_id, deal_id, kind, body, amount, created_by) VALUES ($1,$2,$3,$4,$5,$6)', [this.context.tenantId, id, input.kind, input.body, input.amount, actor.id]);
+      return this.load(m, id);
+    });
+    this.audit.logAction(this.context.tenantId, actor.id, 'deal.note_added', { dealId: id, kind: input.kind });
+    return record;
+  }
+
+  /** Handover to operations: an HQ coordinator becomes owner of the onboarding checklist and is notified. */
+  async handover(id: string, input: { coordinatorId: string; items: string[] }, identity: AuthenticatedUser): Promise<DealRecord> {
+    const actor = await this.userService.resolveActor(identity);
+    const record = await this.tx.run(async (m) => {
+      const deal = await this.load(m, id);
+      const [u] = await m.query(`SELECT id FROM users WHERE tenant_id = $1 AND id = $2 AND is_active AND 'HQ_ADMIN' = ANY (realm_roles)`, [this.context.tenantId, input.coordinatorId]);
+      if (!u) throw new BadRequestException('coordinatorId must be an active HQ admin (operations coordinator) of this organisation');
+      await m.query('UPDATE deals SET ops_coordinator_id = $3, handed_over_at = NOW() WHERE tenant_id = $1 AND id = $2', [this.context.tenantId, id, input.coordinatorId]);
+      await m.query('DELETE FROM deal_onboarding_items WHERE tenant_id = $1 AND deal_id = $2 AND done_at IS NULL', [this.context.tenantId, id]);
+      for (const [i, title] of input.items.entries()) {
+        await m.query('INSERT INTO deal_onboarding_items (tenant_id, deal_id, title, position) VALUES ($1,$2,$3,$4)', [this.context.tenantId, id, title, i]);
+      }
+      await this.moveStage(m, id, 'ops_handoff', actor.id);
+      await m.query('INSERT INTO notifications (tenant_id, user_id, title, body, link) VALUES ($1,$2,$3,$4,$5)', [
+        this.context.tenantId, input.coordinatorId, `Handed to operations: ${deal.title}`, `${deal.clientName} · ${input.items.length} onboarding steps`, `/nexus/deals/${id}`,
+      ]);
+      return this.load(m, id);
+    });
+    this.audit.logAction(this.context.tenantId, actor.id, 'deal.handed_over', { dealId: id, coordinatorId: input.coordinatorId });
+    return record;
+  }
+
+  async toggleOnboarding(id: string, itemId: string, done: boolean, identity: AuthenticatedUser): Promise<DealRecord> {
+    const actor = await this.userService.resolveActor(identity);
+    return this.tx.run(async (m) => {
+      const r = await m.query(
+        'UPDATE deal_onboarding_items SET done_at = CASE WHEN $4 THEN NOW() END, done_by = CASE WHEN $4 THEN $5::uuid END WHERE tenant_id = $1 AND deal_id = $2 AND id = $3 RETURNING id',
+        [this.context.tenantId, id, itemId, done, actor.id],
+      );
+      if (!r.length) throw new NotFoundException('Onboarding step not found');
+      return this.load(m, id);
+    });
   }
 
   private async assertOwner(ownerId: string | null | undefined): Promise<void> {

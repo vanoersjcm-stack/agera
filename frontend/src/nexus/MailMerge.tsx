@@ -4,7 +4,7 @@ import { ClientSelect } from '../DocumentCreate';
 import { useUsers } from '../directory';
 import { t as tr, tf, live } from '../i18n';
 import { ViewFrame } from '../Layout';
-import { ErrorText, Field, Stepper, useAction } from '../ui';
+import { ErrorText, Field, includesText, Loading, SearchInput, Stepper, useAction, useLoad } from '../ui';
 
 const SUITE = live(() => ({ label: tr("Nexus"), href: '#/nexus' }));
 
@@ -15,7 +15,8 @@ function csvCell(v: string): string {
 /** Agera ManyMail: cohort → template → preview → send (SMTP) or export / open one by one. */
 export function MailMergeView() {
   const users = useUsers();
-  const [mode, setMode] = useState<'single_client' | 'client_cohort'>('client_cohort');
+  const [mode, setMode] = useState<'single_client' | 'client_cohort' | 'client_list'>('client_cohort');
+  const [picked, setPicked] = useState<string[]>([]);
   const [clientId, setClientId] = useState('');
   const [sector, setSector] = useState('');
   const [manager, setManager] = useState('');
@@ -39,8 +40,9 @@ export function MailMergeView() {
   const body = (): MailMergeBody =>
     mode === 'single_client'
       ? { targetType: 'single_client', clientId, templateId, recipients }
+      : mode === 'client_list' ? { targetType: 'client_list', clientIds: picked, templateId, recipients }
       : { targetType: 'client_cohort', all: !filtered, sector: sector || null, accountManagerId: manager || null, minArr: minArr ? Number(minArr) : null, maxHealthScore: maxHealth ? Number(maxHealth) : null, templateId, recipients };
-  const ready = !!templateId && (mode === 'client_cohort' || !!clientId);
+  const ready = !!templateId && (mode === 'client_cohort' || (mode === 'client_list' ? picked.length > 0 : !!clientId));
   const load = () => {
     setDone(null);
     void run(() => api.mailMergePreview(body())).then((r) => { if (r) { setPreview(r); setIndex(0); } });
@@ -66,10 +68,13 @@ export function MailMergeView() {
         <Field label={tr("Send to")}>
           <select value={mode} onChange={(e) => { setMode(e.target.value as typeof mode); setPreview(null); }}>
             <option value="client_cohort">{tr("A group of clients (cohort)")}</option>
+            <option value="client_list">{tr("Choose clients")}</option>
             <option value="single_client">{tr("One client")}</option>
           </select>
         </Field>
-        {mode === 'single_client' ? (
+        {mode === 'client_list' ? (
+          <ClientPicker users={users} value={picked} onChange={(v) => { setPicked(v); setPreview(null); }} />
+        ) : mode === 'single_client' ? (
           <ClientSelect value={clientId} onChange={(v) => { setClientId(v); setPreview(null); }} />
         ) : (
           <>
@@ -140,5 +145,43 @@ export function MailMergeView() {
         </section>
       )}
     </ViewFrame>
+  );
+}
+
+/** Searchable multi-select of clients by name, sector and account manager. */
+function ClientPicker({ users, value, onChange }: { users: { id: string; name: string }[]; value: string[]; onChange: (v: string[]) => void }) {
+  const clients = useLoad(() => api.clients(), []);
+  const [q, setQ] = useState('');
+  const [sector, setSector] = useState('');
+  const [manager, setManager] = useState('');
+  const all = (clients.data ?? []).filter((c) => c.status === 'active');
+  const sectors = [...new Set(all.map((c) => c.sector).filter((s): s is string => !!s))].sort();
+  const shown = all.filter((c) => (!sector || c.sector === sector) && (!manager || c.accountManagerId === manager) && includesText([c.name, c.sector ?? ''], q));
+  const toggle = (id: string) => onChange(value.includes(id) ? value.filter((x) => x !== id) : [...value, id]);
+  return (
+    <Field label={tf("Clients ({count} chosen)", { count: value.length })}>
+      <div className="client-picker">
+        <div className="deal-form">
+          <SearchInput value={q} onChange={setQ} placeholder={tr("Search client name or sector")} />
+          <select aria-label={tr("Sector")} value={sector} onChange={(e) => setSector(e.target.value)}>
+            <option value="">{tr("All sectors")}</option>
+            {sectors.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select aria-label={tr("Account manager")} value={manager} onChange={(e) => setManager(e.target.value)}>
+            <option value="">{tr("All account managers")}</option>
+            {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+          </select>
+          <button type="button" className="secondary small" onClick={() => onChange([...new Set([...value, ...shown.map((c) => c.id)])])}>{tr("Select all shown")}</button>
+          <button type="button" className="secondary small" onClick={() => onChange([])}>{tr("Clear")}</button>
+        </div>
+        {!clients.data ? <Loading error={clients.error} /> : (
+          <ul className="client-picker-list">
+            {shown.map((c) => (
+              <li key={c.id}><label className="inline-label"><input type="checkbox" checked={value.includes(c.id)} onChange={() => toggle(c.id)} /> {c.name}<span className="muted small"> · {c.sector ?? '—'}</span></label></li>
+            ))}
+          </ul>
+        )}
+      </div>
+    </Field>
   );
 }

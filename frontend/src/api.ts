@@ -78,7 +78,7 @@ export interface SurveyQuestion { id: string; type: SurveyQuestionType; label: s
 export interface SurveyDispatch { id: string; targetType: 'single_client' | 'client_cohort' | 'client_room'; clientId: string | null; clientName: string | null; clientRoomId: string | null; clientRoomName: string | null; filterCriteria: Record<string, unknown> | null; totalTargeted: number; totalContacts: number; totalResponded: number; dispatchedByName: string | null; createdAt: string }
 export interface Survey { id: string; title: string; description: string | null; status: SurveyStatus; questions: SurveyQuestion[]; createdByName: string | null; responseCount: number; targetedClients: number; dispatchCount: number; nps: number | null; createdAt: string; updatedAt: string; dispatches?: SurveyDispatch[] }
 export interface SurveyList { tier: LicenseTier; maxActive: number | null; activeCount: number; questionTypes: SurveyQuestionType[]; items: Survey[] }
-export interface SurveyAudience { targetType: 'single_client' | 'client_cohort' | 'client_room'; clientId?: string | null; clientRoomId?: string | null; all?: boolean; sector?: string | null; minArr?: number | null; maxArr?: number | null; accountManagerId?: string | null; maxHealthScore?: number | null }
+export interface SurveyAudience { targetType: 'single_client' | 'client_cohort' | 'client_room' | 'client_list'; clientId?: string | null; clientRoomId?: string | null; all?: boolean; sector?: string | null; minArr?: number | null; maxArr?: number | null; accountManagerId?: string | null; maxHealthScore?: number | null; clientIds?: string[] }
 export type ImportAction = 'create' | 'add_contact' | 'skip' | 'error';
 export interface ClientImportResult {
   dryRun: boolean; fileName: string; ignoredColumns: string[];
@@ -143,6 +143,15 @@ export async function downloadFile(path: string, fileName: string): Promise<void
   a.download = fileName;
   a.click();
   setTimeout(() => URL.revokeObjectURL(url), 10000);
+}
+
+export async function viewFile(path: string): Promise<void> {
+  const tab = window.open('', '_blank');
+  const response = await fetch(`/api${path}`, { headers: { Authorization: `Bearer ${await accessToken()}`, ...organisationHeader() } });
+  if (!response.ok) { tab?.close(); throw new ApiError(response.status, response.statusText); }
+  const url = URL.createObjectURL(await response.blob());
+  if (tab) tab.location.href = url; else window.location.assign(url);
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
 }
 
 const VIEW_KEY = 'agera.viewOrganisation';
@@ -270,6 +279,7 @@ export interface UserSummary {
   email: string;
   role: UserRole;
   title: string | null;
+  jobRole?: string | null;
 }
 
 export interface MailStatus {
@@ -735,6 +745,10 @@ export interface Deal {
 
 export interface DealRecord extends Deal {
   history: { id: string; fromStage: DealStage | null; toStage: DealStage; changedByName: string | null; changedAt: string }[];
+  proposalDocumentId: string | null; proposalDocumentTitle: string | null; proposalSentAt: string | null;
+  opsCoordinatorId: string | null; opsCoordinatorName: string | null; handedOverAt: string | null;
+  negotiation: { id: string; kind: 'note' | 'counter_offer' | 'our_offer'; body: string; amount: string | null; createdByName: string | null; createdAt: string }[];
+  onboarding: { id: string; title: string; doneAt: string | null; doneByName: string | null }[];
 }
 
 export interface DealInput {
@@ -1150,6 +1164,16 @@ export const api = {
   downloadOfficeDocument: (id: string, fileName: string, version?: number) => downloadFile(`/v1/documents/${id}/download${version ? `?version=${version}` : ''}`, fileName),
   renameRoomDocument: (roomId: string, id: string, title: string) => request<RoomDocument>('PATCH', `/v1/nexus/client-rooms/${roomId}/documents/${id}`, { title }),
   deleteRoomDocument: (roomId: string, id: string) => request<null>('DELETE', `/v1/nexus/client-rooms/${roomId}/documents/${id}`),
+  dealProposalSent: (id: string, documentId: string | null) => request<DealRecord>('POST', `/v1/deals/${id}/proposal-sent`, { documentId }),
+  addDealNote: (id: string, body: { kind: 'note' | 'counter_offer' | 'our_offer'; body: string; amount?: string | null }) => request<DealRecord>('POST', `/v1/deals/${id}/notes`, body),
+  dealHandover: (id: string, body: { coordinatorId: string; items: string[] }) => request<DealRecord>('POST', `/v1/deals/${id}/handover`, body),
+  dealOnboarding: (id: string, itemId: string, done: boolean) => request<DealRecord>('PATCH', `/v1/deals/${id}/onboarding/${itemId}`, { done }),
+  parsePriceFile: (file: File) => {
+    const form = new FormData();
+    form.append('file', file);
+    return send<{ headers: string[]; rows: string[][] }>('POST', '/v1/price-lists/import/parse', form);
+  },
+  viewRoomDocument: (roomId: string, id: string) => viewFile(`/v1/nexus/client-rooms/${roomId}/documents/${id}/download?view=1`),
   downloadRoomDocument: (roomId: string, id: string, fileName: string, version?: number) =>
     downloadFile(`/v1/nexus/client-rooms/${roomId}/documents/${id}/download${version ? `?version=${version}` : ''}`, fileName),
   signatures: (agreementId: string) => request<AgreementSignature[]>('GET', `/v1/agreements/${agreementId}/signatures`),

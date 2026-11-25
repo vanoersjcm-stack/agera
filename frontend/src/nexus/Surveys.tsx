@@ -16,8 +16,8 @@ export const QUESTION_TYPE: Record<SurveyQuestionType, string> = live(() => ({
   nps: tr("Recommendation score (NPS 0–10)"),
   csat: tr("Satisfaction (1–5 stars)"),
   rating: tr("Rating scale"),
-  single_choice: tr("Single choice"),
-  multi_choice: tr("Multiple choice"),
+  single_choice: tr("Multiple choice (one answer)"),
+  multi_choice: tr("Multiple select (several answers)"),
   text: tr("Open text"),
 }));
 const BASIC: SurveyQuestionType[] = ['nps', 'csat', 'text'];

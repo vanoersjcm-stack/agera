@@ -25,7 +25,8 @@ export function useRecordOpened(roomId: string, enabled: boolean): void {
 
 function describe(a: RoomActivity): string {
   const label = ACTIVITY_TYPE[a.activityType] ?? a.activityType;
-  const title = typeof a.details.agreementTitle === 'string' ? ` “${a.details.agreementTitle}”` : '';
+  const name = a.details.agreementTitle ?? a.details.title;
+  const title = typeof name === 'string' ? ` “${name}”` : '';
   return `${label}${title}`;
 }
 

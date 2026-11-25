@@ -1,3 +1,4 @@
+import { jobRoleOf } from '../auth/job-roles.js';
 import { BadRequestException, Body, Controller, DefaultValuePipe, Get, Param, ParseIntPipe, ParseUUIDPipe, Patch, Post, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiBody, ApiCreatedResponse, ApiOkResponse, ApiOperation, ApiParam, ApiProperty, ApiPropertyOptional, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AllowJobRoles } from '../auth/job-roles.js';
@@ -72,6 +73,9 @@ export class UserSummaryDto {
 
   @ApiProperty({ type: String, nullable: true, example: 'Key account manager' })
   title!: string | null;
+
+  @ApiProperty({ type: String, nullable: true, example: 'HQ_ADMIN', description: 'Job role, e.g. HQ_ADMIN for operations coordinators' })
+  jobRole!: string | null;
 }
 
 export class UserAccountDto {
@@ -191,6 +195,7 @@ export class UserController {
       email: u.email,
       role: primaryRole(u.realmRoles),
       title: u.title,
+      jobRole: jobRoleOf(u.realmRoles ?? []),
     }));
   }
 

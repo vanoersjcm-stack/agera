@@ -5,7 +5,7 @@ import type { AuthenticatedUser } from '../auth/authenticated-user.js';
 import { CurrentUser } from '../auth/current-user.decorator.js';
 import { ApiErrors, BEARER_AUTH } from '../core/http/api-docs.js';
 import { amount, amsterdamDate, asObject, isUuid, oneOf, optionalDate, optionalString, optionalUuid, requiredString } from '../core/http/validation.js';
-import { type DealInput, type DealRecord, DealsService, type DealUpdate, type DealView, type MilestoneInput, MilestonesService, type MilestoneUpdate, type MilestoneView } from './deals.service.js';
+import { DEFAULT_ONBOARDING, type DealInput, type DealRecord, DealsService, type DealUpdate, type DealView, type MilestoneInput, MilestonesService, type MilestoneUpdate, type MilestoneView } from './deals.service.js';
 import { DEAL_PRIORITIES, DEAL_STAGES, type DealPriority, type DealStage } from './entities/deal.entity.js';
 import { MILESTONE_OWNER_SIDES, type MilestoneOwnerSide } from './entities/room-milestone.entity.js';
 
@@ -146,6 +146,55 @@ export class DealsController {
   @ApiErrors(400, 404)
   stage(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<DealRecord> {
     return this.deals.changeStage(id, oneOf('stage', asObject(body).stage, DEAL_STAGES), identity);
+  }
+
+  @Post(':id/proposal-sent')
+  @ApiOperation({ summary: 'Mark the proposal as sent, optionally with the client-room document that was sent; moves the deal to Proposal sent (audit: deal.proposal_sent)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOkResponse({ type: DealRecordDto })
+  @ApiErrors(400, 404)
+  proposalSent(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<DealRecord> {
+    return this.deals.markProposalSent(id, optionalUuid('documentId', asObject(body).documentId), identity);
+  }
+
+  @Post(':id/notes')
+  @ApiOperation({ summary: 'Add a negotiation note, counter-offer or offer (audit: deal.note_added)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOkResponse({ type: DealRecordDto })
+  @ApiErrors(400, 404)
+  addNote(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<DealRecord> {
+    const o = asObject(body);
+    return this.deals.addNote(id, {
+      kind: oneOf('kind', o.kind ?? 'note', ['note', 'counter_offer', 'our_offer'] as const),
+      body: requiredString('body', o.body, 4000),
+      amount: o.amount === undefined || o.amount === null || o.amount === '' ? null : amount('amount', o.amount),
+    }, identity);
+  }
+
+  @Post(':id/handover')
+  @ApiOperation({ summary: 'Hand the deal over to operations: coordinator (HQ admin) and onboarding checklist; moves the deal to Handed to operations (audit: deal.handed_over)' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiOkResponse({ type: DealRecordDto })
+  @ApiErrors(400, 404)
+  handover(@Param('id', ParseUUIDPipe) id: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<DealRecord> {
+    const o = asObject(body);
+    const coordinatorId = optionalUuid('coordinatorId', o.coordinatorId);
+    if (!coordinatorId) throw new BadRequestException('coordinatorId is required');
+    const items = o.items === undefined ? [...DEFAULT_ONBOARDING] : o.items;
+    if (!Array.isArray(items) || items.length > 30 || items.some((i) => typeof i !== 'string' || !i.trim() || i.length > 200)) throw new BadRequestException('items must be a list of at most 30 steps');
+    return this.deals.handover(id, { coordinatorId, items: (items as string[]).map((i) => i.trim()) }, identity);
+  }
+
+  @Patch(':id/onboarding/:itemId')
+  @ApiOperation({ summary: 'Tick or untick an onboarding step' })
+  @ApiParam({ name: 'id', format: 'uuid' })
+  @ApiParam({ name: 'itemId', format: 'uuid' })
+  @ApiOkResponse({ type: DealRecordDto })
+  @ApiErrors(400, 404)
+  onboarding(@Param('id', ParseUUIDPipe) id: string, @Param('itemId', ParseUUIDPipe) itemId: string, @Body() body: unknown, @CurrentUser() identity: AuthenticatedUser): Promise<DealRecord> {
+    const done = asObject(body).done;
+    if (typeof done !== 'boolean') throw new BadRequestException('done must be true or false');
+    return this.deals.toggleOnboarding(id, itemId, done, identity);
   }
 
   @Delete(':id')

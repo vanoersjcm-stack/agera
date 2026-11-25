@@ -62,3 +62,60 @@ describe('formal salutation', () => {
     assert.equal(r.body.text, 't.a.v. de heer P. van Adrichem\n\nGeachte heer Van Adrichem,');
   });
 });
+
+describe('deal pipeline: proposal, negotiation, handover', () => {
+  it('records the proposal, the negotiation log and the handover with onboarding', async () => {
+    const clients = (await api<{ id: string; entityCategory: string }[]>(alice, 'GET', '/v1/clients')).body.filter((c) => c.entityCategory === 'client');
+    const deal = await api<{ id: string }>(alice, 'POST', '/v1/deals', { title: `Handover ${stamp}`, clientId: clients[0].id, value: '25000.00' });
+    assert.equal(deal.status, 201, JSON.stringify(deal.body));
+    const sent = await api<{ stage: string; proposalSentAt: string | null }>(alice, 'POST', `/v1/deals/${deal.body.id}/proposal-sent`, { documentId: null });
+    assert.equal(sent.status, 201, JSON.stringify(sent.body));
+    assert.equal(sent.body.stage, 'proposal_sent');
+    assert.ok(sent.body.proposalSentAt);
+    const note = await api<{ negotiation: { kind: string; amount: string }[] }>(alice, 'POST', `/v1/deals/${deal.body.id}/notes`, { kind: 'counter_offer', body: 'Client asks 5% off', amount: '23750' });
+    assert.equal(note.status, 201, JSON.stringify(note.body));
+    assert.equal(note.body.negotiation[0].kind, 'counter_offer');
+    assert.equal(Number(note.body.negotiation[0].amount), 23750);
+    const users = (await api<{ id: string; jobRole: string | null }[]>(alice, 'GET', '/users')).body;
+    const hq = users.find((u) => u.jobRole === 'HQ_ADMIN');
+    const other = users.find((u) => u.jobRole && u.jobRole !== 'HQ_ADMIN');
+    assert.ok(hq && other, 'needs an HQ admin and another internal user');
+    assert.equal((await api(alice, 'POST', `/v1/deals/${deal.body.id}/handover`, { coordinatorId: other!.id })).status, 400);
+    const ho = await api<{ stage: string; opsCoordinatorId: string; onboarding: { id: string; doneAt: string | null }[] }>(alice, 'POST', `/v1/deals/${deal.body.id}/handover`, { coordinatorId: hq!.id, items: ['Kick-off', 'Brief team'] });
+    assert.equal(ho.status, 201, JSON.stringify(ho.body));
+    assert.equal(ho.body.stage, 'ops_handoff');
+    assert.equal(ho.body.onboarding.length, 2);
+    const tick = await api<{ onboarding: { doneAt: string | null }[] }>(alice, 'PATCH', `/v1/deals/${deal.body.id}/onboarding/${ho.body.onboarding[0].id}`, { done: true });
+    assert.equal(tick.status, 200, JSON.stringify(tick.body));
+    assert.ok(tick.body.onboarding[0].doneAt);
+  });
+});
+
+describe('ManyMail client list and price import', () => {
+  it('previews a hand-picked list of clients', async () => {
+    const clients = (await api<{ id: string; entityCategory: string; status: string }[]>(alice, 'GET', '/v1/clients')).body.filter((c) => c.entityCategory === 'client' && c.status === 'active').slice(0, 2);
+    const tpl = (await api<{ items: { id: string; kind: string }[] }>(alice, 'GET', '/v1/document-templates')).body.items.find((t) => t.kind === 'mail');
+    assert.ok(tpl);
+    const r = await api<{ recipients?: unknown[]; items?: unknown[] }>(alice, 'POST', '/v1/mail-merge/preview', { targetType: 'client_list', clientIds: clients.map((c) => c.id), templateId: tpl!.id, recipients: 'primary' });
+    assert.ok(r.status === 200 || r.status === 201, JSON.stringify(r.body));
+    assert.equal((await api(alice, 'POST', '/v1/mail-merge/preview', { targetType: 'client_list', clientIds: [], templateId: tpl!.id })).status, 400);
+  });
+
+  it('reads CSV and Agera.calc JSON price files for the mapping preview', async () => {
+    const token = alice;
+    const send = async (name: string, content: string) => {
+      const form = new FormData();
+      form.append('file', new Blob([content]), name);
+      const res = await fetch(`${process.env.API_URL ?? 'http://localhost:3000'}/v1/price-lists/import/parse`, { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+      return { status: res.status, body: await res.json() as { headers: string[]; rows: string[][] } };
+    };
+    const csv = await send('prices.csv', 'SKU;Name;Unit price;Tier;VAT %\nA-1;Cola;1,25;1;9\nA-1;Cola;1,10;24;9\n');
+    assert.equal(csv.status, 200, JSON.stringify(csv.body));
+    assert.deepEqual(csv.body.headers, ['SKU', 'Name', 'Unit price', 'Tier', 'VAT %']);
+    assert.equal(csv.body.rows.length, 2);
+    const json = await send('calc.json', JSON.stringify({ rows: [{ sku: 'A-1', price: 1.25 }] }));
+    assert.equal(json.status, 200, JSON.stringify(json.body));
+    assert.deepEqual(json.body.headers, ['sku', 'price']);
+    assert.equal((await send('old.xls', 'x')).status, 400);
+  });
+});

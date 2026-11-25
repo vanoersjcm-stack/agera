@@ -1,5 +1,5 @@
 import { type FormEvent, useRef, useState } from 'react';
-import { api, type DocumentTemplate, type PriceList, type TemplateKind } from '../api';
+import { api, type DocumentTemplate, type PriceList, type Product, type TemplateKind } from '../api';
 import { matchesClient, useClientFilter } from '../clientFilter';
 import { formatDate } from '../labels';
 import { formatNumber } from '../format';
@@ -115,6 +115,7 @@ export function PriceListDossier({ id }: { id: string }) {
   const { notify } = useShell();
   const list = useLoad(() => api.priceList(id), [id]);
   const [editing, setEditing] = useState(false);
+  const [importing, setImporting] = useState(false);
   const action = useAction();
   const crumbs = [SUITE, { label: tr("Price lists"), href: '#/nexus/price-lists' }];
   if (!list.data) return <ViewFrame title={tr("Price list")} crumbs={[...crumbs, { label: tr("Loading…") }]}><Loading error={list.error} /></ViewFrame>;
@@ -122,6 +123,7 @@ export function PriceListDossier({ id }: { id: string }) {
   return (
     <ViewFrame title={l.name} subtitle={l.clientName ? tf("Prices for {client}", { client: l.clientName }) : tr("General price list")} crumbs={[...crumbs, { label: l.name }]}
       actions={<>
+        <button className="primary" onClick={() => setImporting(true)}>{tr("Import prices")}</button>
         <button className="secondary" onClick={() => setEditing(true)}>{tr("Edit")}</button>
         <button className="secondary" disabled={action.busy} onClick={() => void action.run(() => api.updatePriceList(id, { active: !l.active })).then((r) => r && (notify(r.active ? tr("Price list activated") : tr("Price list deactivated")), list.reload()))}>{l.active ? tr("Deactivate") : tr("Activate")}</button>
       </>}>
@@ -144,6 +146,7 @@ export function PriceListDossier({ id }: { id: string }) {
           </tbody>
         </table>
       )}
+      {importing && <PriceImport list={l} onClose={() => setImporting(false)} onDone={(n) => (setImporting(false), notify(tf("{count} prices imported", { count: n })), list.reload())} />}
       {editing && (
         <Drawer title={tr("Edit price list")} onClose={() => setEditing(false)}>
           <PriceListEditor list={l} onCancel={() => setEditing(false)} onDone={() => (setEditing(false), notify(tr("Price list saved")), list.reload())} />
@@ -275,3 +278,85 @@ export function GenerateDocumentDrawer({ roomId, onClose, onDone }: { roomId: st
 }
 
 export { matchesClient };
+
+type PriceField = 'sku' | 'name' | 'price' | 'tier' | 'vat';
+const PRICE_FIELDS: Record<PriceField, string> = live(() => ({ sku: tr("SKU"), name: tr("Product name"), price: tr("Unit price"), tier: tr("Tier / volume (from quantity)"), vat: tr("VAT %") }));
+const GUESS: Record<PriceField, RegExp> = { sku: /sku|art|ean|code/i, name: /name|naam|product|omschr/i, price: /price|prijs|unit/i, tier: /tier|staffel|volume|qty|aantal|from|vanaf/i, vat: /vat|btw|tax/i };
+const num = (v: string) => Number(v.replace(/[€\s]/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.'));
+
+/** Price import: CSV, Excel (.xlsx) or an Agera.calc JSON export → map columns → preview → add to this price list. */
+function PriceImport({ list, onClose, onDone }: { list: PriceList; onClose: () => void; onDone: (count: number) => void }) {
+  const action = useAction();
+  const products = useLoad(() => api.products(true), []);
+  const [table, setTable] = useState<{ headers: string[]; rows: string[][] } | null>(null);
+  const [map, setMap] = useState<Record<PriceField, number>>({ sku: -1, name: -1, price: -1, tier: -1, vat: -1 });
+  const pick = (file: File | undefined) => {
+    if (!file) return;
+    void action.run(() => api.parsePriceFile(file)).then((r) => {
+      if (!r) return;
+      setTable(r);
+      const used = new Set<number>();
+      const guess = {} as Record<PriceField, number>;
+      for (const f of Object.keys(GUESS) as PriceField[]) {
+        const i = r.headers.findIndex((h, k) => !used.has(k) && GUESS[f].test(h));
+        guess[f] = i; if (i >= 0) used.add(i);
+      }
+      setMap(guess);
+    });
+  };
+  const bySku = new Map((products.data ?? []).map((p: Product) => [p.sku.toLowerCase(), p]));
+  const lines = (table?.rows ?? []).map((r) => {
+    const cell = (f: PriceField) => (map[f] >= 0 ? (r[map[f]] ?? '').trim() : '');
+    const product = bySku.get(cell('sku').toLowerCase());
+    const price = num(cell('price'));
+    const tier = cell('tier') ? num(cell('tier')) : 1;
+    const problem = !cell('sku') ? tr("No SKU") : !product ? tr("SKU not in the catalogue") : !(price >= 0) || cell('price') === '' ? tr("Price is not a number") : !Number.isInteger(tier) || tier < 1 ? tr("Tier must be a whole number of at least 1") : null;
+    return { sku: cell('sku'), name: product?.name ?? cell('name'), price, tier, vat: cell('vat'), product, problem };
+  });
+  const ok = lines.filter((x) => !x.problem);
+  const save = () => {
+    const key = (p: string, q: number) => `${p}:${q}`;
+    const incoming = new Map(ok.map((x) => [key(x.product!.id, x.tier), { productId: x.product!.id, unitPrice: x.price.toFixed(2), minQuantity: x.tier }]));
+    const kept = (list.items ?? []).filter((i) => !incoming.has(key(i.productId, i.minQuantity))).map((i) => ({ productId: i.productId, unitPrice: i.unitPrice, minQuantity: i.minQuantity }));
+    void action.run(() => api.updatePriceList(list.id, { items: [...kept, ...incoming.values()] })).then((r) => r && onDone(incoming.size));
+  };
+  return (
+    <Drawer title={tr("Import prices")} onClose={onClose}>
+      <p className="muted">{tr("Upload a CSV, an Excel file (.xlsx) or an Agera.calc export (.json). Old .xls files: save them as .xlsx first. Imported prices are added; a price for the same product and tier is replaced.")}</p>
+      <Field label={tr("File")}><input type="file" accept=".csv,.xlsx,.xls,.json,text/csv,application/json" onChange={(e) => pick(e.target.files?.[0])} /></Field>
+      <ErrorText error={action.error ?? products.error} />
+      {table && (
+        <>
+          <h3>{tr("Match the columns")}</h3>
+          <div className="mapping-grid">
+            {(Object.keys(PRICE_FIELDS) as PriceField[]).map((f) => (
+              <Field key={f} label={PRICE_FIELDS[f]}>
+                <select value={map[f]} onChange={(e) => setMap((m) => ({ ...m, [f]: Number(e.target.value) }))}>
+                  <option value={-1}>{f === 'sku' || f === 'price' ? tr("Choose a column…") : tr("Not in the file")}</option>
+                  {table.headers.map((h, i) => <option key={i} value={i}>{h || tf("Column {n}", { n: i + 1 })}</option>)}
+                </select>
+              </Field>
+            ))}
+          </div>
+          <h3>{tf("Preview: {ok} of {total} rows can be imported", { ok: ok.length, total: lines.length })}</h3>
+          <table className="grid">
+            <thead><tr><th>{tr("SKU")}</th><th>{tr("Product")}</th><th className="num">{tr("From quantity")}</th><th className="num">{tr("Price")}</th><th className="num">{tr("VAT %")}</th><th>{tr("Check")}</th></tr></thead>
+            <tbody>
+              {lines.slice(0, 50).map((x, i) => (
+                <tr key={i} className={x.problem ? 'row-error' : undefined}>
+                  <td className="mono">{x.sku}</td><td>{x.name}</td><td className="num">{x.tier}</td><td className="num">{Number.isFinite(x.price) ? money(x.price.toFixed(2)) : '—'}</td><td className="num">{x.vat || '—'}</td>
+                  <td>{x.problem ?? tr("OK")}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {lines.length > 50 && <p className="muted">{tf("And {count} more rows", { count: lines.length - 50 })}</p>}
+          <div className="form-actions">
+            <button type="button" className="primary" disabled={action.busy || ok.length === 0} onClick={save}>{tf("Import {count} prices", { count: ok.length })}</button>
+            <button type="button" className="secondary" onClick={onClose}>{tr("Cancel")}</button>
+          </div>
+        </>
+      )}
+    </Drawer>
+  );
+}

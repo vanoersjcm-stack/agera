@@ -196,7 +196,7 @@ export class DocumentsService {
   }
 
   /** Streams a version (latest by default). Client downloads are recorded as `download` engagement in the room. */
-  async open(roomId: string, documentId: string, version: number | null, identity: AuthenticatedUser): Promise<{ fileName: string; mimeType: string; sizeBytes: number; stream: Readable }> {
+  async open(roomId: string, documentId: string, version: number | null, identity: AuthenticatedUser, activity: 'view' | 'download' = 'download'): Promise<{ fileName: string; mimeType: string; sizeBytes: number; stream: Readable }> {
     const row = await this.tx.run(async (manager) => {
       await this.assertDocument(manager, roomId, documentId);
       const [v] = await manager.query(
@@ -208,8 +208,8 @@ export class DocumentsService {
       if (!v) throw new NotFoundException('Document version not found');
       if (this.external) {
         await manager.query(
-          `INSERT INTO dsr_activities (tenant_id, dsr_id, stakeholder_email, activity_type, details) VALUES ($1, $2, $3, 'download', $4)`,
-          [this.context.tenantId, roomId, identity.email, JSON.stringify({ documentId, version: v.version, title: v.title })],
+          `INSERT INTO dsr_activities (tenant_id, dsr_id, stakeholder_email, activity_type, details) VALUES ($1, $2, $3, $5, $4)`,
+          [this.context.tenantId, roomId, identity.email, JSON.stringify({ documentId, version: v.version, title: v.title }), activity],
         );
       }
       return v as { version: number; file_name: string; mime_type: string; size_bytes: number; storage_key: string };

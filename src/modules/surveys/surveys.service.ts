@@ -27,7 +27,8 @@ export interface Question {
 }
 export interface SurveyInput { title: string; description: string | null; questions: Question[] }
 export interface Audience {
-  targetType: 'single_client' | 'client_cohort' | 'client_room';
+  targetType: 'single_client' | 'client_cohort' | 'client_room' | 'client_list';
+  clientIds?: string[];
   clientId?: string | null;
   clientRoomId?: string | null;
   all?: boolean;
@@ -212,6 +213,13 @@ export class SurveysService {
       if (!c) throw new BadRequestException('clientId must be a client of the active tenant');
       clientIds = [c.id];
       clientId = c.id;
+    } else if (a.targetType === 'client_list') {
+      const ids = [...new Set(a.clientIds ?? [])];
+      if (ids.length === 0) throw new BadRequestException('Choose at least one client');
+      const rows: { id: string }[] = await m.query(`SELECT id FROM clients WHERE tenant_id = $1 AND id = ANY($2::uuid[]) AND status = 'active' ORDER BY name`, [this.t, ids]);
+      if (rows.length !== ids.length) throw new BadRequestException('clientIds must be active clients of the active tenant');
+      clientIds = rows.map((r) => r.id);
+      criteria = { clientIds };
     } else if (a.targetType === 'client_room') {
       if (!a.clientRoomId) throw new BadRequestException('clientRoomId is required for a client room');
       const [r] = await m.query(`SELECT d.id, d.client_id FROM digital_sales_rooms d JOIN clients c ON c.tenant_id = d.tenant_id AND c.id = d.client_id WHERE d.tenant_id = $1 AND d.id = $2 AND d.status = 'active'`, [this.t, a.clientRoomId]);

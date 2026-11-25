@@ -57,7 +57,11 @@ function optionalNumber(name: string, v: unknown): number | null {
 export function audience(body: unknown): Audience {
   const o = asObject(body);
   return {
-    targetType: oneOf('targetType', o.targetType, ['single_client', 'client_cohort', 'client_room'] as const),
+    targetType: oneOf('targetType', o.targetType, ['single_client', 'client_cohort', 'client_room', 'client_list'] as const),
+    clientIds: o.clientIds === undefined ? undefined : (() => {
+      if (!Array.isArray(o.clientIds) || o.clientIds.length > 500) throw new BadRequestException('clientIds must be a list of at most 500 client ids');
+      return o.clientIds.map((id, i) => optionalUuid(`clientIds[${i}]`, id) ?? (() => { throw new BadRequestException(`clientIds[${i}] must be a uuid`); })());
+    })(),
     clientId: optionalUuid('clientId', o.clientId),
     clientRoomId: optionalUuid('clientRoomId', o.clientRoomId),
     all: o.all === true,

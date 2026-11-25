@@ -91,7 +91,7 @@ export function RoomDocumentsPanel({ roomId, external, active, compact = false }
           {list.map((d) => (
             <li key={d.id}>
               <div className="doc-main">
-                <button className="link-button doc-title" onClick={() => void run(() => api.downloadRoomDocument(roomId, d.id, d.fileName))}>{d.title}</button>
+                <button className="link-button doc-title" onClick={() => void run(() => api.viewRoomDocument(roomId, d.id))}>{d.title}</button>
                 <span className="muted small">
                   {external ? <IdmsBadge status={d.idmsStatus} /> : <IdmsControl kind="documents" id={d.id} status={d.idmsStatus} onChanged={docs.reload} compact />} v{d.currentVersion} · {d.fileName} · {size(d.sizeBytes)}
                   {!external && ` · ${d.downloads} client download${d.downloads === 1 ? '' : 's'}`}
@@ -99,6 +99,7 @@ export function RoomDocumentsPanel({ roomId, external, active, compact = false }
               </div>
               {!compact && (
                 <div className="doc-actions">
+                  <button className="secondary small" onClick={() => void run(() => api.viewRoomDocument(roomId, d.id))}>{t("View")}</button>
                   <button className="secondary small" onClick={() => void run(() => api.downloadRoomDocument(roomId, d.id, d.fileName))}>{t("Download")}</button>
                   {!external && <PrintButton documentId={d.id} className="secondary small" />}
                   <button className="secondary small" onClick={() => setOpen(open === d.id ? null : d.id)}>{open === d.id ? t("Hide versions") : t("Versions")}</button>

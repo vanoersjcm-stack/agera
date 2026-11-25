@@ -18,6 +18,8 @@ import { t as tr, tf, numberLocale, live } from '../i18n';
 const SUITE = live(() => ({ label: tr("Nexus"), href: '#/nexus' }));
 const LIST = live(() => ({ label: tr("Clients"), href: '#/nexus/clients' }));
 
+export const SECTORS = ['Supermarkets / Food Retail', 'Health & Beauty / Drugstores', 'DIY & Garden', 'Hospitality', 'Wholesale'];
+
 export function money(value: string | number): string {
   return new Intl.NumberFormat(numberLocale(), { style: 'currency', currency: 'EUR', minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(value));
 }
@@ -180,7 +182,14 @@ function EditClientDrawer({ client, onClose, onSaved }: { client: Client; onClos
         <Field label={tr("Country")}><input maxLength={100} value={form.country} onChange={set('country')} /></Field>
         <Field label={tr("Street and number")}><input maxLength={255} value={form.address} onChange={set('address')} /></Field>
         <Field label={tr("Chamber of Commerce (KvK) number")}><input maxLength={20} value={form.kvkNumber} onChange={set('kvkNumber')} /></Field>
-        <Field label={tr("Sector")}><input maxLength={100} value={form.sector} onChange={set('sector')} placeholder={tr("e.g. Consumer electronics")} /></Field>
+        <Field label={tr("Sector")}>
+          <select value={SECTORS.includes(form.sector) || !form.sector ? form.sector : '__other'} onChange={(e) => setForm((f) => ({ ...f, sector: e.target.value === '__other' ? ' ' : e.target.value }))}>
+            <option value="">{tr("Choose a sector…")}</option>
+            {SECTORS.map((s) => <option key={s} value={s}>{tr(s)}</option>)}
+            <option value="__other">{tr("Other…")}</option>
+          </select>
+          {!SECTORS.includes(form.sector) && form.sector !== '' && <input maxLength={100} value={form.sector.trimStart()} onChange={set('sector')} placeholder={tr("Other sector")} />}
+        </Field>
         <Field label={tr("ERP client number")} hint={tr("Client number in your ERP system; must be unique")}><input maxLength={50} value={form.erpId} onChange={set('erpId')} /></Field>
         <Field label={tr("Account manager")}>
           <select value={form.accountManagerId} onChange={set('accountManagerId')}>
