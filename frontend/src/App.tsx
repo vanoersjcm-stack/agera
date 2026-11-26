@@ -2,6 +2,7 @@ import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } fro
 import { api, type Client, type SearchHit, type Tenant, switchOrganisation, viewingOrganisation, type UserProfile, type LicenseTier } from './api';
 import { AssistantTip, useAssistant } from './Assistant';
 import { keycloak } from './auth';
+import { installApp, useCanInstall } from './installApp';
 import { IdleLock, logout, PreferencesDrawer, usePreferencesOpen } from './Preferences';
 import { displayName, type UserContext, userContext } from './context';
 import { EmptyState, ViewFrame } from './Layout';
@@ -405,6 +406,7 @@ function UserMenu({ user, tenant, tier, tipsOn, onToggleTips }: { user: UserCont
   }, []);
   const subtitle = [profile?.title, profile?.zone].filter(Boolean).join(' · ');
   const [prefs, setPrefs] = usePreferencesOpen();
+  const canInstall = useCanInstall();
   return (
     <div className="dropdown" ref={ref}>
       <button className="user-button" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)}>
@@ -430,6 +432,7 @@ function UserMenu({ user, tenant, tier, tipsOn, onToggleTips }: { user: UserCont
           {user.isPlatformAdmin && previewTier() && <button role="menuitem" onClick={() => setPreviewTier(null)}>{tr("Stop edition preview")}</button>}
           <button role="menuitem" onClick={() => (setOpen(false), startTour())}>{t('Take the Golden Thread tour')}</button>
           <button role="menuitem" onClick={() => (setOpen(false), setTheme(getTheme() === 'dark' ? 'light' : 'dark'))}>{getTheme() === 'dark' ? tr("Appearance: dark → light") : tr("Appearance: light → dark")}</button>
+          {canInstall && <button role="menuitem" title={tr("Opens Agera in its own window, without the browser around it")} onClick={() => (setOpen(false), void installApp())}>{tr("Install Agera as an app")}</button>}
           <button role="menuitem" onClick={() => (setOpen(false), setPrefs(true))}>{tr("Preferences")}</button>
           <button role="menuitem" onClick={onToggleTips}>{t(tipsOn ? 'Hide page tips' : 'Show page tips')}</button>
           <button role="menuitem" onClick={logout}>{t('Log out')}</button>

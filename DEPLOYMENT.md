@@ -133,6 +133,26 @@ Nginx serves HTTPS with `docker/nginx/certs/fullchain.pem` and `docker/nginx/cer
   certificate chain in `fullchain.pem` and the private key in `privkey.pem` before running
   `deploy.sh`, or replace them later and run `./deploy.sh compose restart proxy`.
 
+- **Let's Encrypt (recommended, trusted by every device, free):** needs a host name in
+  `PUBLIC_URL` under a domain you own, e.g. `https://app.example.eu`. The server itself does not
+  have to be reachable from the internet: the check is done in DNS, through
+  [deSEC](https://desec.io) (free, non-profit, Berlin). The domain stays with its registrar.
+  1. At deSEC, create an account, add a free domain such as `agera-acme.dedyn.io`, and create an
+     API token.
+  2. At your registrar, add two DNS records for the host name (here `app.example.eu`):
+     - `A` record `app` → the server's IP address (an internal address such as 192.168.1.226 is fine);
+     - `CNAME` record `_acme-challenge.app` → `_acme-challenge.agera-acme.dedyn.io`.
+  3. In `.env.production`, set `PUBLIC_URL=https://app.example.eu`,
+     `DESEC_TOKEN=<token>` and `ACME_CHALLENGE_ALIAS=agera-acme.dedyn.io`.
+  4. Run `./deploy.sh letsencrypt`, then `./deploy.sh`. The first command gets the certificate
+     and adds a daily renewal check to cron (log in `letsencrypt.log`); certificates are renewed
+     30 days before they expire and the proxy reloads them by itself. The second moves the web
+     app and login to the new address; old addresses such as `https://192.168.1.226` redirect to it.
+
+  Some routers drop DNS answers that point to an internal address ("DNS rebinding protection").
+  If the host name does not resolve inside the office, allow the domain in the router's DNS
+  settings or add the name to your internal DNS.
+
 `deploy.sh` refuses to start with an expired certificate and warns 30 days before expiry.
 
 ## 6. Deploy
@@ -278,6 +298,14 @@ started by default and the backend does not call it yet:
 ```bash
 ./deploy.sh compose --profile voice up -d whisper-local   # downloads the model on first start
 ```
+
+### Installing Agera as an app
+
+With a trusted certificate (see TLS) Agera can be installed as an app: it opens in its own window
+with the Agera icon, without tabs or address bar. Users choose **Install Agera as an app** in the
+user menu (top right), or the install icon in the address bar of Chrome or Edge. On an iPhone or
+iPad: Safari › Share › **Add to Home Screen**. Updates arrive automatically with each deploy. A
+self-signed certificate does not allow installing.
 
 ## External client users
 

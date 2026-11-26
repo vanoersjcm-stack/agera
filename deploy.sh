@@ -10,6 +10,8 @@
 #   ./deploy.sh seed-agera --tenant-domain <d> [--keycloak-users]
 #                                       import seed/agera/*.json into that tenant (idempotent); optionally
 #                                       create the matching Keycloak users (no passwords set)
+#   ./deploy.sh letsencrypt             get or renew a trusted Let's Encrypt certificate for the host name in
+#                                       PUBLIC_URL (DNS check through deSEC); adds a daily renewal check to cron
 #   ./deploy.sh status                  show containers and health
 #   ./deploy.sh audit-compliance [--e2e]  read-only GDPR/DORA/NIS2/sovereignty self-audit; writes
 #                                       compliance-audit-YYYY-MM-DD.md and fails if any gate fails
@@ -215,6 +217,10 @@ for role in PLATFORM_ADMIN HQ_ADMIN ACCOUNT_MANAGER FIELD_REPRESENTATIVE CLIENT_
   kc get "roles/$role" -r agera >/dev/null 2>&1 || kc create roles -r agera -s name="$role" >/dev/null
 done
 kc update realms/agera -s 'displayName=Agera Suite' -s 'displayNameHtml=Agera Suite'
+# The realm file is only imported once; keep the web app's login address in step with PUBLIC_URL.
+CID=$(kc get clients -r agera -q clientId=agera-frontend --fields id --format csv --noquotes)
+kc update "clients/$CID" -r agera -s "redirectUris=[\"$PUBLIC_URL/*\"]" -s "webOrigins=[\"$PUBLIC_URL\"]" \
+  -s "attributes.\"post.logout.redirect.uris\"=$PUBLIC_URL/*"
 KCADM
   info "Adding the edition claim (tenant_license_tier) to Keycloak tokens"
   local claim_out
@@ -398,6 +404,50 @@ KCADM
   info "Demo data created. Logins and passwords: $(pwd)/demo-logins.txt"
 }
 
+ACME_IMAGE=neilpang/acme.sh:3.1.1
+ACME_DIR=docker/nginx/acme
+
+cmd_letsencrypt() {
+  check_tools
+  load_env
+  local host token=${ENV[DESEC_TOKEN]:-} alias=${ENV[ACME_CHALLENGE_ALIAS]:-}
+  host=$(public_host)
+  [[ ! $host =~ ^[0-9.]+$ ]] || die "Let's Encrypt needs a host name in PUBLIC_URL, not an IP address"
+  [[ -n $token && -n $alias ]] || die "set DESEC_TOKEN and ACME_CHALLENGE_ALIAS in $ENV_FILE (see DEPLOYMENT.md, TLS)"
+  mkdir -p "$ACME_DIR" "$CERT_DIR"
+  chmod 700 "$ACME_DIR"
+  # acme.sh only runs as root in its image; hand the files back to this user afterwards.
+  acme() {
+    local rc=0
+    DEDYN_TOKEN=$token docker run --rm -e DEDYN_TOKEN \
+      -v "$PWD/$ACME_DIR:/acme.sh" -v "$PWD/$CERT_DIR:/certs" "$ACME_IMAGE" "$@" || rc=$?
+    docker run --rm --entrypoint chown -v "$PWD/$ACME_DIR:/acme.sh" -v "$PWD/$CERT_DIR:/certs" "$ACME_IMAGE" \
+      -R "$(id -u):$(id -g)" /acme.sh /certs
+    return $rc
+  }
+  info "Requesting a Let's Encrypt certificate for $host (DNS check via $alias)"
+  local rc=0
+  acme --issue --server letsencrypt --dns dns_desec -d "$host" --challenge-alias "$alias" --keylength ec-256 || rc=$?
+  case $rc in
+    0) ;;
+    2) info "Certificate is not due for renewal yet" ;;
+    *) die "Let's Encrypt did not issue a certificate (output above; check the DNS records in DEPLOYMENT.md, TLS)" ;;
+  esac
+  local before after
+  before=$(sha256sum <"$CERT_DIR/fullchain.pem" 2>/dev/null || true)
+  acme --install-cert -d "$host" --ecc --fullchain-file /certs/fullchain.pem --key-file /certs/privkey.pem >/dev/null
+  chmod 600 "$CERT_DIR/privkey.pem"
+  after=$(sha256sum <"$CERT_DIR/fullchain.pem")
+  if [[ $before != "$after" ]] && [[ -n $(compose ps -q proxy 2>/dev/null) ]]; then
+    compose exec -T proxy nginx -s reload >/dev/null && info "Proxy reloaded with the new certificate"
+  fi
+  openssl x509 -in "$CERT_DIR/fullchain.pem" -noout -subject -issuer -enddate | sed 's/^/    /'
+  local job="17 3 * * * cd $PWD && ./deploy.sh letsencrypt >>$PWD/letsencrypt.log 2>&1"
+  if command -v crontab >/dev/null 2>&1 && ! crontab -l 2>/dev/null | grep -qF './deploy.sh letsencrypt'; then
+    (crontab -l 2>/dev/null; echo "$job") | crontab - && info "Added a daily renewal check to crontab (log: letsencrypt.log)"
+  fi
+}
+
 cmd_status() {
   check_tools
   load_env
@@ -410,9 +460,10 @@ case ${1:-up} in
   create-admin) shift; cmd_create_admin "$@" ;;
   seed-agera) shift; cmd_seed_agera "$@" ;;
   seed-demo) shift; cmd_seed_demo "$@" ;;
+  letsencrypt) cmd_letsencrypt ;;
   status) cmd_status ;;
   audit-compliance) shift; source scripts/audit-compliance.sh; cmd_audit_compliance "$@" ;;
   compose) shift; check_tools; load_env; compose "$@" ;;
-  -h | --help | help) sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//' ;;
+  -h | --help | help) sed -n '2,16p' "$0" | sed 's/^# \{0,1\}//' ;;
   *) die "unknown command '$1' (try ./deploy.sh help)" ;;
 esac

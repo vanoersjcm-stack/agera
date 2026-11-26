@@ -4,5 +4,7 @@ dist/
 uploads/
 .env.production
 docker/nginx/certs/
+docker/nginx/acme/
+letsencrypt.log
 demo-logins.txt
 compliance-audit-*.md

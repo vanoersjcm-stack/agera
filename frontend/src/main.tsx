@@ -5,9 +5,11 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { initAuth } from './auth';
 import { t, useLanguage } from './i18n';
 import { applyTheme } from './theme';
+import { initInstallableApp } from './installApp';
 import './styles.css';
 
 applyTheme();
+initInstallableApp();
 
 /** Remounts the app when the language changes, so every label is rendered again without a page reload. */
 function Root() {

@@ -107,9 +107,29 @@ server {
     # }
 
     # Agera Nexus web app (single-page app with hash routes).
+    # Old addresses (e.g. the server's IP) are sent to PUBLIC_URL, so logins and the installed app use one origin.
     location / {
+        set $origin "$scheme://$http_host";
+        if ($origin != "${PUBLIC_URL}") {
+            return 301 ${PUBLIC_URL}$request_uri;
+        }
         root /usr/share/nginx/html;
         try_files $uri /index.html;
+    }
+
+    # Service worker and app manifest: always revalidated, so app updates reach installed copies straight away.
+    location ~ ^/(sw\.js|manifest\.webmanifest)$ {
+        root /usr/share/nginx/html;
+        types {
+            application/javascript js;
+            application/manifest+json webmanifest;
+        }
+        add_header Cache-Control "no-cache" always;
+        add_header Strict-Transport-Security "max-age=31536000" always;
+        add_header X-Content-Type-Options nosniff always;
+        add_header X-Frame-Options SAMEORIGIN always;
+        add_header Content-Security-Policy "frame-ancestors 'self'" always;
+        add_header Referrer-Policy strict-origin-when-cross-origin always;
     }
 
     location = /index.html {
