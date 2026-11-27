@@ -136,14 +136,18 @@ Nginx serves HTTPS with `docker/nginx/certs/fullchain.pem` and `docker/nginx/cer
 - **Let's Encrypt (recommended, trusted by every device, free):** needs a host name in
   `PUBLIC_URL` under a domain you own, e.g. `https://app.example.eu`. The server itself does not
   have to be reachable from the internet: the check is done in DNS, through
-  [deSEC](https://desec.io) (free, non-profit, Berlin). The domain stays with its registrar.
-  1. At deSEC, create an account, add a free domain such as `agera-acme.dedyn.io`, and create an
-     API token.
-  2. At your registrar, add two DNS records for the host name (here `app.example.eu`):
-     - `A` record `app` → the server's IP address (an internal address such as 192.168.1.226 is fine);
-     - `CNAME` record `_acme-challenge.app` → `_acme-challenge.agera-acme.dedyn.io`.
-  3. In `.env.production`, set `PUBLIC_URL=https://app.example.eu`,
-     `DESEC_TOKEN=<token>` and `ACME_CHALLENGE_ALIAS=agera-acme.dedyn.io`.
+  [deSEC](https://desec.io) (free, non-profit, Berlin).
+  1. Simplest: host the domain's DNS at deSEC. Create a deSEC account, add the domain (e.g.
+     `example.eu`) and create an API token. At your registrar, change the domain's name servers to
+     `ns1.desec.io` and `ns2.desec.org`.
+  2. At deSEC, add an `A` record `app` → the server's IP address (an internal address such as
+     192.168.1.226 is fine). Copy any other records the domain needs (website, mail) as well.
+  3. In `.env.production`, set `PUBLIC_URL=https://app.example.eu` and `DESEC_TOKEN=<token>`;
+     leave `ACME_CHALLENGE_ALIAS` empty.
+
+  If the domain's DNS must stay at the registrar, add a second domain at deSEC whose name servers
+  point to deSEC, add `CNAME _acme-challenge.app` → `_acme-challenge.<that domain>` at the
+  registrar, and set `ACME_CHALLENGE_ALIAS=<that domain>`.
   4. Run `./deploy.sh letsencrypt`, then `./deploy.sh`. The first command gets the certificate
      and adds a daily renewal check to cron (log in `letsencrypt.log`); certificates are renewed
      30 days before they expire and the proxy reloads them by itself. The second moves the web

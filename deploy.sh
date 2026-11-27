@@ -413,7 +413,7 @@ cmd_letsencrypt() {
   local host token=${ENV[DESEC_TOKEN]:-} alias=${ENV[ACME_CHALLENGE_ALIAS]:-}
   host=$(public_host)
   [[ ! $host =~ ^[0-9.]+$ ]] || die "Let's Encrypt needs a host name in PUBLIC_URL, not an IP address"
-  [[ -n $token && -n $alias ]] || die "set DESEC_TOKEN and ACME_CHALLENGE_ALIAS in $ENV_FILE (see DEPLOYMENT.md, TLS)"
+  [[ -n $token ]] || die "set DESEC_TOKEN in $ENV_FILE (see DEPLOYMENT.md, TLS)"
   mkdir -p "$ACME_DIR" "$CERT_DIR"
   chmod 700 "$ACME_DIR"
   # acme.sh only runs as root in its image; hand the files back to this user afterwards.
@@ -425,9 +425,11 @@ cmd_letsencrypt() {
       -R "$(id -u):$(id -g)" /acme.sh /certs
     return $rc
   }
-  info "Requesting a Let's Encrypt certificate for $host (DNS check via $alias)"
-  local rc=0
-  acme --issue --server letsencrypt --dns dns_desec -d "$host" --challenge-alias "$alias" --keylength ec-256 || rc=$?
+  # Without ACME_CHALLENGE_ALIAS the domain itself is hosted at deSEC.
+  local via=() rc=0
+  [[ -z $alias ]] || via=(--challenge-alias "$alias")
+  info "Requesting a Let's Encrypt certificate for $host (DNS check via deSEC${alias:+, $alias})"
+  acme --issue --server letsencrypt --dns dns_desec -d "$host" "${via[@]}" --keylength ec-256 || rc=$?
   case $rc in
     0) ;;
     2) info "Certificate is not due for renewal yet" ;;
